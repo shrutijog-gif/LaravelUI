@@ -1,1 +1,1 @@
-projectinfo.txt
+UI project for Laravel CMS. Created to do easy prototypes.
