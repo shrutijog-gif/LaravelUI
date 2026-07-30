@@ -11,7 +11,7 @@ export const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
       {/* Left: College Emblem / Logo */}
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-full border border-blue-900/30 flex items-center justify-center p-1 bg-white shadow-xs">
-          {/* Emblem representation seal matching Lady Irwin College logo */}
+      
           <svg className="w-8 h-8 text-blue-900" viewBox="0 0 100 100" fill="currentColor">
             <circle cx="50" cy="50" r="46" fill="none" stroke="currentColor" strokeWidth="4" />
             <circle cx="50" cy="50" r="40" fill="none" stroke="currentColor" strokeWidth="1" strokeDasharray="3 2" />
