@@ -1,16 +1,15 @@
 import React, { useState } from 'react';
-import { 
-  Home,
-  Carrot, 
-  FlaskConical, 
-  Sprout, 
-  BookOpen, 
-  Wrench, 
-  Layers, 
-  Search, 
-  Plus, 
-  Package, 
-  ChevronRight 
+import {
+  Carrot,
+  FlaskConical,
+  Sprout,
+  BookOpen,
+  Wrench,
+  Layers,
+  Search,
+  Plus,
+  Package,
+  ChevronRight
 } from 'lucide-react';
 import { CategoryItem } from '../../../types/ecommerce';
 
@@ -45,15 +44,6 @@ export const CategoriesList: React.FC<CategoriesListProps> = ({ categories }) =>
 
   return (
     <div className="space-y-6">
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-xs font-medium text-gray-500">
-        <Home className="w-3.5 h-3.5 text-gray-600" />
-        <span>/</span>
-        <span>E-Commerce</span>
-        <span>/</span>
-        <span className="text-gray-800 font-semibold">Categories</span>
-      </div>
-
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-gray-900">Product Categories</h1>
