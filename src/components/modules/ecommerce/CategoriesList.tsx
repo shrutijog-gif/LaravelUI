@@ -1,15 +1,9 @@
 import React, { useState } from 'react';
 import {
-  Carrot,
-  FlaskConical,
-  Sprout,
-  BookOpen,
-  Wrench,
-  Layers,
   Search,
-  Plus,
   Package,
-  ChevronRight
+  ChevronRight,
+  CheckCircle2
 } from 'lucide-react';
 import { CategoryItem } from '../../../types/ecommerce';
 
@@ -19,23 +13,6 @@ interface CategoriesListProps {
 
 export const CategoriesList: React.FC<CategoriesListProps> = ({ categories }) => {
   const [searchQuery, setSearchQuery] = useState('');
-
-  const renderCategoryIcon = (iconName: string) => {
-    switch (iconName) {
-      case 'Carrot':
-        return <Carrot className="w-6 h-6 text-orange-600" />;
-      case 'FlaskConical':
-        return <FlaskConical className="w-6 h-6 text-purple-600" />;
-      case 'Sprout':
-        return <Sprout className="w-6 h-6 text-emerald-600" />;
-      case 'BookOpen':
-        return <BookOpen className="w-6 h-6 text-blue-600" />;
-      case 'Wrench':
-        return <Wrench className="w-6 h-6 text-amber-600" />;
-      default:
-        return <Layers className="w-6 h-6 text-gray-600" />;
-    }
-  };
 
   const filteredCategories = categories.filter(c =>
     c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -63,38 +40,65 @@ export const CategoriesList: React.FC<CategoriesListProps> = ({ categories }) =>
         </div>
       </div>
 
-      {/* Categories Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredCategories.map((cat) => (
-          <div key={cat.id} className="bg-white rounded-2xl border border-gray-200 shadow-xs p-6 flex flex-col justify-between hover:shadow-md transition-shadow">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="w-12 h-12 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center shadow-xs">
-                  {renderCategoryIcon(cat.iconName)}
-                </div>
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700">
-                  <Package className="w-3.5 h-3.5" /> {cat.itemCount} Listed Items
-                </span>
-              </div>
+      {/* Table Content View */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-xs overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                <th className="py-3.5 px-4">Category Name</th>
+                <th className="py-3.5 px-4">Slug</th>
+                <th className="py-3.5 px-4">Listed Items</th>
+                <th className="py-3.5 px-4">Status</th>
+                <th className="py-3.5 px-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200 text-sm">
+              {filteredCategories.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="py-8 text-center text-gray-500">
+                    No categories found matching your search criteria.
+                  </td>
+                </tr>
+              ) : (
+                filteredCategories.map((cat) => (
+                  <tr key={cat.id} className="hover:bg-gray-50/80 transition-colors">
+                    <td className="py-3.5 px-4 font-semibold text-gray-900">
+                      {cat.name}
+                    </td>
 
-              <div>
-                <h3 className="font-bold text-gray-900 text-lg">{cat.name}</h3>
-                <p className="text-xs font-mono text-gray-400 mt-0.5">slug: {cat.slug}</p>
-                <p className="text-xs text-gray-600 mt-2 leading-relaxed">{cat.description}</p>
-              </div>
-            </div>
+                    <td className="py-3.5 px-4 font-mono text-xs text-gray-600">
+                      <span className="bg-gray-100 px-2 py-0.5 rounded text-gray-700">
+                        {cat.slug}
+                      </span>
+                    </td>
 
-            <div className="pt-4 mt-4 border-t border-gray-100 flex justify-between items-center">
-              <span className="text-xs font-medium text-emerald-600 flex items-center gap-1">
-                Active Category
-              </span>
-              <button className="text-xs font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1">
-                View Items <ChevronRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
-        ))}
+                    <td className="py-3.5 px-4">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700">
+                        <Package className="w-3.5 h-3.5" /> {cat.itemCount} Listed Items
+                      </span>
+                    </td>
+
+                    <td className="py-3.5 px-4">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Active
+                      </span>
+                    </td>
+
+                    <td className="py-3.5 px-4 text-right">
+                      <button className="text-xs font-semibold text-blue-600 hover:text-blue-800 inline-flex items-center gap-1 px-3 py-1.5 hover:bg-blue-50 rounded-lg transition-colors">
+                        View Items <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
 };
+
+
