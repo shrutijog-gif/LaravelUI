@@ -5,7 +5,8 @@ import {
   ChevronRight, 
   Circle, 
   Database,
-  Search 
+  Search,
+  ShoppingBag
 } from 'lucide-react';
 import { MenuItem } from '../../types/navigation';
 
@@ -20,6 +21,18 @@ export const initialMenuItems: MenuItem[] = [
     id: 'dashboard',
     label: 'Dashboard',
     icon: 'home',
+  },
+  {
+    id: 'ecommerce',
+    label: 'E-Commerce',
+    icon: 'shopping-bag',
+    children: [
+      { id: 'ecommerce-dashboard', label: 'Dashboard' },
+      { id: 'ecommerce-products', label: 'List of Products' },
+      { id: 'ecommerce-offers', label: 'Offers & Coupons' },
+      { id: 'ecommerce-categories', label: 'Categories' },
+      { id: 'ecommerce-orders', label: 'Orders' },
+    ],
   },
   {
     id: 'file-manager',
@@ -82,7 +95,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({
-    homepage: true,
+    ecommerce: true,
+    homepage: false,
     website: false,
     'website-builder': false,
   });
@@ -150,6 +164,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               >
                 <div className="flex items-center gap-3">
                   {item.icon === 'home' && <Home className="w-4 h-4" />}
+                  {item.icon === 'shopping-bag' && <ShoppingBag className="w-4 h-4" />}
                   {item.icon === 'database' && <Database className="w-4 h-4" />}
                   {item.icon === 'circle' && <Circle className="w-4 h-4 stroke-[2]" />}
                   <span>{item.label}</span>

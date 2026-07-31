@@ -3,12 +3,13 @@ import { Header } from './Header';
 import { Sidebar } from './Sidebar';
 import { Footer } from './Footer';
 import { DashboardModule } from '../modules/DashboardModule';
+import { EcommerceContainer } from '../modules/ecommerce/EcommerceContainer';
 import { ModulePlaceholder } from '../modules/ModulePlaceholder';
 
 export const Layout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [activeModuleId, setActiveModuleId] = useState('dashboard');
-  const [activeModuleLabel, setActiveModuleLabel] = useState('Dashboard');
+  const [activeModuleId, setActiveModuleId] = useState('ecommerce-products');
+  const [activeModuleLabel, setActiveModuleLabel] = useState('List of Products');
 
   const toggleSidebar = () => {
     setSidebarOpen(prev => !prev);
@@ -17,6 +18,21 @@ export const Layout: React.FC = () => {
   const handleSelectMenuItem = (id: string, label: string) => {
     setActiveModuleId(id);
     setActiveModuleLabel(label);
+  };
+
+  const getEcommerceSubTab = (): 'dashboard' | 'products' | 'offers' | 'categories' | 'orders' => {
+    switch (activeModuleId) {
+      case 'ecommerce-dashboard':
+        return 'dashboard';
+      case 'ecommerce-offers':
+        return 'offers';
+      case 'ecommerce-categories':
+        return 'categories';
+      case 'ecommerce-orders':
+        return 'orders';
+      default:
+        return 'products';
+    }
   };
 
   return (
@@ -38,6 +54,8 @@ export const Layout: React.FC = () => {
           <main className="flex-1 p-6">
             {activeModuleId === 'dashboard' ? (
               <DashboardModule />
+            ) : activeModuleId.startsWith('ecommerce') ? (
+              <EcommerceContainer initialSubTab={getEcommerceSubTab()} />
             ) : (
               <ModulePlaceholder 
                 moduleId={activeModuleId} 
