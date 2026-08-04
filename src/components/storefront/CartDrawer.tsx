@@ -47,8 +47,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     }
   }
 
-  const shippingFee = subtotal >= 999 || subtotal === 0 ? 0 : 60;
-  const grandTotal = Math.max(0, subtotal - couponDiscount + shippingFee);
+  const grandTotal = Math.max(0, subtotal - couponDiscount);
 
   const handleApplyCoupon = (e: React.FormEvent) => {
     e.preventDefault();
@@ -278,12 +277,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   <span className="font-semibold text-gray-800">₹{subtotal.toLocaleString('en-IN')}</span>
                 </div>
 
-                {totalSavings > 0 && (
-                  <div className="flex justify-between text-emerald-700 font-medium">
-                    <span>Product Discounts</span>
-                    <span>-₹{totalSavings.toLocaleString('en-IN')}</span>
-                  </div>
-                )}
+
 
                 {appliedCoupon && (
                   <div className="flex justify-between text-emerald-700 font-medium">
@@ -292,19 +286,16 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   </div>
                 )}
 
-                <div className="flex justify-between">
+                <div className="flex justify-between text-gray-500">
                   <span>Delivery Charge</span>
-                  <span>
-                    {shippingFee === 0 ? (
-                      <strong className="text-emerald-700 uppercase">FREE</strong>
-                    ) : (
-                      `₹${shippingFee}`
-                    )}
-                  </span>
+                  <span className="text-xs italic text-gray-400">Calculated at checkout</span>
                 </div>
 
                 <div className="pt-2 border-t border-gray-200 flex justify-between items-baseline">
-                  <span className="text-sm font-extrabold text-gray-900">Total Payable</span>
+                  <div>
+                    <span className="text-sm font-extrabold text-gray-900">Total Payable</span>
+                    <p className="text-[10px] text-gray-400 mt-0.5">+ Delivery charge at checkout</p>
+                  </div>
                   <span className="text-lg font-black text-[#133e1b]">
                     ₹{grandTotal.toLocaleString('en-IN')}
                   </span>
@@ -322,11 +313,6 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 <span>Proceed to Checkout</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
-
-              <div className="flex items-center justify-center gap-2 text-[11px] text-gray-500 pt-1">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-700" />
-                <span>100% Guaranteed Genuine Products & Secure Payment</span>
-              </div>
             </div>
           )}
 

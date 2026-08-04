@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { 
   CheckCircle2, 
   MapPin, 
@@ -14,7 +14,8 @@ import {
   QrCode, 
   Banknote, 
   Lock,
-  Tag
+  Tag,
+  Loader2
 } from 'lucide-react';
 import { CartItem, Coupon, DeliveryOption, PaymentMethod, ShippingAddress, Order } from '../../types/store';
 
@@ -106,6 +107,45 @@ export const CheckoutFlow: React.FC<CheckoutFlowProps> = ({
 
   // UPI App Selection for UPI view
   const [selectedUpiApp, setSelectedUpiApp] = useState<'gpay' | 'phonepe' | 'paytm'>('gpay');
+
+  // Pincode autofill state
+  const [pincodeStatus, setPincodeStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [pincodeMessage, setPincodeMessage] = useState('');
+
+  const handlePincodeChange = useCallback(async (value: string) => {
+    const digits = value.replace(/\D/g, '').slice(0, 6);
+    setAddress((prev) => ({ ...prev, pincode: digits }));
+
+    if (digits.length === 6) {
+      setPincodeStatus('loading');
+      setPincodeMessage('');
+      try {
+        const res = await fetch(`https://api.postalpincode.in/pincode/${digits}`);
+        const data = await res.json();
+        if (data[0]?.Status === 'Success' && data[0]?.PostOffice?.length > 0) {
+          const po = data[0].PostOffice[0];
+          setAddress((prev) => ({
+            ...prev,
+            pincode: digits,
+            taluka: po.Block || po.Taluk || po.Division || '',
+            district: po.District || '',
+            state: po.State || '',
+          }));
+          setPincodeStatus('success');
+          setPincodeMessage(`${po.District}, ${po.State}`);
+        } else {
+          setPincodeStatus('error');
+          setPincodeMessage('Pincode not found. Please fill manually.');
+        }
+      } catch {
+        setPincodeStatus('error');
+        setPincodeMessage('Could not fetch. Check your internet connection.');
+      }
+    } else {
+      setPincodeStatus('idle');
+      setPincodeMessage('');
+    }
+  }, []);
 
   // Order notes
   const [orderNotes, setOrderNotes] = useState('');
@@ -285,47 +325,33 @@ export const CheckoutFlow: React.FC<CheckoutFlowProps> = ({
                   <label className="block text-xs font-bold text-gray-700 mb-1">
                     Pincode *
                   </label>
-                  <input
-                    type="text"
-                    value={address.pincode}
-                    onChange={(e) => setAddress({ ...address, pincode: e.target.value })}
-                    className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1e7e34] focus:bg-white text-gray-800 font-medium"
-                    placeholder="e.g. 431007"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">
-                    Address Type
-                  </label>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setAddress({ ...address, addressType: 'farm' })}
-                      className={`flex-1 py-2 text-xs font-bold rounded-xl border flex items-center justify-center gap-1.5 cursor-pointer transition-colors ${
-                        address.addressType === 'farm'
-                          ? 'bg-emerald-50 border-[#1e7e34] text-[#1e7e34]'
-                          : 'bg-gray-50 border-gray-200 text-gray-600'
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={address.pincode}
+                      onChange={(e) => handlePincodeChange(e.target.value)}
+                      maxLength={6}
+                      className={`w-full px-3 py-2 pr-8 text-xs bg-gray-50 border rounded-xl focus:ring-2 focus:ring-[#1e7e34] focus:bg-white text-gray-800 font-medium ${
+                        pincodeStatus === 'error' ? 'border-red-400' : pincodeStatus === 'success' ? 'border-emerald-400' : 'border-gray-200'
                       }`}
-                    >
-                      <Building className="w-3.5 h-3.5" />
-                      <span>Farm / Field</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setAddress({ ...address, addressType: 'home' })}
-                      className={`flex-1 py-2 text-xs font-bold rounded-xl border flex items-center justify-center gap-1.5 cursor-pointer transition-colors ${
-                        address.addressType === 'home'
-                          ? 'bg-emerald-50 border-[#1e7e34] text-[#1e7e34]'
-                          : 'bg-gray-50 border-gray-200 text-gray-600'
-                      }`}
-                    >
-                      <Home className="w-3.5 h-3.5" />
-                      <span>Home</span>
-                    </button>
+                      placeholder="e.g. 431007"
+                    />
+                    {pincodeStatus === 'loading' && (
+                      <Loader2 className="w-4 h-4 text-gray-400 absolute right-3 top-2.5 animate-spin" />
+                    )}
+                    {pincodeStatus === 'success' && (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 absolute right-3 top-2.5" />
+                    )}
                   </div>
+                  {pincodeStatus === 'error' && (
+                    <p className="text-[11px] text-red-500 mt-1">{pincodeMessage}</p>
+                  )}
+                  {pincodeStatus === 'success' && (
+                    <p className="text-[11px] text-emerald-600 mt-1 font-medium">✓ {pincodeMessage}</p>
+                  )}
                 </div>
+
+
 
                 <div className="sm:col-span-2">
                   <label className="block text-xs font-bold text-gray-700 mb-1">
@@ -355,25 +381,42 @@ export const CheckoutFlow: React.FC<CheckoutFlowProps> = ({
 
                 <div>
                   <label className="block text-xs font-bold text-gray-700 mb-1">
-                    Taluka *
+                    Taluka
+                    {pincodeStatus === 'success' && (
+                      <span className="ml-1.5 text-[10px] text-emerald-600 font-semibold">(Auto-filled)</span>
+                    )}
                   </label>
                   <input
                     type="text"
                     value={address.taluka}
                     onChange={(e) => setAddress({ ...address, taluka: e.target.value })}
-                    className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1e7e34] focus:bg-white text-gray-800 font-medium"
+                    readOnly={pincodeStatus === 'success'}
+                    className={`w-full px-3 py-2 text-xs border rounded-xl focus:ring-2 focus:ring-[#1e7e34] text-gray-800 font-medium ${
+                      pincodeStatus === 'success'
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-900 cursor-not-allowed'
+                        : 'bg-gray-50 border-gray-200 focus:bg-white'
+                    }`}
+                    placeholder="Auto-filled from Pincode"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-gray-700 mb-1">
-                    District & State *
+                    District & State
+                    {pincodeStatus === 'success' && (
+                      <span className="ml-1.5 text-[10px] text-emerald-600 font-semibold">(Auto-filled)</span>
+                    )}
                   </label>
                   <input
                     type="text"
-                    value={`${address.district}, ${address.state}`}
+                    value={address.district && address.state ? `${address.district}, ${address.state}` : ''}
                     readOnly
-                    className="w-full px-3 py-2 text-xs bg-gray-100 border border-gray-200 rounded-xl text-gray-600 font-semibold"
+                    className={`w-full px-3 py-2 text-xs border rounded-xl font-semibold cursor-not-allowed ${
+                      pincodeStatus === 'success'
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                        : 'bg-gray-100 border-gray-200 text-gray-500'
+                    }`}
+                    placeholder="Auto-filled from Pincode"
                   />
                 </div>
               </div>
