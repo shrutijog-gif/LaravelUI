@@ -199,10 +199,10 @@ export const ProductsList: React.FC<ProductsListProps> = ({
         <div className="flex items-center gap-3">
           <button
             onClick={handleOpenAddModal}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm px-4 py-2 rounded-lg shadow-xs flex items-center gap-2 transition-colors"
+            className="bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm px-4 py-2 rounded-lg shadow-xs flex items-center gap-2 transition-colors flex-shrink-0"
           >
             <Plus className="w-4 h-4" />
-            <span>Add New</span>
+            <span>+ Add New</span>
           </button>
         </div>
       </div>

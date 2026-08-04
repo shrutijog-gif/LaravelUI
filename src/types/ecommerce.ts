@@ -1,4 +1,4 @@
-export type ProductUnit = 'kg' | 'g' | 'L' | 'ml' | 'pack' | 'piece' | 'box';
+export type ProductUnit = 'kg' | 'g' | 'L' | 'ml' | 'pack' | 'piece' | 'box' | 'book';
 
 export type CategorySlug = 'vegetables' | 'pesticides' | 'seeds' | 'tools';
 
