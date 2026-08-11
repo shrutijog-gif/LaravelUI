@@ -19,11 +19,24 @@ export const TimetableList: React.FC<TimetableListProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showCount, setShowCount] = useState('10');
+  const [yearFilter, setYearFilter] = useState('');
+  const [branchFilter, setBranchFilter] = useState('');
 
-  const filteredTimetables = timetables.filter(t => 
-    t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    t.year.toString().includes(searchQuery)
-  );
+  const currentYear = new Date().getFullYear();
+  const yearOptions = Array.from({ length: 5 }, (_, i) => {
+    const startYear = currentYear + i;
+    const endYear = (startYear + 1).toString().slice(-2);
+    return `${startYear}-${endYear}`;
+  });
+  const branchOptions = ['BCA', 'BBA', 'B.Com', 'B.Tech', 'MBA'];
+
+  const filteredTimetables = timetables.filter(t => {
+    const matchesSearch = t.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesYear = yearFilter ? t.year === yearFilter : true;
+    const matchesBranch = branchFilter ? t.branch.includes(branchFilter) : true;
+    
+    return matchesSearch && matchesYear && matchesBranch;
+  });
 
   return (
     <div className="space-y-4">
@@ -57,15 +70,39 @@ export const TimetableList: React.FC<TimetableListProps> = ({
             </select>
           </div>
 
-          <div className="relative w-full md:w-64">
-            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
-            <input
-              type="text"
-              placeholder="Search.."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full border border-gray-200 text-sm rounded pl-9 pr-4 py-2 focus:outline-none focus:border-blue-500 transition-colors"
-            />
+          <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+            <select
+              value={yearFilter}
+              onChange={(e) => setYearFilter(e.target.value)}
+              className="w-full sm:w-auto border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500 bg-white min-w-[140px]"
+            >
+              <option value="">All Years</option>
+              {yearOptions.map(y => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+
+            <select
+              value={branchFilter}
+              onChange={(e) => setBranchFilter(e.target.value)}
+              className="w-full sm:w-auto border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500 bg-white min-w-[140px]"
+            >
+              <option value="">All Branches</option>
+              {branchOptions.map(b => (
+                <option key={b} value={b}>{b}</option>
+              ))}
+            </select>
+
+            <div className="relative w-full sm:w-64">
+              <Search className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
+              <input
+                type="text"
+                placeholder="Search.."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full border border-gray-200 text-sm rounded pl-9 pr-4 py-2 focus:outline-none focus:border-blue-500 transition-colors"
+              />
+            </div>
           </div>
         </div>
 
@@ -73,10 +110,7 @@ export const TimetableList: React.FC<TimetableListProps> = ({
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-gray-50/50 border-b border-gray-200 text-xs font-bold text-gray-600 uppercase tracking-wider">
-                <th className="py-4 px-5 w-12 text-center">
-                  <input type="checkbox" className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-                </th>
+              <tr className="border-b border-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                 <th className="py-4 px-5">Timetable Name</th>
                 <th className="py-4 px-5">Academic Year</th>
                 <th className="py-4 px-5">Branch</th>
@@ -90,16 +124,13 @@ export const TimetableList: React.FC<TimetableListProps> = ({
             <tbody className="divide-y divide-gray-100 text-sm">
               {filteredTimetables.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-8 text-center text-gray-500">
+                  <td colSpan={8} className="py-8 text-center text-gray-500">
                     No timetables found.
                   </td>
                 </tr>
               ) : (
                 filteredTimetables.map(timetable => (
-                  <tr key={timetable.id} className="hover:bg-gray-50/50 transition-colors group">
-                    <td className="py-4 px-5 text-center">
-                      <input type="checkbox" className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-                    </td>
+                  <tr key={timetable.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
                     <td className="py-4 px-5 text-gray-800">
                       {timetable.name}
                     </td>

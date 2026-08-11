@@ -6,7 +6,7 @@ import { DashboardModule } from '../modules/DashboardModule';
 import { EcommerceContainer } from '../modules/ecommerce/EcommerceContainer';
 import { ModulePlaceholder } from '../modules/ModulePlaceholder';
 import { TimetableAdmin } from '../modules/website/timetable/TimetableAdmin';
-import { PuckEditor } from '../builder/PuckEditor';
+import { PageAdmin } from '../modules/website/pages/PageAdmin';
 
 export const Layout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -61,7 +61,7 @@ export const Layout: React.FC = () => {
             ) : activeModuleId === 'website-timetable' ? (
               <TimetableAdmin />
             ) : activeModuleId === 'webpage' ? (
-              <PuckEditor />
+              <PageAdmin />
             ) : (
               <ModulePlaceholder 
                 moduleId={activeModuleId} 

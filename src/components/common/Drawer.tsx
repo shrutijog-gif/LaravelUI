@@ -44,13 +44,13 @@ export const Drawer: React.FC<DrawerProps> = ({
         </div>
 
         {/* Scrollable Main Content */}
-        <div className="flex-1 overflow-y-auto min-h-0">
+        <div className="flex-1 overflow-y-auto min-h-0 relative z-10">
           {children}
         </div>
 
         {/* Drawer Footer */}
         {footer && (
-          <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end gap-3 shrink-0">
+          <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end gap-3 shrink-0 relative z-0">
             {footer}
           </div>
         )}

@@ -14,6 +14,7 @@ interface MultiSelectProps {
 
 const MultiSelect: React.FC<MultiSelectProps> = ({ label, options, selected, onChange, placeholder = "Select options..." }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [dropdownPosition, setDropdownPosition] = useState<'bottom' | 'top'>('bottom');
   const containerRef = useRef<HTMLDivElement>(null);
 
   const isAllSelected = options.length > 0 && selected.length === options.length;
@@ -27,6 +28,19 @@ const MultiSelect: React.FC<MultiSelectProps> = ({ label, options, selected, onC
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (isOpen && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      // If there is less than 260px (approx height of dropdown) below, open upwards
+      if (spaceBelow < 260) {
+        setDropdownPosition('top');
+      } else {
+        setDropdownPosition('bottom');
+      }
+    }
+  }, [isOpen]);
 
   const toggleOption = (opt: string) => {
     if (selected.includes(opt)) {
@@ -71,7 +85,9 @@ const MultiSelect: React.FC<MultiSelectProps> = ({ label, options, selected, onC
       </div>
       
       {isOpen && (
-        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+        <div className={`absolute z-50 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto ${
+          dropdownPosition === 'top' ? 'bottom-full mb-1' : 'top-full mt-1'
+        }`}>
           <div 
             className="p-2.5 border-b border-gray-100 hover:bg-gray-50 cursor-pointer flex items-center gap-3 transition-colors" 
             onClick={toggleAll}
@@ -180,6 +196,13 @@ export const TimetableDrawer: React.FC<TimetableDrawerProps> = ({
   const semesterOptions = ['I', 'II', 'III', 'IV', 'V', 'VI'];
   const branchOptions = ['BCA', 'BBA', 'B.Com', 'B.Tech', 'MBA'];
   const sectionOptions = ['A', 'B', 'C', 'D'];
+  
+  const currentYear = new Date().getFullYear();
+  const yearOptions = Array.from({ length: 5 }, (_, i) => {
+    const startYear = currentYear + i;
+    const endYear = (startYear + 1).toString().slice(-2);
+    return `${startYear}-${endYear}`;
+  });
 
   const inputClassName = "w-full bg-white border border-gray-200 rounded-md px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-shadow min-h-[40px]";
   const labelClassName = "block text-sm font-medium text-gray-900 mb-1.5";
@@ -285,14 +308,20 @@ export const TimetableDrawer: React.FC<TimetableDrawerProps> = ({
             <label className={labelClassName}>
               Academic Year <span className="text-red-500 ml-0.5">*</span>
             </label>
-            <input
-              type="text"
-              required
-              placeholder="e.g. 2026-27"
-              value={formData.year}
-              onChange={(e) => setFormData({ ...formData, year: e.target.value })}
-              className={inputClassName}
-            />
+            <div className="relative">
+              <select
+                required
+                value={formData.year}
+                onChange={(e) => setFormData({ ...formData, year: e.target.value })}
+                className={`${inputClassName} appearance-none cursor-pointer`}
+              >
+                <option value="" disabled>Select Year</option>
+                {yearOptions.map(year => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
+              <ChevronDown className="w-4 h-4 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
           </div>
 
           <MultiSelect
