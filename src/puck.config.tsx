@@ -22,6 +22,7 @@ export const config: Config<Props> = {
       ),
     },
     TimetableBlock: {
+      label: 'Timetables',
       fields: {
         title: { type: 'text' },
         description: { type: 'textarea' },
