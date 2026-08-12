@@ -1,5 +1,6 @@
 # Workspace Rules
 
+- Full Design System Architecture specification documented in [design-system-for-cards.md](file:///d:/projects/LaravelUI/LaravelUI/doc/design-system-for-cards.md).
 - For prototype features, do **NOT** run automated browser tests or subagent tests unless explicitly instructed by the user.
 - The user handles browser testing manually and will share screenshots if feedback or adjustments are required.
 - **Core Data Benchmark**: **Title** + **Year** (mandatory) + **Uploaded File Link**. Optional fields like `branch` and `semester` auto-hide cleanly.

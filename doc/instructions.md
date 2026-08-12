@@ -1,5 +1,8 @@
 # Project Instructions & Preferences
 
+## Card Design System Architecture
+- Full specification documented in [design-system-for-cards.md](file:///d:/projects/LaravelUI/LaravelUI/doc/design-system-for-cards.md).
+
 ## Testing Policy
 - For prototype features, do **NOT** run automated browser tests or subagent tests unless explicitly instructed by the user.
 - The user will perform browser testing manually and share screenshots for feedback and adjustments.
