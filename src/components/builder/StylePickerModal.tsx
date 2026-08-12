@@ -1,5 +1,5 @@
-import React from 'react';
-import { X, Check } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, Check, LayoutGrid, Table } from 'lucide-react';
 import { TimetableBlock } from '../storefront/blocks/TimetableBlock';
 
 export interface StylePickerModalProps {
@@ -9,36 +9,65 @@ export interface StylePickerModalProps {
   onSelectStyle: (style: string) => void;
 }
 
-const sampleTimetable = {
-  id: 'sample-1',
-  name: 'B.Tech First Year (Sem 1)',
-  year: '2024-25',
-  branch: ['Computer Science', 'IT'],
-  semester: ['I', 'II'],
-  fileName: 'btech_1st_sem1.pdf',
-  fileUrl: '#',
-};
+const sampleTimetables = [
+  {
+    id: 'sample-1',
+    name: 'B.Tech First Year (Sem 1)',
+    year: '2024-25',
+    branch: ['Computer Science', 'IT'],
+    semester: ['I', 'II'],
+    fileName: 'btech_1st_sem1.pdf',
+    fileUrl: '#',
+  },
+  {
+    id: 'sample-2',
+    name: 'BCA Third Year (Sem 5)',
+    year: '2024-25',
+    branch: ['BCA'],
+    semester: ['V'],
+    fileName: 'bca_3rd_sem5.pdf',
+    fileUrl: '#',
+  },
+];
 
-const stylesList = [
+const cardStylesList = [
   {
     id: 'style-1',
-    name: 'Card Style 1 (Classic)',
-    description: 'Displays a top calendar icon badge, year tag, detailed branch/semester list, and a bottom download section.',
+    name: 'Card Style 1 (Classic Document)',
+    description: 'Classic card layout with top calendar icon badge, prominent timetable title, and a bottom action link.',
   },
   {
     id: 'style-2',
-    name: 'Card Style 2 (Minimalist)',
-    description: 'Clean minimalist card with a file icon badge, rounded branch tag, bottom PDF link, and bookmark action.',
+    name: 'Card Style 2 (Minimalist File)',
+    description: 'Clean minimalist card with a file icon badge, title-focused layout, and bottom PDF link.',
   },
   {
     id: 'style-3',
-    name: 'Card Style 3 (Modern Gradient)',
-    description: 'Vibrant top accent header with gradient background, semester badges, and a prominent call-to-action button.',
+    name: 'Card Style 3 (Modern Gradient Banner)',
+    description: 'Vibrant top accent banner presenting the title in bold, with a white body holding the download action button.',
   },
   {
     id: 'style-4',
     name: 'Card Style 4 (Dual-Pane Split Card)',
-    description: 'Modern split-pane horizontal card featuring a left gradient accent block for icon/year and a clean content area on the right.',
+    description: 'Modern split-pane horizontal card with a left gradient icon block and clean right pane for title & action button.',
+  },
+];
+
+const tableStylesList = [
+  {
+    id: 'table-1',
+    name: 'Table Style 1 (Classic Clean)',
+    description: 'Structured table layout with subtle hover highlighting, clear column headers, and direct download links.',
+  },
+  {
+    id: 'table-2',
+    name: 'Table Style 2 (Bordered Row Cards)',
+    description: 'Distinct card-like table rows with file icon badges and a primary action button per row.',
+  },
+  {
+    id: 'table-3',
+    name: 'Table Style 3 (Modern Gradient Header)',
+    description: 'Vibrant gradient table header row with glassmorphism accent pills and high-visibility download actions.',
   },
 ];
 
@@ -48,7 +77,13 @@ export const StylePickerModal: React.FC<StylePickerModalProps> = ({
   selectedStyle,
   onSelectStyle,
 }) => {
+  const [activeTab, setActiveTab] = useState<'card' | 'table'>(
+    selectedStyle?.startsWith('table-') ? 'table' : 'card'
+  );
+
   if (!isOpen) return null;
+
+  const currentList = activeTab === 'card' ? cardStylesList : tableStylesList;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm overflow-y-auto">
@@ -57,24 +92,50 @@ export const StylePickerModal: React.FC<StylePickerModalProps> = ({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+        <div className="px-6 py-4 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gray-50/50">
           <div>
-            <h2 className="text-xl font-bold text-gray-900">Select Card Style</h2>
-            <p className="text-sm text-gray-500 mt-0.5">
-              Choose a card layout matching your timetable specifications.
-            </p>
+            <h2 className="text-xl font-bold text-gray-900">Select Display Template</h2>
           </div>
+
+          {/* Tab Switcher - Long Horizontal Strip */}
+          <div className="flex items-center gap-1 bg-gray-200/80 p-1 rounded-xl shrink-0 min-w-[340px] sm:min-w-[420px]">
+            <button
+              type="button"
+              onClick={() => setActiveTab('card')}
+              className={`flex-1 flex items-center justify-center gap-2 px-8 py-1.5 rounded-lg text-xs sm:text-sm font-extrabold transition-all ${
+                activeTab === 'card'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <LayoutGrid className="w-4 h-4" />
+              Card Styles ({cardStylesList.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('table')}
+              className={`flex-1 flex items-center justify-center gap-2 px-8 py-1.5 rounded-lg text-xs sm:text-sm font-extrabold transition-all ${
+                activeTab === 'table'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Table className="w-4 h-4" />
+              Table Styles ({tableStylesList.length})
+            </button>
+          </div>
+
           <button
             onClick={onClose}
-            className="p-2 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+            className="p-2 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Modal Body - Grid of styles */}
+        {/* Modal Body - List of styles */}
         <div className="p-6 overflow-y-auto flex-1 space-y-6">
-          {stylesList.map((styleItem) => {
+          {currentList.map((styleItem) => {
             const isSelected = selectedStyle === styleItem.id;
 
             return (
@@ -125,8 +186,10 @@ export const StylePickerModal: React.FC<StylePickerModalProps> = ({
                   <TimetableBlock
                     title=""
                     description=""
+                    view={activeTab}
                     cardStyle={styleItem.id as any}
-                    timetables={[sampleTimetable]}
+                    tableStyle={styleItem.id as any}
+                    timetables={activeTab === 'table' ? sampleTimetables : [sampleTimetables[0]]}
                     isPreview={true}
                     showFields={{
                       title: true,
