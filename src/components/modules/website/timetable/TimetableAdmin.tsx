@@ -1,13 +1,18 @@
 import React, { useState } from 'react';
 import { Timetable } from '../../../../types/timetable';
-import { initialTimetables } from '../../../../data/mockTimetableData';
+import { getStoredTimetables, saveStoredTimetables } from '../../../../data/mockTimetableData';
 import { TimetableList } from './TimetableList';
 import { TimetableDrawer } from './TimetableDrawer';
 
 export const TimetableAdmin: React.FC = () => {
-  const [timetables, setTimetables] = useState<Timetable[]>(initialTimetables);
+  const [timetables, setTimetables] = useState<Timetable[]>(() => getStoredTimetables());
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [editingTimetable, setEditingTimetable] = useState<Timetable | null>(null);
+
+  const updateTimetablesState = (newTimetables: Timetable[]) => {
+    setTimetables(newTimetables);
+    saveStoredTimetables(newTimetables);
+  };
 
   const handleAddClick = () => {
     setEditingTimetable(null);
@@ -21,31 +26,35 @@ export const TimetableAdmin: React.FC = () => {
 
   const handleDelete = (id: string) => {
     if (window.confirm('Are you sure you want to delete this timetable?')) {
-      setTimetables(prev => prev.filter(t => t.id !== id));
+      const updated = timetables.filter(t => t.id !== id);
+      updateTimetablesState(updated);
     }
   };
 
   const handleToggleStatus = (id: string) => {
-    setTimetables(prev => prev.map(t => 
+    const updated = timetables.map(t => 
       t.id === id ? { ...t, showOnWebsite: !t.showOnWebsite } : t
-    ));
+    );
+    updateTimetablesState(updated);
   };
 
   const handleSave = (timetableData: Omit<Timetable, 'id' | 'createdAt'>) => {
+    let updated: Timetable[];
     if (editingTimetable) {
-      setTimetables(prev => prev.map(t => 
+      updated = timetables.map(t => 
         t.id === editingTimetable.id 
           ? { ...t, ...timetableData }
           : t
-      ));
+      );
     } else {
       const newTimetable: Timetable = {
         ...timetableData,
         id: `tt-${Date.now()}`,
         createdAt: new Date().toISOString().split('T')[0]
       };
-      setTimetables(prev => [newTimetable, ...prev]);
+      updated = [newTimetable, ...timetables];
     }
+    updateTimetablesState(updated);
     setIsDrawerOpen(false);
   };
 

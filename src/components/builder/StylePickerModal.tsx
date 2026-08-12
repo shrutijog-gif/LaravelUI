@@ -34,7 +34,7 @@ const cardStylesList = [
   {
     id: 'style-1',
     name: 'Card Style 1 (Classic Document)',
-    description: 'Classic card layout with top calendar icon badge, prominent timetable title, and a bottom action link.',
+    description: 'Classic card layout with top calendar icon badge, prominent timetable title, and bottom action link.',
   },
   {
     id: 'style-2',
@@ -86,55 +86,53 @@ export const StylePickerModal: React.FC<StylePickerModalProps> = ({
   const currentList = activeTab === 'card' ? cardStylesList : tableStylesList;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/50 backdrop-blur-sm overflow-y-auto">
       <div 
-        className="bg-white rounded-2xl shadow-2xl border border-gray-100 max-w-5xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+        className="bg-white rounded-2xl shadow-2xl border border-gray-100 max-w-5xl w-full max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gray-50/50">
-          <div>
-            <h2 className="text-xl font-bold text-gray-900">Select Display Template</h2>
-          </div>
+        <div className="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between gap-4 bg-gray-50/60">
+          <h2 className="text-base font-bold text-gray-900">Select Display Template</h2>
 
-          {/* Tab Switcher - Long Horizontal Strip */}
-          <div className="flex items-center gap-1 bg-gray-200/80 p-1 rounded-xl shrink-0 min-w-[340px] sm:min-w-[420px]">
+          {/* Tab Switcher */}
+          <div className="flex items-center gap-1 bg-gray-200/80 p-1 rounded-xl shrink-0">
             <button
               type="button"
               onClick={() => setActiveTab('card')}
-              className={`flex-1 flex items-center justify-center gap-2 px-8 py-1.5 rounded-lg text-xs sm:text-sm font-extrabold transition-all ${
+              className={`flex items-center justify-center gap-1.5 px-4 py-1 rounded-lg text-xs font-extrabold transition-all ${
                 activeTab === 'card'
                   ? 'bg-white text-blue-600 shadow-sm'
                   : 'text-gray-600 hover:text-gray-900'
               }`}
             >
-              <LayoutGrid className="w-4 h-4" />
+              <LayoutGrid className="w-3.5 h-3.5" />
               Card Styles ({cardStylesList.length})
             </button>
             <button
               type="button"
               onClick={() => setActiveTab('table')}
-              className={`flex-1 flex items-center justify-center gap-2 px-8 py-1.5 rounded-lg text-xs sm:text-sm font-extrabold transition-all ${
+              className={`flex items-center justify-center gap-1.5 px-4 py-1 rounded-lg text-xs font-extrabold transition-all ${
                 activeTab === 'table'
                   ? 'bg-white text-blue-600 shadow-sm'
                   : 'text-gray-600 hover:text-gray-900'
               }`}
             >
-              <Table className="w-4 h-4" />
+              <Table className="w-3.5 h-3.5" />
               Table Styles ({tableStylesList.length})
             </button>
           </div>
 
           <button
             onClick={onClose}
-            className="p-2 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors shrink-0"
+            className="p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors shrink-0 cursor-pointer"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Modal Body - List of styles */}
-        <div className="p-6 overflow-y-auto flex-1 space-y-6">
+        {/* Modal Body */}
+        <div className="p-4 sm:p-5 overflow-y-auto flex-1 space-y-4">
           {currentList.map((styleItem) => {
             const isSelected = selectedStyle === styleItem.id;
 
@@ -145,32 +143,32 @@ export const StylePickerModal: React.FC<StylePickerModalProps> = ({
                   onSelectStyle(styleItem.id);
                   onClose();
                 }}
-                className={`group relative rounded-xl border-2 transition-all p-5 cursor-pointer flex flex-col md:flex-row gap-6 items-start md:items-center ${
+                className={`group relative rounded-xl border-2 transition-all p-3.5 sm:p-4 cursor-pointer flex flex-col md:flex-row gap-4 items-start md:items-center justify-between ${
                   isSelected
                     ? 'border-blue-600 bg-blue-50/20 shadow-md ring-2 ring-blue-600/20'
                     : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50/50'
                 }`}
               >
                 {/* Style Info & Text */}
-                <div className="md:w-[30%] w-full space-y-2 shrink-0">
+                <div className="md:w-[32%] w-full space-y-1.5 shrink-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-bold text-gray-900 text-base">
+                    <span className="font-bold text-gray-900 text-sm">
                       {styleItem.name}
                     </span>
                     {isSelected && (
-                      <span className="inline-flex items-center gap-1 bg-blue-600 text-white text-xs font-semibold px-2 py-0.5 rounded-full">
+                      <span className="inline-flex items-center gap-1 bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
                         <Check className="w-3 h-3" /> Active
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-gray-500 leading-relaxed">
+                  <p className="text-[11px] text-gray-500 leading-relaxed">
                     {styleItem.description}
                   </p>
                   
-                  <div className="pt-2">
+                  <div className="pt-1">
                     <button
                       type="button"
-                      className={`text-xs font-semibold px-4 py-2 rounded-lg transition-colors ${
+                      className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${
                         isSelected
                           ? 'bg-blue-600 text-white shadow-sm'
                           : 'bg-gray-100 text-gray-700 group-hover:bg-blue-600 group-hover:text-white'
@@ -181,25 +179,27 @@ export const StylePickerModal: React.FC<StylePickerModalProps> = ({
                   </div>
                 </div>
 
-                {/* Visual Preview */}
-                <div className="md:w-[70%] w-full bg-gray-50/80 p-4 sm:p-5 rounded-xl border border-gray-100 min-w-0 flex items-center justify-center">
-                  <TimetableBlock
-                    title=""
-                    description=""
-                    view={activeTab}
-                    cardStyle={styleItem.id as any}
-                    tableStyle={styleItem.id as any}
-                    timetables={activeTab === 'table' ? sampleTimetables : [sampleTimetables[0]]}
-                    isPreview={true}
-                    showFields={{
-                      title: true,
-                      file: true,
-                      branch: true,
-                      semester: true,
-                      download: true,
-                      year: true,
-                    }}
-                  />
+                {/* Visual Preview Container */}
+                <div className="md:w-[65%] w-full bg-gray-50/80 p-3 sm:p-4 rounded-xl border border-gray-100 min-w-0 flex items-center justify-center">
+                  <div className="w-full max-w-[380px] mx-auto">
+                    <TimetableBlock
+                      title=""
+                      description=""
+                      view={activeTab}
+                      cardStyle={styleItem.id as any}
+                      tableStyle={styleItem.id as any}
+                      timetables={activeTab === 'table' ? sampleTimetables : [sampleTimetables[0]]}
+                      isPreview={true}
+                      showFields={{
+                        title: true,
+                        file: true,
+                        branch: true,
+                        semester: true,
+                        download: true,
+                        year: true,
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
             );
@@ -207,10 +207,10 @@ export const StylePickerModal: React.FC<StylePickerModalProps> = ({
         </div>
 
         {/* Modal Footer */}
-        <div className="px-6 py-3 border-t border-gray-100 bg-gray-50/50 flex justify-end">
+        <div className="px-5 py-2.5 border-t border-gray-100 bg-gray-50/60 flex justify-end">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+            className="px-4 py-1.5 text-xs font-semibold text-gray-600 hover:text-gray-900 transition-colors cursor-pointer"
           >
             Close
           </button>

@@ -1,14 +1,16 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Calendar, FileText, Bookmark, ArrowUpRight } from 'lucide-react';
 import { Timetable } from '../../../types/timetable';
-import { initialTimetables } from '../../../data/mockTimetableData';
+import { getStoredTimetables } from '../../../data/mockTimetableData';
 
 export interface TimetableBlockProps {
   title?: string;
   description?: string;
   view?: 'card' | 'grid' | 'table';
   cardStyle?: 'style-1' | 'style-2' | 'style-3' | 'style-4' | 'table-1' | 'table-2' | 'table-3';
-  tableStyle?: 'table-1' | 'table-2' | 'table-3';
+  columns?: 2 | 3 | 4;
+  className?: string;
+  anchorId?: string;
   showFields?: {
     title?: boolean;
     file?: boolean;
@@ -27,16 +29,43 @@ export const TimetableBlock: React.FC<TimetableBlockProps> = ({
   view = 'card',
   cardStyle = 'style-1',
   tableStyle,
+  columns = 3,
+  className = '',
+  anchorId = '',
   showFields = { title: true, file: true, branch: true, semester: true, download: true, year: true },
-  timetables = initialTimetables,
+  timetables,
   isPreview = false,
 }) => {
-  const displayedTimetables = timetables;
+  const [liveTimetables, setLiveTimetables] = useState<Timetable[]>(() => getStoredTimetables());
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      setLiveTimetables(getStoredTimetables());
+    };
+
+    window.addEventListener('timetable-data-updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+
+    return () => {
+      window.removeEventListener('timetable-data-updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
+  }, []);
+
+  const sourceTimetables = timetables && timetables.length > 0 ? timetables : liveTimetables;
+  const displayedTimetables = sourceTimetables.filter(t => t.showOnWebsite !== false);
   const selectedStyle = cardStyle || 'style-1';
   const isTableView = view === 'table' || selectedStyle.startsWith('table-');
   const activeTableStyle = selectedStyle.startsWith('table-') 
     ? selectedStyle 
     : (tableStyle || 'table-1');
+
+  const getValidFileUrl = (url?: string) => {
+    if (url && url.trim() !== '' && url !== '#') {
+      return url;
+    }
+    return 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf';
+  };
 
   const renderContent = () => {
     if (displayedTimetables.length === 0) {
@@ -99,7 +128,9 @@ export const TimetableBlock: React.FC<TimetableBlockProps> = ({
                       <td className="py-4 px-4 sm:px-6 text-right">
                         {showFields?.download && (
                           <a
-                            href={timetable.fileUrl || '#'}
+                            href={getValidFileUrl(timetable.fileUrl)}
+                            target="_blank"
+                            rel="noopener noreferrer"
                             className="inline-flex items-center gap-1.5 bg-gray-900 group-hover:bg-blue-600 text-white text-xs font-bold px-3.5 py-1.5 rounded-lg transition-colors shadow-2xs"
                           >
                             Download PDF <ArrowUpRight className="w-3.5 h-3.5" />
@@ -122,13 +153,17 @@ export const TimetableBlock: React.FC<TimetableBlockProps> = ({
             {displayedTimetables.map(timetable => (
               <a
                 key={timetable.id}
-                href={timetable.fileUrl || '#'}
+                href={getValidFileUrl(timetable.fileUrl)}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="bg-white rounded-xl border border-gray-200 p-4 hover:border-blue-400 hover:shadow-md transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 group cursor-pointer"
               >
                 <div className="flex items-center gap-3.5">
-                  <div className="bg-gradient-to-br from-blue-600 to-indigo-600 p-2.5 rounded-xl text-white shrink-0 shadow-xs">
-                    <FileText className="w-5 h-5" />
-                  </div>
+                  {showFields?.icon !== false && (
+                    <div className="bg-gradient-to-br from-blue-600 to-indigo-600 p-2.5 rounded-xl text-white shrink-0 shadow-xs">
+                      <FileText className="w-5 h-5" />
+                    </div>
+                  )}
                   <div>
                     {showFields?.title && (
                       <h4 className="font-bold text-gray-900 text-base group-hover:text-blue-600 transition-colors">
@@ -200,7 +235,9 @@ export const TimetableBlock: React.FC<TimetableBlockProps> = ({
                     <td className="py-3.5 px-4 sm:px-6 text-right">
                       {showFields?.download && (
                         <a
-                          href={timetable.fileUrl || '#'}
+                          href={getValidFileUrl(timetable.fileUrl)}
+                          target="_blank"
+                          rel="noopener noreferrer"
                           className="text-blue-600 hover:text-blue-700 text-xs font-bold inline-flex items-center gap-1"
                         >
                           Download <ArrowUpRight className="w-3.5 h-3.5" />
@@ -220,12 +257,18 @@ export const TimetableBlock: React.FC<TimetableBlockProps> = ({
     return (
       <div className={
         isPreview 
-          ? cardStyle === 'style-4' 
-            ? "w-full flex flex-col gap-4" 
-            : "w-full max-w-[360px] mx-auto flex flex-col gap-4" 
+          ? "w-full flex flex-col gap-4" 
           : cardStyle === 'style-4' 
-            ? "flex flex-col gap-4" 
-            : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+            ? columns === 2 
+              ? "grid grid-cols-1 md:grid-cols-2 gap-4" 
+              : columns === 4 
+                ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" 
+                : "flex flex-col gap-4" 
+            : columns === 2 
+              ? "grid grid-cols-1 md:grid-cols-2 gap-6" 
+              : columns === 4 
+                ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" 
+                : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
       }>
         {displayedTimetables.map(timetable => {
           /* Style 4 (Dual-Pane Split Card) - Title + Year + File Link */
@@ -233,14 +276,18 @@ export const TimetableBlock: React.FC<TimetableBlockProps> = ({
             return (
               <a
                 key={timetable.id}
-                href={timetable.fileUrl || '#'}
+                href={getValidFileUrl(timetable.fileUrl)}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-lg hover:border-blue-300 transition-all overflow-hidden flex flex-col sm:flex-row group h-full min-h-[140px] w-full cursor-pointer"
               >
                 {/* Left Gradient Accent Block */}
                 <div className="bg-gradient-to-br from-blue-600 via-indigo-600 to-blue-700 text-white p-4 flex sm:flex-col justify-between items-center sm:items-start shrink-0 w-full sm:w-32">
-                  <div className="bg-white/20 p-2.5 rounded-xl backdrop-blur-sm border border-white/20 shadow-xs">
-                    <Calendar className="w-5 h-5 text-white" />
-                  </div>
+                  {showFields?.icon !== false && (
+                    <div className="bg-white/20 p-2.5 rounded-xl backdrop-blur-sm border border-white/20 shadow-xs">
+                      <Calendar className="w-5 h-5 text-white" />
+                    </div>
+                  )}
                   {showFields?.year && (
                     <span className="bg-white/20 backdrop-blur-md text-white text-xs font-bold px-2.5 py-0.5 rounded-full border border-white/30">
                       {timetable.year}
@@ -286,22 +333,31 @@ export const TimetableBlock: React.FC<TimetableBlockProps> = ({
             return (
               <a
                 key={timetable.id}
-                href={timetable.fileUrl || '#'}
+                href={getValidFileUrl(timetable.fileUrl)}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-xl hover:border-blue-300 transition-all overflow-hidden flex flex-col justify-between group h-full min-h-[180px] cursor-pointer"
               >
                 {/* Gradient Header Banner */}
                 <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 p-5 text-white flex justify-between items-start">
-                  <div className="flex-1 pr-3 min-w-0">
-                    {showFields?.title && (
-                      <h3 className="font-bold text-base sm:text-lg leading-snug tracking-tight text-white group-hover:text-blue-100 transition-colors">
-                        {timetable.name}
-                      </h3>
+                  <div className="flex-1 pr-3 min-w-0 flex items-start gap-3">
+                    {showFields?.icon !== false && (
+                      <div className="bg-white/20 p-2 rounded-lg backdrop-blur-sm border border-white/20 shrink-0">
+                        <Calendar className="w-4 h-4 text-white" />
+                      </div>
                     )}
-                    {showFields?.branch && timetable.branch?.length > 0 && (
-                      <p className="text-blue-100/90 text-xs font-medium mt-1">
-                        {timetable.branch.join(', ')}
-                      </p>
-                    )}
+                    <div className="flex-1 min-w-0">
+                      {showFields?.title && (
+                        <h3 className="font-bold text-base sm:text-lg leading-snug tracking-tight text-white group-hover:text-blue-100 transition-colors">
+                          {timetable.name}
+                        </h3>
+                      )}
+                      {showFields?.branch && timetable.branch?.length > 0 && (
+                        <p className="text-blue-100/90 text-xs font-medium mt-1">
+                          {timetable.branch.join(', ')}
+                        </p>
+                      )}
+                    </div>
                   </div>
 
                   {showFields?.year && (
@@ -343,14 +399,18 @@ export const TimetableBlock: React.FC<TimetableBlockProps> = ({
             return (
               <a
                 key={timetable.id}
-                href={timetable.fileUrl || '#'}
+                href={getValidFileUrl(timetable.fileUrl)}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md hover:border-blue-300 transition-all p-5 flex flex-col justify-between group h-full min-h-[180px] cursor-pointer"
               >
                 <div>
                   <div className="flex items-center justify-between mb-4">
-                    <div className="bg-gradient-to-br from-blue-600 to-indigo-600 p-2.5 rounded-xl text-white shadow-xs group-hover:scale-105 transition-transform">
-                      <FileText className="w-5 h-5" />
-                    </div>
+                    {showFields?.icon !== false ? (
+                      <div className="bg-gradient-to-br from-blue-600 to-indigo-600 p-2.5 rounded-xl text-white shadow-xs group-hover:scale-105 transition-transform">
+                        <FileText className="w-5 h-5" />
+                      </div>
+                    ) : <div />}
                     {showFields?.year && (
                       <span className="bg-blue-50 text-blue-700 border border-blue-100 font-bold px-2.5 py-0.5 rounded-full text-xs">
                         {timetable.year}
@@ -392,15 +452,19 @@ export const TimetableBlock: React.FC<TimetableBlockProps> = ({
           return (
             <a
               key={timetable.id}
-              href={timetable.fileUrl || '#'}
+              href={getValidFileUrl(timetable.fileUrl)}
+              target="_blank"
+              rel="noopener noreferrer"
               className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:border-blue-300 transition-all overflow-hidden group flex flex-col justify-between h-full min-h-[180px] cursor-pointer"
             >
               <div className="p-5 flex-1 flex flex-col justify-between">
                 <div>
                   <div className="flex justify-between items-start mb-3">
-                    <div className="bg-blue-50 p-2.5 rounded-xl text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors shadow-2xs">
-                      <Calendar className="w-6 h-6" />
-                    </div>
+                    {showFields?.icon !== false ? (
+                      <div className="bg-blue-50 p-2.5 rounded-xl text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors shadow-2xs">
+                        <Calendar className="w-6 h-6" />
+                      </div>
+                    ) : <div />}
                     {showFields?.year && (
                       <span className="font-bold bg-blue-50 text-blue-700 border border-blue-100 px-2.5 py-0.5 rounded-md text-xs">
                         {timetable.year}
@@ -446,7 +510,7 @@ export const TimetableBlock: React.FC<TimetableBlockProps> = ({
   };
 
   return (
-    <div className={isPreview ? "w-full p-1" : "max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8"}>
+    <div id={anchorId || undefined} className={`${isPreview ? "w-full p-1" : "max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8"} ${className}`}>
       {(title || description) && (
         <div className="text-center mb-8">
           {title && <h2 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">{title}</h2>}

@@ -185,11 +185,16 @@ export const TimetableDrawer: React.FC<TimetableDrawerProps> = ({
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setFormData(prev => ({
-        ...prev,
-        fileName: file.name,
-        fileUrl: URL.createObjectURL(file) 
-      }));
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const fileUrl = (event.target?.result as string) || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf';
+        setFormData(prev => ({
+          ...prev,
+          fileName: file.name,
+          fileUrl: fileUrl
+        }));
+      };
+      reader.readAsDataURL(file);
     }
   };
 

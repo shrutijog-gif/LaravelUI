@@ -1,14 +1,25 @@
 # Workspace Rules
 
-- For prototype features, do **NOT** run browser automated subagent tests unless explicitly instructed by the user.
+- For prototype features, do **NOT** run automated browser tests or subagent tests unless explicitly instructed by the user.
 - The user handles browser testing manually and will share screenshots if feedback or adjustments are required.
 - **Core Data Benchmark**: **Title** + **Year** (mandatory) + **Uploaded File Link**. Optional fields like `branch` and `semester` auto-hide cleanly.
+- **Style Picker Modal Sizing**:
+  - Modal container set to `max-w-5xl`, `max-h-[85vh]`.
+  - Preview card width set to `max-w-[380px]` for a perfectly balanced layout.
+- **PDF Upload & Direct PDF Opening**:
+  - Uploaded files are converted into permanent PDF Data URLs (`data:application/pdf;base64,...`) via `FileReader`.
+  - All cards use `getValidFileUrl(fileUrl)` so uploaded PDFs open in a new tab, and legacy items with `#` automatically open a valid sample PDF in a new tab instead of navigating to `http://localhost:5173/#`.
+- **View Page & Save Feature**:
+  - Clicking **`View Page`** opens a full-screen **Live Public Website View Modal** using Puck's native `<Render config={config} data={data} />`.
+  - All links, PDF downloads, hover states, and buttons are **100% active and functional**.
+  - Clicking **`Save`** saves Puck page data to `localStorage` and shows a green success toast.
 - **Puck Sidebar UI Architecture**:
-  - All sidebar settings are grouped into **3 expandable boxed accordion controllers** with outer border, gray header bar, and expand/collapse chevron:
+  - All sidebar settings are grouped into **4 expandable boxed accordion controllers** with outer border, gray header bar, and expand/collapse chevron:
     - 📦 **Header Controller** (Title & Description)
-    - 🎨 **Style Controller** (Select Style button)
-    - 🎛️ **Content Controller** (Visibility checkboxes)
-  - Native Puck sidebar & layout structure preserved cleanly.
+    - 🎨 **Style Controller** (`Select Style` & `Cards Per Row`)
+    - 🎛️ **Content Controller** (Grouped data checkboxes + UI elements)
+    - ⚙️ **Advanced Controller** (Collapsed by default: `Anchor Id` and `Css Class` inputs)
+  - Section dividers are maintained for clean visual differentiation.
   - All headers use matching Title Case and identical font boldness (`font-semibold text-xs text-gray-700`).
 - **Uniform Card Height**: Cards in grid views must maintain a consistent uniform height (`h-full flex flex-col justify-between`) so grid rows align perfectly.
 - **Entire Card Clickable**: The full card element is a clickable link (`<a>`) linked to `fileUrl`.
