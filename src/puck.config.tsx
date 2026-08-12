@@ -1,5 +1,7 @@
+import React, { useState } from 'react';
 import type { Config } from '@measured/puck';
 import { TimetableBlock, TimetableBlockProps } from './components/storefront/blocks/TimetableBlock';
+import { StylePickerModal } from './components/builder/StylePickerModal';
 
 type Props = {
   HeadingBlock: { title: string };
@@ -31,8 +33,33 @@ export const config: Config<Props> = {
           options: [{ label: 'Card', value: 'card' }, { label: 'Grid', value: 'grid' }],
         },
         cardStyle: {
-          type: 'select',
-          options: [{ label: 'Style 1', value: 'style-1' }, { label: 'Style 2', value: 'style-2' }],
+          type: 'custom',
+          label: 'Card Style',
+          render: ({ value = 'style-1', onChange }) => {
+            const [isOpen, setIsOpen] = useState(false);
+
+            return (
+              <div className="py-1">
+                <button
+                  type="button"
+                  onClick={() => setIsOpen(true)}
+                  className="w-full py-2 px-3 bg-gray-100 hover:bg-gray-200 border border-gray-300 active:bg-gray-300 rounded-md font-medium text-xs text-gray-700 transition-colors flex items-center justify-between"
+                >
+                  <span>Select Style</span>
+                  <span className="text-[10px] bg-white border border-gray-200 px-1.5 py-0.5 rounded font-mono text-gray-600 uppercase font-semibold">
+                    {value || 'style-1'}
+                  </span>
+                </button>
+
+                <StylePickerModal
+                  isOpen={isOpen}
+                  onClose={() => setIsOpen(false)}
+                  selectedStyle={value || 'style-1'}
+                  onSelectStyle={(newStyle) => onChange(newStyle)}
+                />
+              </div>
+            );
+          },
         },
         showFields: {
           type: 'custom',
