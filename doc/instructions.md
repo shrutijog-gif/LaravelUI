@@ -1,19 +1,28 @@
 # Project Instructions & Preferences
 
-## Card Design System Architecture
-- Full specification documented in [design-system-for-cards.md](file:///d:/projects/LaravelUI/LaravelUI/doc/design-system-for-cards.md).
+## Public Website Homepage (`CollegeStorefront.tsx`)
+- **Default Public Website**: Clicking **Visit Website** (the Globe icon) opens the public **University College Homepage** (`CollegeStorefront.tsx`).
+- **Balanced Campus Hero Background**: Features Unsplash architectural campus image (`https://images.unsplash.com/photo-1562774053-701939374585`) with a balanced dark black gradient overlay (`linear-gradient(to right, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0.52), rgba(0, 0, 0, 0.72))`) for rich contrast while keeping the campus building clearly visible.
+- **Homepage Sections Included**:
+  1. 🏛️ **Hero Banner**: Unsplash campus architecture image, admissions announcement, slogan, quick action buttons.
+  2. 🎓 **Principal's Message**: Leadership photo, quote badge, principal Ph.D. credentials.
+  3. 📅 **Academic Timetables Section**: Embedded live `TimetableBlock` rendering active tenant's timetables with PDF download links.
+  4. 🏆 **Alumni Spotlight**: Grid of prominent alumni cards with batch tags and achievements.
+  5. 📢 **Notices & Circulars**: Quick updates and examination announcements.
+  6. 🛡️ **College Footer**: Accreditation badges, campus helpline, and quick links.
+- **Preserved Ecommerce Module**: The original e-commerce storefront is safely preserved and accessible via **`Visit Ecommerce Storefront`** on the E-Commerce Dashboard (`view=ecommerce`).
 
-## Admin Navigation & Sidebar Menu Sequence
-- **Sidebar Menu Item Sequence**:
-  1. Dashboard
-  2. File Manager
-  3. Home Page
-  4. Website
-  5. Website Builder
-  6. Academics
-  7. Ecommerce
-  8. Setup/Config
-  9. Developers Area
+## Multi-Tenancy Prototype Architecture
+- **Dynamic Tenant Profiles**: 3 college tenant profiles (`lady-irwin`, `mgm-kvk`, `st-xaviers`) defined in [tenantData.ts](file:///d:/projects/LaravelUI/LaravelUI/src/data/tenantData.ts).
+- **Header Tenant Switcher Dropdown**: Dropdown in Admin Header (`Header.tsx`) and Storefront Header (`CollegeStorefront.tsx`) allows 1-click live demo switching between college tenants.
+- **Dynamic Adaptive Branding**:
+  - Logo/Emblem, College Name, Subtitle, and Storefront primary brand colors automatically update live when switching tenants.
+  - User profile avatar `SJ` background color remains fixed at standard dark navy (`bg-[#0f2748]`).
+  - Stored timetables are partitioned per tenant in `localStorage` (`laravel_ui_timetables_list_<tenant_id>`).
+- **Full AI Vision & Roadmap**: Documented in [ai-enabling-product-roadmap.md](file:///d:/projects/LaravelUI/LaravelUI/doc/ai-enabling-product-roadmap.md).
+- **Card Design System Specification**: Documented in [design-system-for-cards.md](file:///d:/projects/LaravelUI/LaravelUI/doc/design-system-for-cards.md).
+
+## Admin Navigation & Header Toggle Defaults
 - **Black Bar Removal**: The top black preview switcher strip has been removed completely for a clean UI.
 - **Globe Icon Toggle (New Window)**: Clicking the **Globe icon** (`<Globe />`) in the Admin Header bar with title/tooltip (`Visit Website`) opens the Public Storefront website in a **new browser tab/window** (`window.open('?mode=storefront', '_blank')`). This allows administrators to keep working in the Admin Panel without losing context.
 - **Admin Default Module**: Navigating to Admin Panel defaults to opening the main **Dashboard** module (`activeModuleId: 'dashboard'`) with submenus collapsed.
@@ -24,7 +33,7 @@
 
 ## Core Data Benchmark & Live Browser Storage Sync
 - **Primary Data Fields**: **Title / File Name** + **Year** (mandatory) + **Uploaded File Link**.
-- **Live LocalStorage Sync**: Timetables added, edited, toggled (`showOnWebsite`), or deleted in the Admin Dashboard persistent in browser `localStorage` (`laravel_ui_timetables_list`).
+- **Live LocalStorage Sync**: Timetables added, edited, toggled (`showOnWebsite`), or deleted in the Admin Dashboard persistent in browser `localStorage`.
 - **PDF Upload & Direct PDF Opening**:
   - Uploaded files are converted into permanent PDF Data URLs (`data:application/pdf;base64,...`) via `FileReader`.
   - All cards resolve links via `getValidFileUrl(fileUrl)` — ensuring any uploaded PDF opens in a new tab, and any previous item with `#` falls back to opening a valid sample PDF in a new tab instead of navigating to `http://localhost:5173/#`.

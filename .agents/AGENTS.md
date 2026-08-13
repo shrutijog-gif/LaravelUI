@@ -1,16 +1,21 @@
 # Workspace Rules
 
+- **Public College Homepage (`CollegeStorefront.tsx`)**:
+  - Main public website is now a dedicated **University Homepage** featuring:
+    - 🏛️ **Hero Banner** with Unsplash campus building image (`https://images.unsplash.com/photo-1562774053-701939374585`) with balanced dark black gradient overlay (`linear-gradient(to right, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0.52), rgba(0, 0, 0, 0.72))`).
+    - 🎓 **Principal's Message** section with quote badge and Ph.D. credentials.
+    - 📅 **Academic Timetables Section** embedding live multi-tenant `TimetableBlock`.
+    - 🏆 **Alumni Spotlight** wall of fame grid.
+    - 📢 **Notices & Circulars** ticker.
+    - 🛡️ **College Footer** with accreditation badges and helpline.
+- **Preserved Ecommerce Module**: The original e-commerce storefront is safely preserved and accessible via **`Visit Ecommerce Storefront`** on the E-Commerce Dashboard (`view=ecommerce`).
+- **Multi-Tenancy Implementation**:
+  - Defined 3 college tenant profiles (`lady-irwin`, `mgm-kvk`, `st-xaviers`) in [tenantData.ts](file:///d:/projects/LaravelUI/LaravelUI/src/data/tenantData.ts).
+  - Header Tenant Switcher dropdown rendered in `Header.tsx` and `CollegeStorefront.tsx` for 1-click live demo switching.
+  - Logos, emblems, titles, and stored timetables automatically switch live on `tenant-changed` event.
+  - User profile avatar `SJ` background color remains fixed at standard dark navy (`bg-[#0f2748]`).
+- Full AI Vision & Product Roadmap documented in [ai-enabling-product-roadmap.md](file:///d:/projects/LaravelUI/LaravelUI/doc/ai-enabling-product-roadmap.md).
 - Full Design System Architecture specification documented in [design-system-for-cards.md](file:///d:/projects/LaravelUI/LaravelUI/doc/design-system-for-cards.md).
-- **Sidebar Menu Item Order**:
-  1. Dashboard
-  2. File Manager
-  3. Home Page
-  4. Website
-  5. Website Builder
-  6. Academics
-  7. Ecommerce
-  8. Setup/Config
-  9. Developers Area
 - **Header Globe Icon Toggle & Black Bar Removal**:
   - The top black preview strip has been removed completely.
   - Clicking the **Globe icon** (`<Globe />`) in the Admin Header bar with title/tooltip (`Visit Website`) opens the Public Storefront website in a **new browser tab/window** (`window.open('?mode=storefront', '_blank')`).
@@ -25,7 +30,7 @@
 - **PDF Upload & Direct PDF Opening**:
   - Uploaded files are converted into permanent PDF Data URLs (`data:application/pdf;base64,...`) via `FileReader`.
   - All cards use `getValidFileUrl(fileUrl)` so uploaded PDFs open in a new tab, and legacy items with `#` automatically open a valid sample PDF in a new tab instead of navigating to `http://localhost:5173/#`.
-- **View Page & Save Feature**:
+- **View Page & Save Persistence**:
   - Clicking **`View Page`** opens a full-screen **Live Public Website View Modal** using Puck's native `<Render config={config} data={data} />`.
   - All links, PDF downloads, hover states, and buttons are **100% active and functional**.
   - Clicking **`Save`** saves Puck page data to `localStorage` and shows a green success toast.
@@ -39,4 +44,4 @@
   - All headers use matching Title Case and identical font boldness (`font-semibold text-xs text-gray-700`).
 - **Uniform Card Height**: Cards in grid views must maintain a consistent uniform height (`h-full flex flex-col justify-between`) so grid rows align perfectly.
 - **Entire Card Clickable**: The full card element is a clickable link (`<a>`) linked to `fileUrl`.
-- **High-End Aesthetics**: Utilize modern typography, glassmorphism pills, micro-gradients, and smooth hover elevation so cards look vibrant and state-of-the-art.
+- **Rich Aesthetics**: Utilize modern typography, glassmorphism pills, micro-gradients, and smooth hover elevation so cards look vibrant and state-of-the-art.
