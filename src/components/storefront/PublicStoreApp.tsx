@@ -68,7 +68,11 @@ export const initialOrdersList: Order[] = [
   },
 ];
 
-export const PublicStoreApp: React.FC = () => {
+interface PublicStoreAppProps {
+  onToggleViewMode?: () => void;
+}
+
+export const PublicStoreApp: React.FC<PublicStoreAppProps> = ({ onToggleViewMode }) => {
   const [currentView, setCurrentView] = useState<'home' | 'checkout' | 'success' | 'admin-orders'>('home');
   const [cartItems, setCartItems] = useState<CartItem[]>([
     {
@@ -166,6 +170,7 @@ export const PublicStoreApp: React.FC = () => {
         onOpenCart={() => setIsCartOpen(true)}
         onGoHome={() => setCurrentView('home')}
         onViewAdminModule={() => setCurrentView('admin-orders')}
+        onToggleViewMode={onToggleViewMode}
         currentView={currentView}
       />
 

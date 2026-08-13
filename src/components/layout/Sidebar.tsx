@@ -96,7 +96,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({
-    ecommerce: true,
+    ecommerce: false,
     homepage: false,
     website: false,
     'website-builder': false,
