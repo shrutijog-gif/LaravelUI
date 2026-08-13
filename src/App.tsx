@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Layout } from './components/layout/Layout';
+import CollegeStorefront from './components/storefront/CollegeStorefront';
 import PublicStoreApp from './components/storefront/PublicStoreApp';
 
 export function App() {
   const [viewMode, setViewMode] = useState<'storefront' | 'admin'>(() => {
     return window.location.search.includes('mode=storefront') ? 'storefront' : 'admin';
   });
+
+  const isEcommerceStorefront = window.location.search.includes('view=ecommerce');
 
   useEffect(() => {
     const handlePopState = () => {
@@ -36,7 +39,11 @@ export function App() {
     <div className="min-h-screen flex flex-col">
       <div className="flex-1">
         {viewMode === 'storefront' ? (
-          <PublicStoreApp onToggleViewMode={returnToAdmin} />
+          isEcommerceStorefront ? (
+            <PublicStoreApp onToggleViewMode={returnToAdmin} />
+          ) : (
+            <CollegeStorefront onToggleViewMode={returnToAdmin} />
+          )
         ) : (
           <Layout onToggleViewMode={openStorefrontInNewTab} />
         )}

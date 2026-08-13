@@ -40,6 +40,18 @@ export const EcommerceDashboard: React.FC<EcommerceDashboardProps> = ({
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <h1 className="text-xl font-bold text-gray-900">E-Commerce Dashboard</h1>
+        <button
+          type="button"
+          onClick={() => {
+            const storefrontUrl = `${window.location.origin}${window.location.pathname}?mode=storefront&view=ecommerce`;
+            window.open(storefrontUrl, '_blank');
+          }}
+          className="inline-flex items-center gap-2 bg-[#f37021] hover:bg-orange-600 text-white text-xs font-bold px-3.5 py-2 rounded-lg transition-colors shadow-xs cursor-pointer"
+        >
+          <ShoppingBag className="w-4 h-4" />
+          <span>Visit Ecommerce Storefront</span>
+          <ArrowUpRight className="w-3.5 h-3.5" />
+        </button>
       </div>
 
       {/* Top 4 KPI Metrics */}

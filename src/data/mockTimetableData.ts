@@ -1,51 +1,17 @@
 import { Timetable } from '../types/timetable';
+import { getActiveTenant } from './tenantData';
 
 export const SAMPLE_PDF = 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf';
 
-export const initialTimetables: Timetable[] = [
-  {
-    id: 'tt-1',
-    name: 'B.Tech First Year (Sem 1) - 2024',
-    semester: ['I', 'II'],
-    branch: ['Computer Science'],
-    section: ['A', 'B'],
-    fileName: 'btech_1st_sem1.pdf',
-    fileUrl: SAMPLE_PDF,
-    year: '2024-25',
-    showOnWebsite: true,
-    createdAt: '2024-03-01'
-  },
-  {
-    id: 'tt-2',
-    name: 'BCA Third Year (Sem 5) - 2024',
-    semester: ['V', 'VI'],
-    branch: ['BCA'],
-    section: ['A'],
-    fileName: 'bca_3rd_sem5.pdf',
-    fileUrl: SAMPLE_PDF,
-    year: '2024-25',
-    showOnWebsite: true,
-    createdAt: '2024-03-05'
-  },
-  {
-    id: 'tt-3',
-    name: 'MBA Second Year (Sem 3) - 2023',
-    semester: ['III'],
-    branch: ['MBA'],
-    section: ['A', 'B', 'C'],
-    fileName: 'mba_2nd_sem3_2023.pdf',
-    fileUrl: SAMPLE_PDF,
-    year: '2023-24',
-    showOnWebsite: true,
-    createdAt: '2023-08-15'
-  }
-];
-
-const STORAGE_KEY = 'laravel_ui_timetables_list';
+const getStorageKey = () => {
+  const activeTenant = getActiveTenant();
+  return `laravel_ui_timetables_list_${activeTenant.id}`;
+};
 
 export const getStoredTimetables = (): Timetable[] => {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY);
+    const key = getStorageKey();
+    const saved = localStorage.getItem(key);
     if (saved) {
       const parsed = JSON.parse(saved);
       if (Array.isArray(parsed) && parsed.length > 0) {
@@ -58,12 +24,27 @@ export const getStoredTimetables = (): Timetable[] => {
   } catch (e) {
     console.error('Error reading timetables from localStorage:', e);
   }
-  return initialTimetables;
+
+  // Fallback to active tenant sample timetables
+  const tenant = getActiveTenant();
+  return tenant.sampleTimetables.map(st => ({
+    id: st.id,
+    name: st.title,
+    year: st.academicYear,
+    branch: st.branch ? [st.branch] : [],
+    semester: st.semester ? [st.semester] : [],
+    section: ['A'],
+    fileName: st.fileName,
+    fileUrl: st.fileUrl || SAMPLE_PDF,
+    showOnWebsite: st.showOnWebsite,
+    createdAt: new Date().toISOString().split('T')[0]
+  }));
 };
 
 export const saveStoredTimetables = (timetables: Timetable[]): void => {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(timetables));
+    const key = getStorageKey();
+    localStorage.setItem(key, JSON.stringify(timetables));
     window.dispatchEvent(new Event('timetable-data-updated'));
   } catch (e) {
     console.error('Error saving timetables to localStorage:', e);

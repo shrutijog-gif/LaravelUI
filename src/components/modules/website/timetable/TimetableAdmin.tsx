@@ -9,6 +9,14 @@ export const TimetableAdmin: React.FC = () => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [editingTimetable, setEditingTimetable] = useState<Timetable | null>(null);
 
+  React.useEffect(() => {
+    const handleTenantChange = () => {
+      setTimetables(getStoredTimetables());
+    };
+    window.addEventListener('tenant-changed', handleTenantChange);
+    return () => window.removeEventListener('tenant-changed', handleTenantChange);
+  }, []);
+
   const updateTimetablesState = (newTimetables: Timetable[]) => {
     setTimetables(newTimetables);
     saveStoredTimetables(newTimetables);

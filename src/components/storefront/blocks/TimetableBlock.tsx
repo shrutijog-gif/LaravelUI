@@ -44,10 +44,12 @@ export const TimetableBlock: React.FC<TimetableBlockProps> = ({
     };
 
     window.addEventListener('timetable-data-updated', handleUpdate);
+    window.addEventListener('tenant-changed', handleUpdate);
     window.addEventListener('storage', handleUpdate);
 
     return () => {
       window.removeEventListener('timetable-data-updated', handleUpdate);
+      window.removeEventListener('tenant-changed', handleUpdate);
       window.removeEventListener('storage', handleUpdate);
     };
   }, []);
