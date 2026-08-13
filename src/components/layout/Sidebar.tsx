@@ -57,6 +57,7 @@ export const initialMenuItems: MenuItem[] = [
     children: [
       { id: 'photo-gallery', label: 'Photo Gallery' },
       { id: 'admission-enquiry', label: 'Website Admission Enquiry Form' },
+      { id: 'website-timetable', label: 'Timetable' },
     ],
   },
   {

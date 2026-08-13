@@ -5,6 +5,8 @@ import { Footer } from './Footer';
 import { DashboardModule } from '../modules/DashboardModule';
 import { EcommerceContainer } from '../modules/ecommerce/EcommerceContainer';
 import { ModulePlaceholder } from '../modules/ModulePlaceholder';
+import { TimetableAdmin } from '../modules/website/timetable/TimetableAdmin';
+import { PageAdmin } from '../modules/website/pages/PageAdmin';
 
 export const Layout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -56,6 +58,10 @@ export const Layout: React.FC = () => {
               <DashboardModule />
             ) : activeModuleId.startsWith('ecommerce') ? (
               <EcommerceContainer initialSubTab={getEcommerceSubTab()} />
+            ) : activeModuleId === 'website-timetable' ? (
+              <TimetableAdmin />
+            ) : activeModuleId === 'webpage' ? (
+              <PageAdmin />
             ) : (
               <ModulePlaceholder 
                 moduleId={activeModuleId} 

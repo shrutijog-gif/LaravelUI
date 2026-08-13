@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { createPortal } from 'react-dom';
+import { Drawer } from '../../common/Drawer';
 import { 
   Home,
   Plus, 
@@ -330,32 +330,31 @@ export const ProductsList: React.FC<ProductsListProps> = ({
       </div>
 
       {/* Add / Edit Product Slide-Over Drawer */}
-      {isAddModalOpen && createPortal(
-        <>
-          {/* Backdrop */}
-          <div 
-            className="fixed inset-0 z-[9998] bg-black/60 backdrop-blur-xs transition-opacity"
-            onClick={() => setIsAddModalOpen(false)}
-          />
-
-          {/* Right Slide-over Drawer Panel */}
-          <div className="fixed inset-y-0 right-0 z-[9999] w-full max-w-2xl bg-white shadow-2xl flex flex-col justify-between overflow-hidden animate-in slide-in-from-right duration-300">
-            {/* Drawer Header */}
-            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-white">
-              <h3 className="text-base font-bold text-gray-900">
-                {editingProductId ? 'Edit Product' : 'Add Product'}
-              </h3>
-              <button 
-                onClick={() => setIsAddModalOpen(false)}
-                className="text-gray-400 hover:text-gray-600 p-1 rounded-md transition-colors"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Form Fields (Scrollable) */}
-            <form id="product-drawer-form" onSubmit={handleSubmitForm} className="p-6 space-y-4 overflow-y-auto flex-1">
-              {/* Top Block: Name, Description, Image (One below the other) */}
+      <Drawer
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        title={editingProductId ? 'Edit Product' : 'Add Product'}
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setIsAddModalOpen(false)}
+              className="px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 text-sm font-medium hover:bg-gray-50 shadow-xs transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              form="product-drawer-form"
+              className="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium shadow-xs transition-colors"
+            >
+              Save
+            </button>
+          </>
+        }
+      >
+        <form id="product-drawer-form" onSubmit={handleSubmitForm} className="p-6 space-y-4">
+          {/* Top Block: Name, Description, Image (One below the other) */}
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1">
                   Product Name <span className="text-red-500">*</span>
@@ -540,29 +539,8 @@ export const ProductsList: React.FC<ProductsListProps> = ({
                   />
                 </div>
               </div>
-            </form>
-
-            {/* Drawer Footer matching screenshot */}
-            <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setIsAddModalOpen(false)}
-                className="px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 text-sm font-medium hover:bg-gray-50 shadow-xs transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                form="product-drawer-form"
-                className="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium shadow-xs transition-colors"
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        </>,
-        document.body
-      )}
+        </form>
+      </Drawer>
     </div>
   );
 };

@@ -26,3 +26,23 @@
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.4);
 }
+
+/* Clean Puck 3-Column Grid Layout Override */
+div[class*="Puck"] div[class*="_grid_"],
+div[class*="Puck"] div[class*="grid_"],
+div[class*="Puck"] > div > div {
+  grid-template-columns: 240px minmax(0, 1fr) 360px !important;
+}
+
+div[class*="Puck"] [class*="sidebar"]:last-child,
+div[class*="Puck"] aside:last-child,
+[class*="Puck-sidebar"] {
+  width: 360px !important;
+  min-width: 360px !important;
+}
+
+
+
+
+
+
