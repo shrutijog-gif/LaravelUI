@@ -3,6 +3,11 @@
 ## Card Design System Architecture
 - Full specification documented in [design-system-for-cards.md](file:///d:/projects/LaravelUI/LaravelUI/doc/design-system-for-cards.md).
 
+## Admin Navigation & Header Toggle Defaults
+- **Black Bar Removal**: The top black preview switcher strip has been removed completely for a clean UI.
+- **Globe Icon Toggle (New Window)**: Clicking the **Globe icon** (`<Globe />`) in the Admin Header bar with title/tooltip (`Visit Website`) opens the Public Storefront website in a **new browser tab/window** (`window.open('?mode=storefront', '_blank')`). This allows administrators to keep working in the Admin Panel without losing context.
+- **Admin Default Module**: Navigating to Admin Panel defaults to opening the main **Dashboard** module (`activeModuleId: 'dashboard'`) with submenus collapsed.
+
 ## Testing Policy
 - For prototype features, do **NOT** run automated browser tests or subagent tests unless explicitly instructed by the user.
 - The user will perform browser testing manually and share screenshots for feedback and adjustments.

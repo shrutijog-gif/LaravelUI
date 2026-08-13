@@ -1,6 +1,11 @@
 # Workspace Rules
 
 - Full Design System Architecture specification documented in [design-system-for-cards.md](file:///d:/projects/LaravelUI/LaravelUI/doc/design-system-for-cards.md).
+- **Header Globe Icon Toggle & Black Bar Removal**:
+  - The top black preview strip has been removed completely.
+  - Clicking the **Globe icon** (`<Globe />`) in the Admin Header bar with title/tooltip (`Visit Website`) opens the Public Storefront website in a **new browser tab/window** (`window.open('?mode=storefront', '_blank')`).
+  - The Admin Panel stays open and active in the current tab so you never lose context or draft work.
+  - Navigating to Admin Panel defaults to opening the main **Dashboard** module (`activeModuleId: 'dashboard'`).
 - For prototype features, do **NOT** run automated browser tests or subagent tests unless explicitly instructed by the user.
 - The user handles browser testing manually and will share screenshots if feedback or adjustments are required.
 - **Core Data Benchmark**: **Title** + **Year** (mandatory) + **Uploaded File Link**. Optional fields like `branch` and `semester` auto-hide cleanly.

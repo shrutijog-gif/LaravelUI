@@ -7,6 +7,7 @@ interface StorefrontHeaderProps {
   onOpenCart: () => void;
   onGoHome: () => void;
   onViewAdminModule?: () => void;
+  onToggleViewMode?: () => void;
   currentView: 'home' | 'checkout' | 'success' | 'admin-orders';
 }
 
@@ -16,6 +17,7 @@ export const StorefrontHeader: React.FC<StorefrontHeaderProps> = ({
   onOpenCart,
   onGoHome,
   onViewAdminModule,
+  onToggleViewMode,
   currentView,
 }) => {
   return (
@@ -40,10 +42,16 @@ export const StorefrontHeader: React.FC<StorefrontHeaderProps> = ({
           </div>
 
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-1 text-xs text-green-200">
-              <Globe className="w-3.5 h-3.5" />
-              <span>Language: <strong>English / मराठी</strong></span>
-            </div>
+            {onToggleViewMode && (
+              <button
+                onClick={onToggleViewMode}
+                className="flex items-center gap-1.5 text-xs text-green-100 hover:text-white transition-colors cursor-pointer bg-emerald-800/60 hover:bg-emerald-800 px-2.5 py-1 rounded-md border border-emerald-600/40 shadow-2xs"
+                title="Return to Admin Dashboard"
+              >
+                <Globe className="w-3.5 h-3.5 text-emerald-300" />
+                <span>Return to <strong>Admin Dashboard</strong></span>
+              </button>
+            )}
             {onViewAdminModule && (
               <button
                 onClick={onViewAdminModule}

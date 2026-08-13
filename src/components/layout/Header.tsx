@@ -3,15 +3,15 @@ import { Menu, Globe } from 'lucide-react';
 
 interface HeaderProps {
   toggleSidebar: () => void;
+  onToggleViewMode?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
+export const Header: React.FC<HeaderProps> = ({ toggleSidebar, onToggleViewMode }) => {
   return (
     <header className="h-16 bg-white border-b border-gray-200 px-6 flex items-center justify-between sticky top-0 z-30 shadow-xs">
       {/* Left: College Emblem / Logo */}
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-full border border-blue-900/30 flex items-center justify-center p-1 bg-white shadow-xs">
-      
           <svg className="w-8 h-8 text-blue-900" viewBox="0 0 100 100" fill="currentColor">
             <circle cx="50" cy="50" r="46" fill="none" stroke="currentColor" strokeWidth="4" />
             <circle cx="50" cy="50" r="40" fill="none" stroke="currentColor" strokeWidth="1" strokeDasharray="3 2" />
@@ -34,10 +34,15 @@ export const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
         </button>
 
         <button 
-          className="p-1.5 hover:bg-gray-100 rounded-md text-gray-700 transition-colors cursor-pointer"
-          title="Language Selector"
+          type="button"
+          onClick={onToggleViewMode}
+          className="p-1.5 hover:bg-blue-50 rounded-md text-gray-700 hover:text-blue-600 transition-colors cursor-pointer relative group"
+          title="Visit Website"
         >
           <Globe className="w-5 h-5" />
+          <span className="absolute top-full mt-2 right-0 bg-gray-900 text-white text-[11px] font-semibold px-2.5 py-1 rounded shadow-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+            Visit Website
+          </span>
         </button>
 
         {/* User Avatar Circle "SJ" */}

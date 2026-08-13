@@ -8,10 +8,14 @@ import { ModulePlaceholder } from '../modules/ModulePlaceholder';
 import { TimetableAdmin } from '../modules/website/timetable/TimetableAdmin';
 import { PageAdmin } from '../modules/website/pages/PageAdmin';
 
-export const Layout: React.FC = () => {
+interface LayoutProps {
+  onToggleViewMode?: () => void;
+}
+
+export const Layout: React.FC<LayoutProps> = ({ onToggleViewMode }) => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [activeModuleId, setActiveModuleId] = useState('ecommerce-products');
-  const [activeModuleLabel, setActiveModuleLabel] = useState('List of Products');
+  const [activeModuleId, setActiveModuleId] = useState('dashboard');
+  const [activeModuleLabel, setActiveModuleLabel] = useState('Dashboard');
 
   const toggleSidebar = () => {
     setSidebarOpen(prev => !prev);
@@ -40,7 +44,7 @@ export const Layout: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col bg-[#f3f4f6]">
       {/* Top Navigation Header */}
-      <Header toggleSidebar={toggleSidebar} />
+      <Header toggleSidebar={toggleSidebar} onToggleViewMode={onToggleViewMode} />
 
       {/* Main Body Area (Sidebar + Content) */}
       <div className="flex-1 flex overflow-hidden">
