@@ -23,25 +23,13 @@ export const initialMenuItems: MenuItem[] = [
     icon: 'home',
   },
   {
-    id: 'ecommerce',
-    label: 'E-Commerce',
-    icon: 'shopping-bag',
-    children: [
-      { id: 'ecommerce-dashboard', label: 'Dashboard' },
-      { id: 'ecommerce-products', label: 'List of Products' },
-      { id: 'ecommerce-offers', label: 'Offers & Coupons' },
-      { id: 'ecommerce-categories', label: 'Categories' },
-      { id: 'ecommerce-orders', label: 'Orders' },
-    ],
-  },
-  {
     id: 'file-manager',
     label: 'File Manager',
     icon: 'circle',
   },
   {
     id: 'homepage',
-    label: 'Homepage',
+    label: 'Home Page',
     icon: 'circle',
     children: [
       { id: 'news-notices', label: 'News And Notices' },
@@ -76,8 +64,20 @@ export const initialMenuItems: MenuItem[] = [
     children: [],
   },
   {
+    id: 'ecommerce',
+    label: 'Ecommerce',
+    icon: 'shopping-bag',
+    children: [
+      { id: 'ecommerce-dashboard', label: 'Dashboard' },
+      { id: 'ecommerce-products', label: 'List of Products' },
+      { id: 'ecommerce-offers', label: 'Offers & Coupons' },
+      { id: 'ecommerce-categories', label: 'Categories' },
+      { id: 'ecommerce-orders', label: 'Orders' },
+    ],
+  },
+  {
     id: 'setup-config',
-    label: 'Setup / Config',
+    label: 'Setup/Config',
     icon: 'database',
     children: [],
   },

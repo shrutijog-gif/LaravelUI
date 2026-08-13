@@ -3,7 +3,17 @@
 ## Card Design System Architecture
 - Full specification documented in [design-system-for-cards.md](file:///d:/projects/LaravelUI/LaravelUI/doc/design-system-for-cards.md).
 
-## Admin Navigation & Header Toggle Defaults
+## Admin Navigation & Sidebar Menu Sequence
+- **Sidebar Menu Item Sequence**:
+  1. Dashboard
+  2. File Manager
+  3. Home Page
+  4. Website
+  5. Website Builder
+  6. Academics
+  7. Ecommerce
+  8. Setup/Config
+  9. Developers Area
 - **Black Bar Removal**: The top black preview switcher strip has been removed completely for a clean UI.
 - **Globe Icon Toggle (New Window)**: Clicking the **Globe icon** (`<Globe />`) in the Admin Header bar with title/tooltip (`Visit Website`) opens the Public Storefront website in a **new browser tab/window** (`window.open('?mode=storefront', '_blank')`). This allows administrators to keep working in the Admin Panel without losing context.
 - **Admin Default Module**: Navigating to Admin Panel defaults to opening the main **Dashboard** module (`activeModuleId: 'dashboard'`) with submenus collapsed.
@@ -30,7 +40,7 @@
 
 ## Puck Sidebar Expandable Boxed Controllers
 All property controls in Puck's right sidebar are grouped into **4 expandable boxed accordion controllers**, each featuring an outer border, gray header bar, and expand/collapse chevron:
-1. **Header Controller**: Expandable box containing `Title` input and `Description` textarea.
+1. **Block Header**: Expandable box containing `Title` input and `Description` textarea.
 2. **Style Controller**: Expandable box containing visual layout choices:
    - **`Select Style`**: Left label + right badge `[ STYLE-1 ]` (opens modal).
    - **`Cards Per Row`**: Left label + right dropdown badge `[ 3 Cards ▾ ]`.
@@ -42,7 +52,7 @@ All property controls in Puck's right sidebar are grouped into **4 expandable bo
    - **`Anchor Id`**: Left label + right inline input (`e.g. timetable-section`).
    - **`Css Class`**: Left label + right inline input (`e.g. custom-class`).
 - **Section Differentiation**: Standard section dividers are maintained between panels for clean visual separation.
-- **Label Consistency**: All gray header titles (`Header Controller`, `Style Controller`, `Content Controller`, `Advanced Controller`) use uniform Title Case formatting and `font-semibold text-xs text-gray-700` styling.
+- **Label Consistency**: All gray header titles (`Block Header`, `Style Controller`, `Content Controller`, `Advanced Controller`) use uniform Title Case formatting and `font-semibold text-xs text-gray-700` styling.
 
 ## Card Sizing & Robustness Guidelines
 - **Uniform Card Height**: All cards in grid views must maintain a consistent uniform height (`h-full`, `min-h-[180px]`) so cards align cleanly across rows.
