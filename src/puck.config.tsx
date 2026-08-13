@@ -45,7 +45,7 @@ export const config: Config<Props> = {
                   onClick={() => setIsExpanded(!isExpanded)}
                   className="w-full bg-gray-100 px-3 py-2 border-b border-gray-200 flex items-center justify-between hover:bg-gray-200/80 transition-colors text-left"
                 >
-                  <span className="text-xs font-semibold text-gray-700">Header Controller</span>
+                  <span className="text-xs font-semibold text-gray-700">Block Header</span>
                   <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
                 </button>
 

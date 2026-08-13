@@ -63,7 +63,7 @@ While card layout templates are shared, each module injects its own domain-speci
 
 Property controls in the Puck Builder right sidebar are organized into modular, expandable boxed accordion controllers:
 
-- 📦 **Header Controller**: Block Title & Description inputs.
+- 📦 **Block Header**: Block Title & Description inputs.
 - 🎨 **Style Controller**: Layout template selection (`Select Style` modal trigger) & Grid columns dropdown (`2`, `3`, `4` cards per row).
 - 🎛️ **Content Controller**: Show/hide checkboxes logically grouped into *Core Data Fields* (Name, Year, File Name, Branch, Semester) and *UI Elements* (Download button, Icon).
 - ⚙️ **Advanced Controller**: Anchor ID (`id="..."` for scroll links) and CSS Class (`className="..."`) inputs.

@@ -1,6 +1,16 @@
 # Workspace Rules
 
 - Full Design System Architecture specification documented in [design-system-for-cards.md](file:///d:/projects/LaravelUI/LaravelUI/doc/design-system-for-cards.md).
+- **Sidebar Menu Item Order**:
+  1. Dashboard
+  2. File Manager
+  3. Home Page
+  4. Website
+  5. Website Builder
+  6. Academics
+  7. Ecommerce
+  8. Setup/Config
+  9. Developers Area
 - **Header Globe Icon Toggle & Black Bar Removal**:
   - The top black preview strip has been removed completely.
   - Clicking the **Globe icon** (`<Globe />`) in the Admin Header bar with title/tooltip (`Visit Website`) opens the Public Storefront website in a **new browser tab/window** (`window.open('?mode=storefront', '_blank')`).
@@ -21,7 +31,7 @@
   - Clicking **`Save`** saves Puck page data to `localStorage` and shows a green success toast.
 - **Puck Sidebar UI Architecture**:
   - All sidebar settings are grouped into **4 expandable boxed accordion controllers** with outer border, gray header bar, and expand/collapse chevron:
-    - 📦 **Header Controller** (Title & Description)
+    - 📦 **Block Header** (Title & Description)
     - 🎨 **Style Controller** (`Select Style` & `Cards Per Row`)
     - 🎛️ **Content Controller** (Grouped data checkboxes + UI elements)
     - ⚙️ **Advanced Controller** (Collapsed by default: `Anchor Id` and `Css Class` inputs)
