@@ -4,6 +4,8 @@ import { ChevronDown } from 'lucide-react';
 import { TimetableBlock, TimetableBlockProps } from './components/storefront/blocks/TimetableBlock';
 import { StylePickerModal } from './components/builder/StylePickerModal';
 
+import { DynamicModuleBlock } from './components/storefront/blocks/DynamicModuleBlock';
+
 type Props = {
   HeadingBlock: { title: string };
   TimetableBlock: TimetableBlockProps & {
@@ -12,10 +14,43 @@ type Props = {
       description?: string;
     };
   };
+  DynamicStudioModule: {
+    moduleSlug: string;
+    titleOverride?: string;
+    descriptionOverride?: string;
+  };
 };
 
 export const config: Config<Props> = {
   components: {
+    DynamicStudioModule: {
+      label: 'Studio Module Block (Awards / Reports / Custom)',
+      fields: {
+        moduleSlug: {
+          type: 'select',
+          options: [
+            { label: 'Awards & Recognitions', value: 'awards' },
+            { label: 'Academic Timetables', value: 'timetables' },
+            { label: 'Examination Reports', value: 'reports' },
+            { label: 'Official Circulars', value: 'circulars' },
+          ],
+        },
+        titleOverride: { type: 'text' },
+        descriptionOverride: { type: 'text' },
+      },
+      defaultProps: {
+        moduleSlug: 'awards',
+        titleOverride: 'Awards & Recognitions',
+        descriptionOverride: 'Highlight institutional achievements and student excellence.',
+      },
+      render: ({ moduleSlug, titleOverride, descriptionOverride }) => (
+        <DynamicModuleBlock
+          moduleSlug={moduleSlug}
+          titleOverride={titleOverride}
+          descriptionOverride={descriptionOverride}
+        />
+      ),
+    },
     HeadingBlock: {
       fields: {
         title: { type: 'text' },

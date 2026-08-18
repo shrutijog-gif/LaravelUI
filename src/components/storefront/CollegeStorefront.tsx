@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { getActiveTenant, CollegeTenant, collegeTenantsList, setActiveTenantId } from '../../data/tenantData';
 import { TimetableBlock } from './blocks/TimetableBlock';
+import { DynamicModuleBlock } from './blocks/DynamicModuleBlock';
 
 interface CollegeStorefrontProps {
   onToggleViewMode?: () => void;
@@ -36,7 +37,13 @@ export const CollegeStorefront: React.FC<CollegeStorefrontProps> = ({ onToggleVi
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] flex flex-col font-sans text-gray-800">
+    <div className="min-h-screen bg-white text-gray-800 font-sans">
+      {/* Dynamic Storefront Section for Studio Modules */}
+      <div className="bg-amber-50/40 border-b border-amber-100 py-12 px-4 sm:px-8">
+        <div className="max-w-7xl mx-auto">
+          <DynamicModuleBlock moduleSlug="awards" titleOverride={`Institutional Awards & Honors (${tenant.name})`} />
+        </div>
+      </div>
       
       {/* 1. Top Utility Header Bar */}
       <div 

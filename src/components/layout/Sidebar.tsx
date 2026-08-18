@@ -10,11 +10,50 @@ import {
 } from 'lucide-react';
 import { MenuItem } from '../../types/navigation';
 
-interface SidebarProps {
+export interface SidebarProps {
   activeItem: string;
   onSelectMenuItem: (id: string, label: string) => void;
   isOpen: boolean;
+  portalRole?: 'superadmin' | 'collegeadmin';
 }
+
+export const superadminMenuItems: MenuItem[] = [
+  {
+    id: 'platform-overview',
+    label: 'Platform Dashboard',
+    icon: 'home',
+  },
+  {
+    id: 'module-studio',
+    label: 'Module Studio ⚡',
+    icon: 'database',
+  },
+  {
+    id: 'tenant-management',
+    label: 'Colleges & SaaS Tenants',
+    icon: 'circle',
+  },
+  {
+    id: 'global-notifications',
+    label: 'Notification Studio',
+    icon: 'circle',
+  },
+  {
+    id: 'schema-registry',
+    label: 'Global Schema Registry',
+    icon: 'circle',
+  },
+  {
+    id: 'user-roles',
+    label: 'User Roles & Access Control',
+    icon: 'circle',
+  },
+  {
+    id: 'platform-settings',
+    label: 'Platform Setup & Configuration',
+    icon: 'database',
+  },
+];
 
 export const initialMenuItems: MenuItem[] = [
   {
@@ -23,8 +62,8 @@ export const initialMenuItems: MenuItem[] = [
     icon: 'home',
   },
   {
-    id: 'file-manager',
-    label: 'File Manager',
+    id: 'content-manager',
+    label: 'Content Manager (Awards/Reports)',
     icon: 'circle',
   },
   {
@@ -43,9 +82,10 @@ export const initialMenuItems: MenuItem[] = [
     label: 'Website',
     icon: 'circle',
     children: [
+      { id: 'content-manager', label: 'Content Manager (Awards/Reports)' },
+      { id: 'website-timetable', label: 'Timetable' },
       { id: 'photo-gallery', label: 'Photo Gallery' },
       { id: 'admission-enquiry', label: 'Website Admission Enquiry Form' },
-      { id: 'website-timetable', label: 'Timetable' },
     ],
   },
   {
@@ -81,26 +121,24 @@ export const initialMenuItems: MenuItem[] = [
     icon: 'database',
     children: [],
   },
-  {
-    id: 'developers-area',
-    label: 'Developers Area',
-    icon: 'circle',
-    children: [],
-  },
 ];
 
 export const Sidebar: React.FC<SidebarProps> = ({ 
   activeItem, 
   onSelectMenuItem,
-  isOpen 
+  isOpen,
+  portalRole = 'superadmin'
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({
     ecommerce: false,
     homepage: false,
-    website: false,
+    website: true,
     'website-builder': false,
   });
+
+  const isSuperAdmin = portalRole === 'superadmin';
+  const menuList = isSuperAdmin ? superadminMenuItems : initialMenuItems;
 
   const toggleSubmenu = (id: string) => {
     setOpenSubmenus(prev => ({
@@ -109,7 +147,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }));
   };
 
-  const filteredMenuItems = initialMenuItems.filter(item => {
+  const filteredMenuItems = menuList.filter(item => {
     if (!searchQuery.trim()) return true;
     const query = searchQuery.toLowerCase();
     const matchesLabel = item.label.toLowerCase().includes(query);
@@ -121,11 +159,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <aside 
-      className={`bg-[#1d4ed8] text-white flex-shrink-0 flex flex-col transition-all duration-200 z-20 ${
+      className={`text-white flex-shrink-0 flex flex-col transition-all duration-300 z-20 ${
+        isSuperAdmin ? 'bg-[#0f172a] border-r border-amber-500/20' : 'bg-[#1d4ed8]'
+      } ${
         isOpen ? 'w-64' : 'w-0 overflow-hidden'
       }`}
       style={{ minHeight: 'calc(100vh - 4rem)' }}
     >
+
+
+      {/* Module Search Input */}
       {/* Module Search Input */}
       <div className="p-4">
         <div className="relative">

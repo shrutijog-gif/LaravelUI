@@ -167,3 +167,7 @@ export const setActiveTenantId = (tenantId: string) => {
   localStorage.setItem('active_tenant_id', tenantId);
   window.dispatchEvent(new Event('tenant-changed'));
 };
+
+export const getAllTenants = (): CollegeTenant[] => {
+  return collegeTenantsList;
+};
