@@ -20,46 +20,50 @@ export const DynamicModuleBlock: React.FC<DynamicModuleBlockProps> = ({
   isPreview = false,
 }) => {
   const activeTenant = getActiveTenant();
+  const targetSlug = passedTemplate ? passedTemplate.schema.slug : moduleSlug;
+
   const [template, setTemplate] = useState<StudioTemplate | undefined>(() => {
     if (passedTemplate) return passedTemplate;
     const templates = getStoredStudioTemplates();
-    return templates.find(t => t.schema.slug === moduleSlug) || templates[0];
+    return templates.find(t => t.schema.slug === targetSlug) || templates[0];
   });
 
   const [items, setItems] = useState<DynamicEntityItem[]>(() => {
-    if (passedTemplate) return passedTemplate.sampleItems;
-    return getStoredEntitiesBySlug(moduleSlug, activeTenant.id);
+    return getStoredEntitiesBySlug(targetSlug, activeTenant.id);
   });
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
   useEffect(() => {
-    if (passedTemplate) {
-      setTemplate(passedTemplate);
-      setItems(passedTemplate.sampleItems);
-      return;
-    }
-
-    const handleUpdate = () => {
+    const loadLatestData = () => {
       const templates = getStoredStudioTemplates();
-      const matched = templates.find(t => t.schema.slug === moduleSlug) || templates[0];
-      setTemplate(matched);
+      const matched = templates.find(t => t.schema.slug === targetSlug) || passedTemplate;
       if (matched) {
-        setItems(getStoredEntitiesBySlug(matched.schema.slug, activeTenant.id));
+        setTemplate(matched);
       }
+      const storedItems = getStoredEntitiesBySlug(targetSlug, activeTenant.id);
+      setItems(storedItems);
     };
 
-    window.addEventListener('studio-templates-updated', handleUpdate);
-    window.addEventListener('studio-data-updated', handleUpdate);
-    window.addEventListener('tenant-changed', handleUpdate);
+    loadLatestData();
+
+    window.addEventListener('studio-templates-updated', loadLatestData);
+    window.addEventListener('studio-data-updated', loadLatestData);
+    window.addEventListener('timetable-data-updated', loadLatestData);
+    window.addEventListener('storage', loadLatestData);
+    window.addEventListener(`studio-entities-updated-${targetSlug}`, loadLatestData);
+    window.addEventListener('tenant-changed', loadLatestData);
 
     return () => {
-      window.removeEventListener('studio-templates-updated', handleUpdate);
-      window.removeEventListener('studio-data-updated', handleUpdate);
-      window.removeEventListener('tenant-changed', handleUpdate);
+      window.removeEventListener('studio-templates-updated', loadLatestData);
+      window.removeEventListener('studio-data-updated', loadLatestData);
+      window.removeEventListener('timetable-data-updated', loadLatestData);
+      window.removeEventListener('storage', loadLatestData);
+      window.removeEventListener(`studio-entities-updated-${targetSlug}`, loadLatestData);
+      window.removeEventListener('tenant-changed', loadLatestData);
     };
-  }, [moduleSlug, passedTemplate, activeTenant.id]);
+  }, [targetSlug, passedTemplate, activeTenant.id]);
 
   if (!template) {
     return (
@@ -112,12 +116,6 @@ export const DynamicModuleBlock: React.FC<DynamicModuleBlockProps> = ({
       {displayConfig.showTitle && (
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-gray-200/80 pb-5">
           <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="bg-blue-100 text-blue-800 text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full tracking-wider">
-                {schema.category || 'Official Module'}
-              </span>
-              <span className="text-xs text-gray-400 font-mono">• {activeTenant.name}</span>
-            </div>
             <h3 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight">
               {headerTitle}
             </h3>

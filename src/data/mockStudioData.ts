@@ -1,5 +1,6 @@
 import { StudioTemplate, ModuleSchema, DynamicEntityItem } from '../types/moduleStudio';
 import { getActiveTenant } from './tenantData';
+import { getStoredTimetables } from './mockTimetableData';
 
 const STORAGE_KEY_TEMPLATES = 'laravel_ui_module_studio_templates';
 const STORAGE_KEY_ENTITIES_PREFIX = 'laravel_ui_module_studio_entities_';
@@ -98,11 +99,71 @@ export const INITIAL_STUDIO_TEMPLATES: StudioTemplate[] = [
       version: 'v1 (published)',
       iconName: 'Calendar',
       fields: [
-        { id: 'tf1', name: 'title', label: 'Timetable Name', type: 'text', required: true, showInCard: true, showInTable: true },
-        { id: 'tf2', name: 'year', label: 'Academic Year', type: 'text', required: true, showInCard: true, showInTable: true, badgeColor: 'blue' },
-        { id: 'tf3', name: 'branch', label: 'Branch / Stream', type: 'multiselect', showInCard: true, showInTable: true },
-        { id: 'tf4', name: 'semester', label: 'Semester', type: 'multiselect', showInCard: true, showInTable: true },
-        { id: 'tf5', name: 'fileUrl', label: 'Document PDF File', type: 'file_pdf', required: true, showInCard: true, showInTable: true },
+        { id: 'tf1', name: 'title', label: 'Timetable Name', type: 'text', required: true, showInCard: true, showInTable: true, placeholder: 'e.g. B.Tech Computer Science End Sem Exam' },
+        { 
+          id: 'tf2', 
+          name: 'year', 
+          label: 'Academic Year', 
+          type: 'select', 
+          required: true, 
+          showInCard: true, 
+          showInTable: true, 
+          badgeColor: 'blue',
+          options: [
+            { label: '2026-2027', value: '2026-2027' },
+            { label: '2025-2026', value: '2025-2026' },
+            { label: '2024-2025', value: '2024-2025' },
+          ]
+        },
+        { 
+          id: 'tf3', 
+          name: 'branch', 
+          label: 'Program / Branch', 
+          type: 'select', 
+          showInCard: true, 
+          showInTable: true,
+          options: [
+            { label: 'Computer Science', value: 'Computer Science' },
+            { label: 'Information Tech', value: 'Information Tech' },
+            { label: 'MSc Nutrition', value: 'MSc Nutrition' },
+            { label: 'Food Tech', value: 'Food Tech' },
+            { label: 'Commerce & Business', value: 'Commerce & Business' },
+            { label: 'Physics & Electronics', value: 'Physics & Electronics' },
+          ]
+        },
+        { 
+          id: 'tf4', 
+          name: 'semester', 
+          label: 'Semester', 
+          type: 'select', 
+          showInCard: true, 
+          showInTable: true,
+          options: [
+            { label: 'Semester 1 (Odd)', value: 'Sem 1' },
+            { label: 'Semester 2 (Even)', value: 'Sem 2' },
+            { label: 'Semester 3 (Odd)', value: 'Sem 3' },
+            { label: 'Semester 4 (Even)', value: 'Sem 4' },
+            { label: 'Semester 5 (Odd)', value: 'Sem 5' },
+            { label: 'Semester 6 (Even)', value: 'Sem 6' },
+            { label: 'Semester 7 (Odd)', value: 'Sem 7' },
+            { label: 'Semester 8 (Even)', value: 'Sem 8' },
+          ]
+        },
+        { 
+          id: 'tf5', 
+          name: 'section', 
+          label: 'Section', 
+          type: 'select', 
+          showInCard: true, 
+          showInTable: true,
+          options: [
+            { label: 'Section A', value: 'Section A' },
+            { label: 'Section B', value: 'Section B' },
+            { label: 'Section C', value: 'Section C' },
+            { label: 'All Sections', value: 'All Sections' },
+          ]
+        },
+        { id: 'tf6', name: 'fileUrl', label: 'Document PDF File', type: 'file_pdf', required: true, showInCard: true, showInTable: true },
       ],
       displayConfig: {
         defaultView: 'table',
@@ -229,16 +290,61 @@ export const getStoredEntitiesBySlug = (slug: string, tenantId?: string): Dynami
   try {
     const raw = localStorage.getItem(key);
     if (raw) {
-      return JSON.parse(raw);
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
     }
   } catch (e) {
     console.error(`Error reading entity items for ${slug}:`, e);
   }
 
+  // Also check without tenant suffix in case items were saved globally
+  try {
+    const globalRaw = localStorage.getItem(`${STORAGE_KEY_ENTITIES_PREFIX}${slug}`);
+    if (globalRaw) {
+      const parsedGlobal = JSON.parse(globalRaw);
+      if (Array.isArray(parsedGlobal) && parsedGlobal.length > 0) {
+        return parsedGlobal;
+      }
+    }
+  } catch (e) {}
+
+  // If timetables slug, bridge with timetables dataset
+  if (slug === 'timetables' || slug.includes('timetable') || slug.includes('time_table')) {
+    try {
+      const timetables = getStoredTimetables();
+      if (timetables && timetables.length > 0) {
+        return timetables.map(t => ({
+          id: t.id,
+          tenantId: targetTenantId,
+          moduleSlug: slug,
+          showOnWebsite: t.showOnWebsite !== false,
+          data: {
+            title: t.name,
+            year: t.year,
+            branch: t.branch,
+            semester: t.semester,
+            section: t.section,
+            fileUrl: t.fileUrl,
+            choose_file_filename: t.fileName,
+            file_pdf_filename: t.fileName,
+          },
+          createdAt: t.createdAt,
+          updatedAt: t.createdAt,
+        }));
+      }
+    } catch (e) {
+      console.error('Error bridging timetables in getStoredEntitiesBySlug:', e);
+    }
+  }
+
   // Fallback to sample items in initial template definition
   const template = getStoredStudioTemplates().find(t => t.schema.slug === slug);
-  if (template) {
-    return template.sampleItems.filter(item => !item.tenantId || item.tenantId === targetTenantId);
+  if (template && template.sampleItems) {
+    const tenantFiltered = template.sampleItems.filter(item => !item.tenantId || item.tenantId === targetTenantId);
+    if (tenantFiltered.length > 0) return tenantFiltered;
+    return template.sampleItems;
   }
   return [];
 };

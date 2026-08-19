@@ -107,7 +107,7 @@ export const Header: React.FC<HeaderProps> = ({
         <button
           onClick={() => {
             if (onSwitchPortalRole) onSwitchPortalRole('collegeadmin');
-            if (onSelectModule) onSelectModule('content-manager', 'Content Manager');
+            if (onSelectModule) onSelectModule('dashboard', 'Dashboard');
           }}
           className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
             !isSuperadmin

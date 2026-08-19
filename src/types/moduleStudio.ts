@@ -45,6 +45,12 @@ export interface DisplayBlockConfig {
   primaryActionLabel: string; // e.g., "Download PDF", "View Details", "Learn More"
 }
 
+export interface ModuleBehaviors {
+  enableNaacBinding?: boolean; // Bind to NAAC Criteria (1-7) & Key Indicators
+  enableWebsitePublishing?: boolean; // Toggles website storefront visibility
+  enableAuditTrail?: boolean; // Tracks modification history
+}
+
 export interface ModuleSchema {
   id: string;
   name: string; // e.g., "Awards & Honors", "Academic Timetables"
@@ -56,6 +62,7 @@ export interface ModuleSchema {
   iconName?: string; // Lucide icon name
   fields: FieldDefinition[];
   displayConfig: DisplayBlockConfig;
+  behaviors?: ModuleBehaviors;
   createdAt: string;
   updatedAt: string;
 }

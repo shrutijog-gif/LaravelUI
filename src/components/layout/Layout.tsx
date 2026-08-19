@@ -41,8 +41,8 @@ export const Layout: React.FC<LayoutProps> = ({ onToggleViewMode }) => {
       setActiveModuleId('module-studio');
       setActiveModuleLabel('Module Studio');
     } else {
-      setActiveModuleId('content-manager');
-      setActiveModuleLabel('Content Manager');
+      setActiveModuleId('dashboard');
+      setActiveModuleLabel('Dashboard');
     }
   };
 
@@ -91,6 +91,8 @@ export const Layout: React.FC<LayoutProps> = ({ onToggleViewMode }) => {
               <EcommerceContainer initialSubTab={getEcommerceSubTab()} />
             ) : activeModuleId.includes('studio') || activeModuleId === 'module-studio' ? (
               <ModuleStudio />
+            ) : activeModuleId.startsWith('module-') ? (
+              <DynamicEntityManager moduleSlug={activeModuleId.replace('module-', '')} />
             ) : activeModuleId.includes('content-manager') || activeModuleId === 'content-manager' ? (
               <DynamicEntityManager moduleSlug="awards" />
             ) : activeModuleId === 'website-timetable' ? (

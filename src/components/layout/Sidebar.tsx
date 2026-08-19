@@ -17,6 +17,8 @@ export interface SidebarProps {
   portalRole?: 'superadmin' | 'collegeadmin';
 }
 
+import { getStoredStudioTemplates } from '../../data/mockStudioData';
+
 export const superadminMenuItems: MenuItem[] = [
   {
     id: 'platform-overview',
@@ -55,73 +57,96 @@ export const superadminMenuItems: MenuItem[] = [
   },
 ];
 
-export const initialMenuItems: MenuItem[] = [
-  {
-    id: 'dashboard',
-    label: 'Dashboard',
-    icon: 'home',
-  },
-  {
-    id: 'content-manager',
-    label: 'Content Manager (Awards/Reports)',
-    icon: 'circle',
-  },
-  {
-    id: 'homepage',
-    label: 'Home Page',
-    icon: 'circle',
-    children: [
-      { id: 'news-notices', label: 'News And Notices' },
-      { id: 'dynamic-popup', label: 'Dynamic Popup' },
-      { id: 'home-slider', label: 'Home Slider' },
-      { id: 'testimonials', label: 'Testimonials' },
-    ],
-  },
-  {
-    id: 'website',
-    label: 'Website',
-    icon: 'circle',
-    children: [
-      { id: 'content-manager', label: 'Content Manager (Awards/Reports)' },
-      { id: 'website-timetable', label: 'Timetable' },
-      { id: 'photo-gallery', label: 'Photo Gallery' },
-      { id: 'admission-enquiry', label: 'Website Admission Enquiry Form' },
-    ],
-  },
-  {
-    id: 'website-builder',
-    label: 'Website Builder',
-    icon: 'circle',
-    children: [
-      { id: 'webpage', label: 'Webpage' },
-      { id: 'menu-builder', label: 'Menu Builder' },
-    ],
-  },
-  {
-    id: 'academics',
-    label: 'Academics',
-    icon: 'circle',
-    children: [],
-  },
-  {
-    id: 'ecommerce',
-    label: 'Ecommerce',
-    icon: 'shopping-bag',
-    children: [
-      { id: 'ecommerce-dashboard', label: 'Dashboard' },
-      { id: 'ecommerce-products', label: 'List of Products' },
-      { id: 'ecommerce-offers', label: 'Offers & Coupons' },
-      { id: 'ecommerce-categories', label: 'Categories' },
-      { id: 'ecommerce-orders', label: 'Orders' },
-    ],
-  },
-  {
-    id: 'setup-config',
-    label: 'Setup/Config',
-    icon: 'database',
-    children: [],
-  },
-];
+export const getCollegeAdminMenuItems = (): MenuItem[] => {
+  const templates = getStoredStudioTemplates();
+
+  const studioChildren = templates.map(t => ({
+    id: `module-${t.schema.slug}`,
+    label: t.schema.name || t.schema.slug,
+  }));
+
+  const defaultStudioChildren = [
+    { id: 'module-awards', label: 'Awards & Recognitions' },
+    { id: 'module-reports', label: 'Examination Reports' },
+  ];
+
+  const moduleChildren = studioChildren.length > 0 
+    ? Array.from(new Map(studioChildren.map(item => [item.id, item])).values())
+    : defaultStudioChildren;
+
+  const menu: MenuItem[] = [
+    {
+      id: 'dashboard',
+      label: 'Dashboard',
+      icon: 'home',
+    },
+    {
+      id: 'module-manager-group',
+      label: 'Module Manager ⚡',
+      icon: 'layers',
+      children: moduleChildren,
+    },
+    {
+      id: 'homepage',
+      label: 'Home Page',
+      icon: 'circle',
+      children: [
+        { id: 'news-notices', label: 'News And Notices' },
+        { id: 'dynamic-popup', label: 'Dynamic Popup' },
+        { id: 'home-slider', label: 'Home Slider' },
+        { id: 'testimonials', label: 'Testimonials' },
+      ],
+    },
+    {
+      id: 'website',
+      label: 'Website',
+      icon: 'circle',
+      children: [
+        { id: 'photo-gallery', label: 'Photo Gallery' },
+        { id: 'admission-enquiry', label: 'Website Admission Enquiry Form' },
+      ],
+    },
+    {
+      id: 'website-builder',
+      label: 'Website Builder',
+      icon: 'circle',
+      children: [
+        { id: 'webpage', label: 'Webpage' },
+        { id: 'menu-builder', label: 'Menu Builder' },
+      ],
+    },
+    {
+      id: 'academics',
+      label: 'Academics',
+      icon: 'circle',
+      children: [
+        { id: 'website-timetable', label: 'Timetables' },
+      ],
+    },
+    {
+      id: 'ecommerce',
+      label: 'Ecommerce',
+      icon: 'shopping-bag',
+      children: [
+        { id: 'ecommerce-dashboard', label: 'Dashboard' },
+        { id: 'ecommerce-products', label: 'List of Products' },
+        { id: 'ecommerce-offers', label: 'Offers & Coupons' },
+        { id: 'ecommerce-categories', label: 'Categories' },
+        { id: 'ecommerce-orders', label: 'Orders' },
+      ],
+    },
+    {
+      id: 'setup-config',
+      label: 'Setup/Config',
+      icon: 'database',
+      children: [],
+    },
+  ];
+
+  return menu;
+};
+
+export const initialMenuItems: MenuItem[] = getCollegeAdminMenuItems();
 
 export const Sidebar: React.FC<SidebarProps> = ({ 
   activeItem, 
@@ -131,14 +156,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({
+    'module-manager-group': true,
     ecommerce: false,
     homepage: false,
-    website: true,
+    website: false,
     'website-builder': false,
   });
 
   const isSuperAdmin = portalRole === 'superadmin';
-  const menuList = isSuperAdmin ? superadminMenuItems : initialMenuItems;
+  const menuList = isSuperAdmin ? superadminMenuItems : getCollegeAdminMenuItems();
 
   const toggleSubmenu = (id: string) => {
     setOpenSubmenus(prev => ({

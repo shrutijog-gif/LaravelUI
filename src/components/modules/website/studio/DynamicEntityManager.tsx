@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { StudioTemplate, DynamicEntityItem, FieldDefinition } from '../../../../types/moduleStudio';
 import { getStoredStudioTemplates, getStoredEntitiesBySlug, saveStoredEntitiesBySlug } from '../../../../data/mockStudioData';
 import { getActiveTenant } from '../../../../data/tenantData';
-import { Plus, Search, Trash2, Edit, Eye, EyeOff, Check, X, ShieldCheck, Download, Award, FileText, Layers } from 'lucide-react';
+import { naacCriteriaList } from '../../../../data/naacCriteriaData';
+import { Drawer } from '../../../common/Drawer';
+import { Plus, Search, Trash2, Edit, Eye, EyeOff, Check, X, ShieldCheck, Download, Award, FileText, Layers, Upload, ExternalLink } from 'lucide-react';
 
 interface DynamicEntityManagerProps {
   moduleSlug?: string;
@@ -24,6 +26,10 @@ export const DynamicEntityManager: React.FC<DynamicEntityManagerProps> = ({ modu
 
   // Form State
   const [formData, setFormData] = useState<Record<string, any>>({});
+
+  useEffect(() => {
+    setActiveSlug(moduleSlug);
+  }, [moduleSlug]);
 
   useEffect(() => {
     if (selectedTemplate) {
@@ -104,27 +110,14 @@ export const DynamicEntityManager: React.FC<DynamicEntityManagerProps> = ({ modu
     return Object.values(item.data).join(' ').toLowerCase().includes(query);
   });
 
+  // Filter to valid named modules only
+  const validTemplates = templates.filter(t => t.schema.name && t.schema.name.trim() !== '');
+
   return (
-    <div className="p-6 bg-gray-50 min-h-screen space-y-6">
+    <div className="space-y-6">
       {/* Clean Page Title Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-gray-900">{schema.name} Manager</h1>
-        {/* Dynamic Module Switcher Tabs */}
-        <div className="flex flex-wrap items-center gap-1.5 shrink-0 bg-gray-100 p-1 rounded-xl border border-gray-200">
-          {templates.map(t => (
-            <button
-              key={t.schema.id}
-              onClick={() => setActiveSlug(t.schema.slug)}
-              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                activeSlug === t.schema.slug
-                  ? 'bg-white text-blue-600 shadow-xs'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              {t.schema.name}
-            </button>
-          ))}
-        </div>
+        <h1 className="text-xl font-bold text-gray-900">{schema?.name || 'Module Manager'}</h1>
       </div>
 
       {/* Controls & Action Bar */}
@@ -144,7 +137,7 @@ export const DynamicEntityManager: React.FC<DynamicEntityManagerProps> = ({ modu
           onClick={handleOpenAddModal}
           className="inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all shadow-xs shrink-0"
         >
-          <Plus className="w-4 h-4" /> Add New Record
+          <Plus className="w-4 h-4" /> Add New
         </button>
       </div>
 
@@ -154,7 +147,6 @@ export const DynamicEntityManager: React.FC<DynamicEntityManagerProps> = ({ modu
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-gray-50 text-gray-700 text-xs font-bold uppercase border-b border-gray-200">
-                <th className="py-3.5 px-5">Status</th>
                 {schema.fields.map(f => (
                   <th key={f.id} className="py-3.5 px-4">{f.label}</th>
                 ))}
@@ -164,33 +156,29 @@ export const DynamicEntityManager: React.FC<DynamicEntityManagerProps> = ({ modu
             <tbody className="divide-y divide-gray-100 text-xs">
               {filteredItems.length === 0 ? (
                 <tr>
-                  <td colSpan={schema.fields.length + 2} className="py-12 text-center text-gray-400 font-medium">
-                    No records found for {schema.name}. Click "+ Add New Record" to create one.
+                  <td colSpan={schema.fields.length + 1} className="py-12 text-center text-gray-400 font-medium">
+                    No records found for {schema.name}. Click "+ Add New" to create one.
                   </td>
                 </tr>
               ) : (
                 filteredItems.map(item => (
                   <tr key={item.id} className="hover:bg-gray-50/80 transition-colors group">
-                    <td className="py-3.5 px-5 whitespace-nowrap">
-                      <button
-                        onClick={() => handleToggleVisibility(item.id)}
-                        className={`inline-flex items-center gap-1.5 font-bold px-2.5 py-1 rounded-full text-[11px] transition-colors ${
-                          item.showOnWebsite !== false
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
-                            : 'bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200'
-                        }`}
-                      >
-                        {item.showOnWebsite !== false ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
-                        {item.showOnWebsite !== false ? 'Published' : 'Hidden'}
-                      </button>
-                    </td>
-
                     {schema.fields.map(f => {
                       const val = item.data[f.name];
                       return (
                         <td key={f.id} className="py-3.5 px-4 max-w-xs truncate font-medium text-gray-800">
                           {f.type === 'image' && val ? (
                             <img src={val} alt="Thumbnail" className="w-10 h-10 object-cover rounded-lg border border-gray-200" />
+                          ) : f.type === 'file_pdf' && val ? (
+                            <a
+                              href={val}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg border border-blue-200 transition-colors"
+                            >
+                              <FileText className="w-3.5 h-3.5 text-blue-500" />
+                              <span>{item.data[`${f.name}_filename`] || 'View PDF'}</span>
+                            </a>
                           ) : f.type === 'badge' ? (
                             <span className="bg-blue-50 text-blue-700 font-bold px-2 py-0.5 rounded border border-blue-100">
                               {val}
@@ -226,33 +214,213 @@ export const DynamicEntityManager: React.FC<DynamicEntityManagerProps> = ({ modu
         </div>
       </div>
 
-      {/* Dynamic Add / Edit Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-gray-100 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-gray-100 pb-4 mb-5">
-              <div>
-                <h3 className="text-base font-extrabold text-gray-900">
-                  {editingItem ? `Edit ${schema.name} Entry` : `Add New ${schema.name} Entry`}
-                </h3>
-                <p className="text-xs text-gray-500 font-mono">Module: {schema.slug} • {activeTenant.name}</p>
-              </div>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="p-1 text-gray-400 hover:text-gray-700 rounded-lg"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+      {/* Dynamic Add / Edit Slide-Over Drawer */}
+      <Drawer
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title={editingItem ? `Edit ${schema.name} Entry` : `Add New ${schema.name} Entry`}
+        maxWidth="max-w-xl"
+        footer={
+          <div className="flex items-center justify-end gap-2 w-full">
+            <button
+              type="button"
+              onClick={() => setIsModalOpen(false)}
+              className="text-xs font-semibold px-4 py-2 text-gray-600 hover:bg-gray-200 rounded-xl cursor-pointer transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const formEl = document.getElementById('dynamic-entity-form') as HTMLFormElement | null;
+                if (formEl) formEl.requestSubmit();
+              }}
+              className="text-xs font-bold px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-xs transition-colors cursor-pointer"
+            >
+              Save
+            </button>
+          </div>
+        }
+      >
+        <div className="p-6">
+          <form id="dynamic-entity-form" onSubmit={handleSaveItem} className="space-y-4">
+            {schema.fields.map(field => {
+              const getOptions = (): { label: string; value: string }[] => {
+                if (field.options && field.options.length > 0) return field.options;
+                const lname = (field.name + ' ' + field.label).toLowerCase();
+                if (lname.includes('year')) {
+                  return [
+                    { label: '2026-2027', value: '2026-2027' },
+                    { label: '2025-2026', value: '2025-2026' },
+                    { label: '2024-2025', value: '2024-2025' },
+                  ];
+                }
+                if (lname.includes('sem')) {
+                  return [
+                    { label: 'Sem 1', value: 'Sem 1' },
+                    { label: 'Sem 2', value: 'Sem 2' },
+                    { label: 'Sem 3', value: 'Sem 3' },
+                    { label: 'Sem 4', value: 'Sem 4' },
+                    { label: 'Sem 5', value: 'Sem 5' },
+                    { label: 'Sem 6', value: 'Sem 6' },
+                    { label: 'Sem 7', value: 'Sem 7' },
+                    { label: 'Sem 8', value: 'Sem 8' },
+                  ];
+                }
+                if (lname.includes('branch') || lname.includes('program') || lname.includes('stream')) {
+                  return [
+                    { label: 'Computer Science', value: 'Computer Science' },
+                    { label: 'Information Tech', value: 'Information Tech' },
+                    { label: 'MSc Nutrition', value: 'MSc Nutrition' },
+                    { label: 'Food Tech', value: 'Food Tech' },
+                    { label: 'Commerce & Business', value: 'Commerce & Business' },
+                  ];
+                }
+                if (lname.includes('section')) {
+                  return [
+                    { label: 'Section A', value: 'Section A' },
+                    { label: 'Section B', value: 'Section B' },
+                    { label: 'Section C', value: 'Section C' },
+                    { label: 'All Sections', value: 'All Sections' },
+                  ];
+                }
+                if (lname.includes('category')) {
+                  return [
+                    { label: 'Academic', value: 'Academic' },
+                    { label: 'Recognition', value: 'Recognition' },
+                    { label: 'Research', value: 'Research' },
+                  ];
+                }
+                return [
+                  { label: 'Option 1', value: 'Option 1' },
+                  { label: 'Option 2', value: 'Option 2' },
+                  { label: 'Option 3', value: 'Option 3' },
+                ];
+              };
 
-            <form onSubmit={handleSaveItem} className="space-y-4">
-              {schema.fields.map(field => (
+              const fieldOptions = getOptions();
+
+              return (
                 <div key={field.id}>
                   <label className="block text-xs font-bold text-gray-700 mb-1">
                     {field.label} {field.required && <span className="text-red-500">*</span>}
                   </label>
 
-                  {field.type === 'textarea' ? (
+                  {field.type === 'select' || field.type === 'badge' ? (
+                    <select
+                      value={formData[field.name] || ''}
+                      onChange={e => setFormData({ ...formData, [field.name]: e.target.value })}
+                      className="w-full text-xs px-3 py-2 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    >
+                      <option value="">{field.placeholder || `-- Select ${field.label} --`}</option>
+                      {fieldOptions.map((opt, idx) => (
+                        <option key={idx} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  ) : field.type === 'multiselect' ? (
+                    <div className="flex flex-wrap gap-1.5 p-2 bg-gray-50 border border-gray-200 rounded-xl">
+                      {fieldOptions.map((opt, idx) => {
+                        const currentVals: string[] = Array.isArray(formData[field.name])
+                          ? formData[field.name]
+                          : formData[field.name] ? [formData[field.name]] : [];
+                        const isSelected = currentVals.includes(opt.value);
+                        return (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => {
+                              const newVals = isSelected
+                                ? currentVals.filter(v => v !== opt.value)
+                                : [...currentVals, opt.value];
+                              setFormData({ ...formData, [field.name]: newVals });
+                            }}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all border cursor-pointer ${
+                              isSelected
+                                ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
+                                : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
+                            }`}
+                          >
+                            {isSelected ? '✓ ' : '+ '} {opt.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : field.type === 'file_pdf' ? (
+                    <div className="flex items-center w-full bg-white border border-gray-300 rounded-xl overflow-hidden shadow-2xs focus-within:ring-2 focus-within:ring-blue-500">
+                      <label className="px-4 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 text-xs font-bold border-r border-gray-300 cursor-pointer shrink-0 transition-colors">
+                        Choose File
+                        <input
+                          type="file"
+                          accept=".pdf,application/pdf"
+                          className="hidden"
+                          onChange={e => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onload = (evt) => {
+                                setFormData({
+                                  ...formData,
+                                  [field.name]: evt.target?.result as string,
+                                  [`${field.name}_filename`]: file.name,
+                                });
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                        />
+                      </label>
+                      <span className="px-3 text-xs text-gray-500 truncate flex-1 font-sans">
+                        {formData[`${field.name}_filename`] || (formData[field.name] ? 'PDF File Attached' : 'No file chosen')}
+                      </span>
+                      {formData[field.name] && (
+                        <a
+                          href={formData[field.name]}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mr-2 px-2.5 py-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 shrink-0"
+                        >
+                          View PDF
+                        </a>
+                      )}
+                    </div>
+                  ) : field.type === 'image' ? (
+                    <div className="flex items-center w-full bg-white border border-gray-300 rounded-xl overflow-hidden shadow-2xs focus-within:ring-2 focus-within:ring-blue-500">
+                      <label className="px-4 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 text-xs font-bold border-r border-gray-300 cursor-pointer shrink-0 transition-colors">
+                        Choose File
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={e => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onload = (evt) => {
+                                setFormData({
+                                  ...formData,
+                                  [field.name]: evt.target?.result as string,
+                                  [`${field.name}_filename`]: file.name,
+                                });
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                        />
+                      </label>
+                      <span className="px-3 text-xs text-gray-500 truncate flex-1 font-sans">
+                        {formData[`${field.name}_filename`] || (formData[field.name] ? 'Image Attached' : 'No file chosen')}
+                      </span>
+                      {formData[field.name] && (
+                        <img
+                          src={formData[field.name]}
+                          alt="Preview"
+                          className="w-7 h-7 object-cover rounded-md border border-gray-200 mr-2 shrink-0"
+                        />
+                      )}
+                    </div>
+                  ) : field.type === 'textarea' ? (
                     <textarea
                       rows={3}
                       value={formData[field.name] || ''}
@@ -285,27 +453,11 @@ export const DynamicEntityManager: React.FC<DynamicEntityManagerProps> = ({ modu
                     />
                   )}
                 </div>
-              ))}
-
-              <div className="pt-4 border-t border-gray-100 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="text-xs font-semibold px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-xl"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="text-xs font-bold px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-xs transition-colors"
-                >
-                  {editingItem ? 'Save Changes' : 'Create Record'}
-                </button>
-              </div>
-            </form>
-          </div>
+              );
+            })}
+          </form>
         </div>
-      )}
+      </Drawer>
     </div>
   );
 };

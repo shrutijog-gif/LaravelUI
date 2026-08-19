@@ -5,66 +5,108 @@ import { TimetableBlock, TimetableBlockProps } from './components/storefront/blo
 import { StylePickerModal } from './components/builder/StylePickerModal';
 
 import { DynamicModuleBlock } from './components/storefront/blocks/DynamicModuleBlock';
+import { getStoredStudioTemplates } from './data/mockStudioData';
 
-type Props = {
-  HeadingBlock: { title: string };
-  TimetableBlock: TimetableBlockProps & {
-    headerConfig?: {
-      title?: string;
-      description?: string;
-    };
-  };
-  DynamicStudioModule: {
-    moduleSlug: string;
-    titleOverride?: string;
-    descriptionOverride?: string;
-  };
-};
+type Props = Record<string, any>;
 
-export const config: Config<Props> = {
-  components: {
-    DynamicStudioModule: {
-      label: 'Studio Module Block (Awards / Reports / Custom)',
+export const getDynamicPuckConfig = (): Config<Props> => {
+  const templates = getStoredStudioTemplates();
+
+  const moduleOptions = templates.map(t => ({
+    label: `${t.schema.name || 'Untitled'} (${t.schema.slug})`,
+    value: t.schema.slug,
+  }));
+
+  // Build dynamic component definitions for every module created in Module Studio / College Admin
+  const dynamicModuleComponents: Record<string, any> = {};
+
+  const studioComponentKeys = templates.map(t => {
+    const slug = t.schema.slug;
+    const componentKey = `Studio_${slug.replace(/[^a-zA-Z0-9_]/g, '_')}`;
+    const iconPrefix = slug === 'awards' ? '🏆 ' : slug === 'timetables' ? '📅 ' : slug === 'reports' ? '📄 ' : '⚡ ';
+
+    dynamicModuleComponents[componentKey] = {
+      label: `${iconPrefix}${t.schema.name || slug}`,
       fields: {
-        moduleSlug: {
-          type: 'select',
-          options: [
-            { label: 'Awards & Recognitions', value: 'awards' },
-            { label: 'Academic Timetables', value: 'timetables' },
-            { label: 'Examination Reports', value: 'reports' },
-            { label: 'Official Circulars', value: 'circulars' },
-          ],
+        titleOverride: { 
+          type: 'text',
+          label: 'Block Title (Optional)'
         },
-        titleOverride: { type: 'text' },
-        descriptionOverride: { type: 'text' },
+        descriptionOverride: { 
+          type: 'textarea',
+          label: 'Block Description (Optional)'
+        },
       },
       defaultProps: {
-        moduleSlug: 'awards',
-        titleOverride: 'Awards & Recognitions',
-        descriptionOverride: 'Highlight institutional achievements and student excellence.',
+        titleOverride: t.schema.name,
+        descriptionOverride: t.schema.description,
       },
-      render: ({ moduleSlug, titleOverride, descriptionOverride }) => (
+      render: ({ titleOverride, descriptionOverride }: any) => (
         <DynamicModuleBlock
-          moduleSlug={moduleSlug}
+          moduleSlug={slug}
+          template={t}
           titleOverride={titleOverride}
           descriptionOverride={descriptionOverride}
         />
       ),
-    },
-    HeadingBlock: {
-      fields: {
-        title: { type: 'text' },
+    };
+
+    return componentKey;
+  });
+
+  return {
+    categories: {
+      '⚡ Module Studio': {
+        components: [...studioComponentKeys, 'DynamicStudioModule'],
       },
-      defaultProps: {
-        title: 'Heading',
+      '📝 General Components': {
+        components: ['HeadingBlock', 'TimetableBlock'],
       },
-      render: ({ title }) => (
-        <div style={{ padding: 64 }}>
-          <h1>{title}</h1>
-        </div>
-      ),
     },
-    TimetableBlock: {
+    components: {
+      ...dynamicModuleComponents,
+      DynamicStudioModule: {
+        label: '🧩 Generic Module Selector',
+        fields: {
+          moduleSlug: {
+            type: 'select',
+            options: moduleOptions.length > 0 ? moduleOptions : [
+              { label: 'Awards & Recognitions', value: 'awards' },
+              { label: 'Academic Timetables', value: 'timetables' },
+              { label: 'Examination Reports', value: 'reports' },
+            ],
+          },
+          titleOverride: { type: 'text' },
+          descriptionOverride: { type: 'text' },
+        },
+        defaultProps: {
+          moduleSlug: moduleOptions[0]?.value || 'awards',
+          titleOverride: '',
+          descriptionOverride: '',
+        },
+        render: ({ moduleSlug, titleOverride, descriptionOverride }: any) => (
+          <DynamicModuleBlock
+            moduleSlug={moduleSlug}
+            titleOverride={titleOverride}
+            descriptionOverride={descriptionOverride}
+          />
+        ),
+      },
+      HeadingBlock: {
+        label: '📝 Title Heading',
+        fields: {
+          title: { type: 'text' },
+        },
+        defaultProps: {
+          title: 'Heading Section',
+        },
+        render: ({ title }: any) => (
+          <div style={{ padding: '32px 0' }}>
+            <h2 className="text-2xl font-extrabold text-gray-900">{title}</h2>
+          </div>
+        ),
+      },
+      TimetableBlock: {
       label: 'Timetables',
       fields: {
         /* 1. Header Controller Box */
@@ -341,3 +383,6 @@ export const config: Config<Props> = {
     },
   },
 };
+};
+
+export const config = getDynamicPuckConfig();

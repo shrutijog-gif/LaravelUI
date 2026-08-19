@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Puck, Render, usePuck } from '@measured/puck';
 import '@measured/puck/puck.css';
-import { config } from '../../puck.config';
+import { config, getDynamicPuckConfig } from '../../puck.config';
 import { History, ChevronDown, X, Eye, CheckCircle } from 'lucide-react';
 
 const STORAGE_KEY = 'puck_saved_page_data';
@@ -94,6 +94,8 @@ export const PuckEditor: React.FC<PuckEditorProps> = ({ onBack, pageName = 'Page
   const [previewData, setPreviewData] = useState<any>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
+  const dynamicConfig = getDynamicPuckConfig ? getDynamicPuckConfig() : config;
+
   const handleOpenPreview = (data: any) => {
     setPreviewData(data);
     setIsPreviewOpen(true);
@@ -102,7 +104,7 @@ export const PuckEditor: React.FC<PuckEditorProps> = ({ onBack, pageName = 'Page
   return (
     <div className="h-screen w-full relative">
       <Puck 
-        config={config} 
+        config={dynamicConfig} 
         data={initialData} 
         overrides={{
           headerActions: () => (
@@ -140,7 +142,7 @@ export const PuckEditor: React.FC<PuckEditorProps> = ({ onBack, pageName = 'Page
           {/* Render Actual Live Website Page */}
           <div className="flex-1 overflow-y-auto bg-gray-50 py-8 px-4 sm:px-8">
             <div className="max-w-7xl mx-auto bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden min-h-[650px] p-6 sm:p-10">
-              <Render config={config} data={previewData || initialData} />
+              <Render config={dynamicConfig} data={previewData || initialData} />
             </div>
           </div>
         </div>
