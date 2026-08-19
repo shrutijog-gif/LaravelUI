@@ -9,6 +9,12 @@ export interface DynamicModuleBlockProps {
   template?: StudioTemplate;
   titleOverride?: string;
   descriptionOverride?: string;
+  headerAlign?: 'left' | 'center' | 'right';
+  cardStyle?: 'style-1' | 'style-2' | 'style-3' | 'style-4' | 'table-1' | 'table-2' | 'table-3';
+  columns?: 2 | 3 | 4;
+  className?: string;
+  anchorId?: string;
+  showFields?: Record<string, boolean>;
   isPreview?: boolean;
 }
 
@@ -17,6 +23,12 @@ export const DynamicModuleBlock: React.FC<DynamicModuleBlockProps> = ({
   template: passedTemplate,
   titleOverride,
   descriptionOverride,
+  headerAlign = 'center',
+  cardStyle,
+  columns = 3,
+  className = '',
+  anchorId = '',
+  showFields,
   isPreview = false,
 }) => {
   const activeTenant = getActiveTenant();
@@ -34,6 +46,7 @@ export const DynamicModuleBlock: React.FC<DynamicModuleBlockProps> = ({
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     const loadLatestData = () => {
@@ -73,79 +86,118 @@ export const DynamicModuleBlock: React.FC<DynamicModuleBlockProps> = ({
     );
   }
 
-  const { schema } = template;
-  const { displayConfig, fields } = schema;
+  const schema = template?.schema || { name: '', description: '', slug: '', fields: [], displayConfig: {} };
+  const fields = schema.fields || [];
+  const displayConfig = schema.displayConfig || {};
 
   const headerTitle = titleOverride || schema.name;
   const headerDescription = descriptionOverride || schema.description;
 
+  // Detect filterable field (category, branch, department, or type)
+  const filterField = fields.find((f: any) => f.name === 'category' || f.name === 'branch' || f.name === 'department' || f.name === 'type');
+  const filterKey = filterField?.name || 'category';
+  const filterLabel = filterField ? filterField.label : 'Category';
+
+  // Extract unique filter values dynamically from actual items
+  const categories = Array.from(
+    new Set(
+      (items || []).flatMap(item => {
+        if (!item || !item.data) return [];
+        const val = item.data[filterKey];
+        if (!val) return [];
+        return Array.isArray(val) ? val : [String(val)];
+      }).filter(Boolean)
+    )
+  );
+
   // Filter items
-  const filteredItems = items.filter(item => {
+  const filteredItems = (items || []).filter(item => {
+    if (!item) return false;
     if (item.showOnWebsite === false) return false;
 
     // Search query check
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      const dataValues = Object.values(item.data).join(' ').toLowerCase();
+      const dataValues = item.data ? Object.values(item.data).join(' ').toLowerCase() : '';
       if (!dataValues.includes(query)) return false;
     }
 
-    // Category filter check
-    if (selectedCategory !== 'all' && item.data.category !== selectedCategory) {
-      return false;
+    // Category / Branch filter check
+    if (selectedCategory !== 'all') {
+      const val = item.data ? item.data[filterKey] : undefined;
+      if (Array.isArray(val)) {
+        if (!val.includes(selectedCategory)) return false;
+      } else if (String(val) !== selectedCategory) {
+        return false;
+      }
     }
 
     return true;
   });
 
-  // Extract unique categories for filter
-  const categories = Array.from(
-    new Set(items.map(item => item.data.category).filter(Boolean))
-  );
+  // Pagination setup
+  const itemsPerPage = 6;
+  const shouldShowPagination = showFields?.pagination === true;
+  const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
+
+  const displayedItems = shouldShowPagination
+    ? filteredItems.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+    : filteredItems;
 
   const getValidUrl = (url?: string) => {
     if (url && url.trim() !== '' && url !== '#') return url;
     return 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf';
   };
 
-  const isTableView = displayConfig.defaultView === 'table';
+  const activeStyle = cardStyle || displayConfig.cardStyle || 'style-1';
+  const isTableView = activeStyle.startsWith('table-');
+  const gridColsClass = columns === 2 ? 'grid-cols-1 sm:grid-cols-2' : columns === 4 ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3';
+
+  const shouldShowSearch = showFields?.search === true;
+  const shouldShowCategoryFilter = showFields?.categoryFilter === true && categories.length > 0;
+
+  const textAlignClass = headerAlign === 'center' ? 'text-center' : headerAlign === 'right' ? 'text-right' : 'text-left';
 
   return (
-    <div className="w-full space-y-6">
-      {/* Block Header */}
-      {displayConfig.showTitle && (
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-gray-200/80 pb-5">
-          <div>
-            <h3 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight">
-              {headerTitle}
-            </h3>
-            <p className="text-sm text-gray-600 mt-1 max-w-2xl">
+    <div id={anchorId || undefined} className={`w-full space-y-6 ${className}`}>
+      {/* 1. Block Header Group (Title & Description) */}
+      {displayConfig.showTitle !== false && (headerTitle || headerDescription) && (
+        <div className={`w-full ${headerAlign === 'center' ? 'text-center' : headerAlign === 'right' ? 'text-right' : 'text-left'}`}>
+          <h3 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight">
+            {headerTitle}
+          </h3>
+          {headerDescription && (
+            <p className={`text-sm text-gray-600 mt-1 ${headerAlign === 'center' ? 'mx-auto max-w-2xl' : headerAlign === 'right' ? 'ms-auto max-w-2xl' : 'max-w-2xl'}`}>
               {headerDescription}
             </p>
-          </div>
+          )}
+        </div>
+      )}
 
-          {/* Search & Category Filter Controls */}
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
-            {displayConfig.showSearch && (
+      {/* 2. Block Features Group (Search Bar & Category Filter Toolbar) */}
+      {(shouldShowSearch || shouldShowCategoryFilter) && (
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200/80 pb-4">
+          <div className="flex flex-wrap items-center gap-2.5 ms-auto">
+            {shouldShowSearch && (
               <div className="relative">
                 <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
-                  placeholder="Search..."
+                  placeholder="Search records..."
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
-                  className="pl-9 pr-3 py-1.5 text-xs bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none w-44"
+                  className="pl-9 pr-3 py-1.5 text-xs bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none w-52 shadow-2xs"
                 />
               </div>
             )}
 
-            {displayConfig.showCategoryFilter && categories.length > 0 && (
+            {shouldShowCategoryFilter && (
               <select
                 value={selectedCategory}
                 onChange={e => setSelectedCategory(e.target.value)}
-                className="py-1.5 px-3 text-xs bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                className="py-1.5 px-3 text-xs bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none shadow-2xs text-gray-700 font-medium"
               >
-                <option value="all">All Categories ({items.length})</option>
+                <option value="all">All {filterLabel}s ({categories.length})</option>
                 {categories.map(cat => (
                   <option key={cat} value={cat}>{cat}</option>
                 ))}
@@ -165,112 +217,247 @@ export const DynamicModuleBlock: React.FC<DynamicModuleBlockProps> = ({
 
       {/* Card View Rendering */}
       {!isTableView && filteredItems.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredItems.map(item => {
-            const cardFields = fields.filter(f => f.showInCard !== false);
+        <div className={`grid ${gridColsClass} gap-6`}>
+          {displayedItems.map(item => {
+            const cardFields = fields.filter(f => f.showInCard !== false && (showFields ? showFields[f.name] !== false : true));
             const imageField = fields.find(f => f.type === 'image');
-            const imageUrl = imageField ? item.data[imageField.name] : null;
-            const pdfField = fields.find(f => f.type === 'file_pdf');
+            const itemData = item?.data || {};
+            const imageUrl = imageField ? itemData[imageField.name] : null;
+            const pdfField = fields.find(f => f.type === 'file_pdf') || fields.find(f => f.name.toLowerCase().includes('file'));
+            const fileUrl = getValidUrl(pdfField ? itemData[pdfField.name] : '#');
+            const titleVal = itemData.title || itemData.name || itemData.recipient || 'Untitled Record';
+            const yearVal = itemData.year;
+            const showDownload = showFields ? showFields.download !== false : true;
+            const showIcon = showFields ? showFields.icon !== false : true;
 
-            return (
-              <div
-                key={item.id}
-                className={`group bg-white rounded-2xl border transition-all duration-300 hover:shadow-xl hover:-translate-y-1 overflow-hidden flex flex-col justify-between ${
-                  displayConfig.cardStyle === 'style-2'
-                    ? 'border-gray-200 hover:border-blue-400 p-5'
-                    : displayConfig.cardStyle === 'style-3'
-                    ? 'border-indigo-100 shadow-sm'
-                    : 'border-gray-200 shadow-xs hover:border-blue-300 p-5'
-                }`}
-              >
-                <div>
-                  {/* Style 3 Top Gradient Banner */}
-                  {displayConfig.cardStyle === 'style-3' && (
-                    <div className="h-2 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600" />
-                  )}
-
-                  {/* Photo / Image Header if present */}
-                  {imageUrl && displayConfig.cardStyle !== 'style-2' && (
-                    <div className="relative h-44 -mx-5 -mt-5 mb-4 overflow-hidden bg-gray-100">
-                      <img
-                        src={imageUrl}
-                        alt={item.data.title || 'Module Item'}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                        onError={(e) => {
-                          (e.target as HTMLElement).style.display = 'none';
-                        }}
-                      />
-                      {item.data.category && (
-                        <span className="absolute top-3 left-3 bg-gray-900/80 backdrop-blur-xs text-white text-[10px] font-bold px-2.5 py-1 rounded-full border border-white/20">
-                          {item.data.category}
-                        </span>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Header Title & Badges */}
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <h4 className="font-bold text-gray-900 text-lg group-hover:text-blue-600 transition-colors leading-snug">
-                      {item.data.title || item.data.name || 'Untitled Record'}
-                    </h4>
-                    {item.data.year && (
-                      <span className="bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold px-2.5 py-0.5 rounded-full shrink-0 shadow-2xs">
-                        {item.data.year}
+            /* STYLE 4: Dual-Pane Split Card */
+            if (activeStyle === 'style-4') {
+              return (
+                <a
+                  key={item.id}
+                  href={fileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-xl hover:border-blue-300 transition-all overflow-hidden flex flex-col sm:flex-row group h-full min-h-[160px] w-full cursor-pointer"
+                >
+                  {/* Left Gradient Accent Block */}
+                  <div className="bg-gradient-to-br from-blue-600 via-indigo-600 to-blue-700 text-white p-4 flex sm:flex-col justify-between items-center sm:items-start shrink-0 w-full sm:w-36">
+                    {showIcon && (
+                      <div className="bg-white/20 p-2.5 rounded-xl backdrop-blur-sm border border-white/20 shadow-xs">
+                        <FileText className="w-5 h-5 text-white" />
+                      </div>
+                    )}
+                    {yearVal && (showFields ? showFields.year !== false : true) && (
+                      <span className="bg-white/20 backdrop-blur-md text-white text-xs font-bold px-2.5 py-0.5 rounded-full border border-white/30">
+                        {yearVal}
                       </span>
                     )}
                   </div>
 
-                  {/* Dynamic Field Key-Value Badges */}
-                  <div className="space-y-2 text-xs text-gray-600 mt-3">
-                    {cardFields.map(f => {
-                      if (f.name === 'title' || f.type === 'image') return null;
-                      const val = item.data[f.name];
-                      if (val === undefined || val === null || val === '') return null;
+                  {/* Right Content Block */}
+                  <div className="p-5 flex-1 flex flex-col justify-between bg-white min-w-0">
+                    <div className="space-y-2">
+                      <h3 className="font-bold text-gray-900 text-base leading-snug group-hover:text-blue-600 transition-colors">
+                        {titleVal}
+                      </h3>
+                      
+                      <div className="space-y-1 text-xs text-gray-500">
+                        {cardFields.map(f => {
+                          const isFileField = f.type === 'file_pdf' || f.name === 'choose_file' || f.name.toLowerCase().includes('file');
+                          if (f.name === 'title' || f.type === 'image' || f.name === 'year' || f.name === 'academic_year' || isFileField) return null;
+                          const val = itemData[f.name];
+                          if (!val) return null;
+                          return (
+                            <div key={f.id} className="truncate">
+                              <span className="font-semibold text-gray-700">{f.label}:</span>{' '}
+                              <span>{Array.isArray(val) ? val.join(', ') : String(val)}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
 
-                      if (f.type === 'badge') {
+                    {showDownload && (
+                      <div className="pt-3 flex justify-end">
+                        <span className="inline-flex items-center gap-1 bg-gray-900 group-hover:bg-blue-600 text-white text-xs font-bold px-3.5 py-1.5 rounded-lg transition-colors shadow-2xs">
+                          View Document <ArrowUpRight className="w-3.5 h-3.5" />
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </a>
+              );
+            }
+
+            /* STYLE 3: Modern Gradient Banner Card */
+            if (activeStyle === 'style-3') {
+              return (
+                <a
+                  key={item.id}
+                  href={fileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-xl hover:border-blue-300 transition-all overflow-hidden flex flex-col justify-between group h-full min-h-[180px] cursor-pointer"
+                >
+                  {/* Gradient Header Banner */}
+                  <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 p-5 text-white flex justify-between items-start">
+                    <div className="flex-1 pr-3 min-w-0 flex items-start gap-3">
+                      {showIcon && (
+                        <div className="bg-white/20 p-2 rounded-lg backdrop-blur-sm border border-white/20 shrink-0">
+                          <FileText className="w-4 h-4 text-white" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-bold text-base sm:text-lg leading-snug tracking-tight text-white group-hover:text-blue-100 transition-colors">
+                          {titleVal}
+                        </h3>
+                      </div>
+                    </div>
+
+                    {yearVal && (showFields ? showFields.year !== false : true) && (
+                      <span className="bg-white/20 backdrop-blur-md text-white text-xs font-bold px-2.5 py-1 rounded-full border border-white/30 shrink-0 shadow-2xs">
+                        {yearVal}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Card Body */}
+                  <div className="p-5 flex-1 flex flex-col justify-between bg-white space-y-4">
+                    <div className="space-y-2 text-xs text-gray-600">
+                      {cardFields.map(f => {
+                        const isFileField = f.type === 'file_pdf' || f.name === 'choose_file' || f.name.toLowerCase().includes('file');
+                        if (f.name === 'title' || f.type === 'image' || f.name === 'year' || f.name === 'academic_year' || isFileField) return null;
+                        const val = itemData[f.name];
+                        if (!val) return null;
                         return (
-                          <div key={f.id} className="inline-block mr-2 mb-1">
-                            <span className="bg-blue-50 text-blue-700 border border-blue-100 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
-                              {String(val)}
-                            </span>
+                          <div key={f.id} className="flex items-center gap-1.5">
+                            <span className="font-semibold text-gray-700">{f.label}:</span>
+                            <span className="truncate">{Array.isArray(val) ? val.join(', ') : String(val)}</span>
                           </div>
                         );
-                      }
+                      })}
+                    </div>
 
-                      if (f.type === 'textarea') {
-                        return (
-                          <p key={f.id} className="text-gray-500 line-clamp-3 text-xs leading-relaxed mt-2 pt-2 border-t border-gray-100">
-                            {String(val)}
-                          </p>
-                        );
-                      }
-
-                      return (
-                        <div key={f.id} className="flex items-center gap-1.5 text-xs text-gray-600">
-                          <span className="font-semibold text-gray-700">{f.label}:</span>
-                          <span className="truncate">{Array.isArray(val) ? val.join(', ') : String(val)}</span>
-                        </div>
-                      );
-                    })}
+                    {showDownload && (
+                      <div className="pt-2 flex justify-end border-t border-gray-100">
+                        <span className="inline-flex items-center gap-1 bg-gray-900 group-hover:bg-blue-600 text-white text-xs font-bold px-4 py-1.5 rounded-lg transition-colors shadow-2xs">
+                          View Document <ArrowUpRight className="w-3.5 h-3.5" />
+                        </span>
+                      </div>
+                    )}
                   </div>
-                </div>
+                </a>
+              );
+            }
 
-                {/* Primary Action Button Footer */}
-                <div className="mt-5 pt-3 border-t border-gray-100 flex items-center justify-between">
-                  <span className="text-[11px] font-medium text-gray-400">
-                    Official Record
-                  </span>
-                  <a
-                    href={getValidUrl(pdfField ? item.data[pdfField.name] : '#')}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 bg-gray-900 group-hover:bg-blue-600 text-white text-xs font-bold px-3.5 py-1.5 rounded-xl transition-all shadow-xs"
-                  >
-                    {displayConfig.primaryActionLabel || 'View Details'}
-                    <ArrowUpRight className="w-3.5 h-3.5" />
-                  </a>
+            /* STYLE 2: Minimalist File Card */
+            if (activeStyle === 'style-2') {
+              return (
+                <a
+                  key={item.id}
+                  href={fileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md hover:border-blue-300 transition-all p-5 flex flex-col justify-between group h-full min-h-[180px] cursor-pointer"
+                >
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      {showIcon ? (
+                        <div className="bg-gradient-to-br from-blue-600 to-indigo-600 p-2.5 rounded-xl text-white shadow-xs group-hover:scale-105 transition-transform">
+                          <FileText className="w-5 h-5" />
+                        </div>
+                      ) : <div />}
+                      {yearVal && (showFields ? showFields.year !== false : true) && (
+                        <span className="bg-blue-50 text-blue-700 border border-blue-100 font-bold px-2.5 py-0.5 rounded-full text-xs">
+                          {yearVal}
+                        </span>
+                      )}
+                    </div>
+
+                    <h3 className="font-bold text-gray-900 text-base mb-2 group-hover:text-blue-600 transition-colors leading-snug">
+                      {titleVal}
+                    </h3>
+
+                    <div className="space-y-1.5 text-xs text-gray-600 mb-3">
+                      {cardFields.map(f => {
+                        const isFileField = f.type === 'file_pdf' || f.name === 'choose_file' || f.name.toLowerCase().includes('file');
+                        if (f.name === 'title' || f.type === 'image' || f.name === 'year' || f.name === 'academic_year' || isFileField) return null;
+                        const val = itemData[f.name];
+                        if (!val) return null;
+                        return (
+                          <div key={f.id} className="flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0"></span>
+                            <span className="font-medium text-gray-600">{f.label}: {Array.isArray(val) ? val.join(', ') : String(val)}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="pt-3 flex justify-between items-center border-t border-gray-100 mt-2">
+                    {showDownload ? (
+                      <span className="text-blue-600 font-bold text-xs flex items-center gap-1 group-hover:text-blue-700 transition-colors">
+                        View Document <ArrowUpRight className="w-3.5 h-3.5" />
+                      </span>
+                    ) : <span />}
+                  </div>
+                </a>
+              );
+            }
+
+            /* STYLE 1 (Default): Classic Document Card */
+            return (
+              <a
+                key={item.id}
+                href={fileUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:border-blue-300 transition-all overflow-hidden group flex flex-col justify-between h-full min-h-[180px] cursor-pointer"
+              >
+                <div className="p-5 flex-1 flex flex-col justify-between">
+                  <div>
+                    <div className="flex justify-between items-start mb-3">
+                      {showIcon ? (
+                        <div className="bg-blue-50 p-2.5 rounded-xl text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors shadow-2xs">
+                          <FileText className="w-6 h-6" />
+                        </div>
+                      ) : <div />}
+                      {yearVal && (showFields ? showFields.year !== false : true) && (
+                        <span className="font-bold bg-blue-50 text-blue-700 border border-blue-100 px-2.5 py-0.5 rounded-md text-xs">
+                          {yearVal}
+                        </span>
+                      )}
+                    </div>
+                    
+                    <h3 className="font-bold text-gray-900 text-base leading-snug mb-2 group-hover:text-blue-600 transition-colors">
+                      {titleVal}
+                    </h3>
+                    
+                    <div className="flex flex-col gap-1 text-xs text-gray-600 mt-2">
+                      {cardFields.map(f => {
+                        const isFileField = f.type === 'file_pdf' || f.name === 'choose_file' || f.name.toLowerCase().includes('file');
+                        if (f.name === 'title' || f.type === 'image' || f.name === 'year' || f.name === 'academic_year' || isFileField) return null;
+                        const val = itemData[f.name];
+                        if (!val) return null;
+                        return (
+                          <div key={f.id}>
+                            <span className="font-medium text-gray-900">{f.label}:</span>{' '}
+                            <span>{Array.isArray(val) ? val.join(', ') : String(val)}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {showDownload && (
+                    <div className="pt-3 flex justify-end border-t border-gray-100 mt-4">
+                      <span className="text-blue-600 font-bold text-xs flex items-center gap-1 group-hover:text-blue-700 transition-colors">
+                        View Document <ArrowUpRight className="w-3.5 h-3.5" />
+                      </span>
+                    </div>
+                  )}
                 </div>
-              </div>
+              </a>
             );
           })}
         </div>
@@ -282,21 +469,25 @@ export const DynamicModuleBlock: React.FC<DynamicModuleBlockProps> = ({
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className={
-                displayConfig.tableStyle === 'table-3'
+                activeStyle === 'table-3'
                   ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white text-xs font-bold uppercase tracking-wider'
                   : 'bg-gray-50 text-gray-700 text-xs font-bold uppercase border-b border-gray-200'
               }>
-                {fields.filter(f => f.showInTable !== false).map(f => (
+                {fields.filter(f => f.showInTable !== false && (showFields ? showFields[f.name] !== false : true)).map(f => (
                   <th key={f.id} className="py-4 px-4 sm:px-6">{f.label}</th>
                 ))}
-                <th className="py-4 px-4 sm:px-6 text-right">Action</th>
+                {(showFields ? showFields.download !== false : true) && (
+                  <th className="py-4 px-4 sm:px-6 text-right">Action</th>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 text-sm">
-              {filteredItems.map(item => (
-                <tr key={item.id} className="hover:bg-blue-50/30 transition-colors group">
-                  {fields.filter(f => f.showInTable !== false).map(f => {
-                    const val = item.data[f.name];
+              {displayedItems.map(item => {
+                const rowData = item?.data || {};
+                return (
+                  <tr key={item.id} className="hover:bg-blue-50/30 transition-colors group">
+                    {fields.filter(f => f.showInTable !== false && (showFields ? showFields[f.name] !== false : true)).map(f => {
+                      const val = rowData[f.name];
                     return (
                       <td key={f.id} className="py-4 px-4 sm:px-6 text-gray-800 text-xs">
                         {f.name === 'title' ? (
@@ -313,20 +504,65 @@ export const DynamicModuleBlock: React.FC<DynamicModuleBlockProps> = ({
                       </td>
                     );
                   })}
-                  <td className="py-4 px-4 sm:px-6 text-right">
-                    <a
-                      href={getValidUrl()}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 bg-gray-900 group-hover:bg-blue-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors shadow-2xs"
-                    >
-                      {displayConfig.primaryActionLabel || 'View'} <ArrowUpRight className="w-3.5 h-3.5" />
-                    </a>
-                  </td>
-                </tr>
-              ))}
+                  {(showFields ? showFields.download !== false : true) && (
+                    <td className="py-4 px-4 sm:px-6 text-right">
+                      <a
+                        href={getValidUrl()}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 bg-gray-900 group-hover:bg-blue-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors shadow-2xs"
+                      >
+                        {displayConfig.primaryActionLabel || 'View'} <ArrowUpRight className="w-3.5 h-3.5" />
+                      </a>
+                    </td>
+                  )}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Pagination Bar */}
+      {shouldShowPagination && totalPages > 1 && (
+        <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-gray-200/80 mt-6">
+          <p className="text-xs text-gray-500 font-medium">
+            Showing <span className="font-semibold text-gray-900">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="font-semibold text-gray-900">{Math.min(currentPage * itemsPerPage, filteredItems.length)}</span> of <span className="font-semibold text-gray-900">{filteredItems.length}</span> records
+          </p>
+
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              className="px-3 py-1.5 text-xs font-semibold bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-gray-700 shadow-2xs"
+            >
+              Previous
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+              <button
+                key={page}
+                type="button"
+                onClick={() => setCurrentPage(page)}
+                className={`w-8 h-8 text-xs font-bold rounded-lg transition-colors shadow-2xs ${
+                  currentPage === page
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                {page}
+              </button>
+            ))}
+            <button
+              type="button"
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              className="px-3 py-1.5 text-xs font-semibold bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-gray-700 shadow-2xs"
+            >
+              Next
+            </button>
+          </div>
         </div>
       )}
     </div>
