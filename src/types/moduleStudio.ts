@@ -4,6 +4,8 @@ export type FieldType =
   | 'number' 
   | 'select' 
   | 'multiselect' 
+  | 'radio'
+  | 'checkbox'
   | 'file_pdf' 
   | 'image' 
   | 'date' 

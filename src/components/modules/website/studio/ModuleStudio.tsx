@@ -149,14 +149,14 @@ export const ModuleStudio: React.FC = () => {
       {/* 1. Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Module Studio</h1>
+          <h1 className="text-xl font-bold text-gray-900">Custom Module Studio</h1>
         </div>
 
         <button
           onClick={handleCreateNewModule}
-          className="inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-xs shrink-0 cursor-pointer"
+          className="inline-flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-xs shrink-0 cursor-pointer"
         >
-          <Plus className="w-4 h-4" /> Add New
+          Add New
         </button>
       </div>
 
@@ -344,16 +344,16 @@ export const ModuleStudio: React.FC = () => {
                     activeTab === 'fields' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-800'
                   }`}
                 >
-                  📋 Fields & Form Builder ({selectedTemplate.schema.fields.length})
+                  📋 Module Fields ({selectedTemplate.schema.fields.length})
                 </button>
 
                 <button
                   onClick={() => setActiveTab('accreditation')}
-                  className={`py-3 border-b-2 transition-colors ${
-                    activeTab === 'accreditation' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-800'
+                  className={`py-3 border-b-2 transition-colors flex items-center gap-1.5 ${
+                    activeTab === 'accreditation' ? 'border-blue-600 text-blue-600 font-bold' : 'border-transparent text-gray-500 hover:text-gray-800 font-medium'
                   }`}
                 >
-                  🛡️ Accreditation Binding
+                  Inter-Module Linking
                 </button>
               </nav>
             </div>
@@ -371,121 +371,119 @@ export const ModuleStudio: React.FC = () => {
                 const activeCriterionCode = (selectedTemplate.schema as any).naacCriterion || (selectedTemplate.schema.slug === 'timetables' ? 'Criterion 2' : selectedTemplate.schema.slug === 'awards' ? 'Criterion 5' : selectedTemplate.schema.slug === 'reports' ? 'Criterion 6' : '');
                 const activeIndicatorCode = (selectedTemplate.schema as any).naacIndicator || (selectedTemplate.schema.slug === 'timetables' ? '2.3.1 Student-Centric Methods' : selectedTemplate.schema.slug === 'awards' ? '5.3.1 Student Sports & Cultural Competitions' : selectedTemplate.schema.slug === 'reports' ? '6.5.1 Internal Quality Assurance Cell (IQAC)' : '');
 
+                const naacHubEnabled = (selectedTemplate.schema as any).naacHubEnabled ?? true;
                 const selectedCritObj = naacCriteriaList.find(c => c.code === activeCriterionCode);
 
                 return (
-                  <div className="space-y-6 w-full">
-                    {/* NAAC Accreditation Card */}
-                    <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-2xs space-y-5">
-                      <div className="flex items-center gap-3 border-b border-gray-100 pb-4">
-                        <span className="p-2.5 bg-amber-100 text-amber-800 rounded-xl font-bold text-base">🛡️</span>
-                        <div>
+                  <div className="space-y-5 w-full">
+                    {/* Inter-Module Display Targets & Linking Card */}
+                    <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-2xs space-y-4">
+                      <div className="border-b border-gray-100 pb-3">
+                        <h3 className="text-sm font-bold text-gray-900">Module Display Targets & Linking</h3>
+                        <p className="text-xs text-gray-500">Configure which other system modules and public website portals display data from this module.</p>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <label className={`flex items-center gap-2.5 p-3 rounded-xl border cursor-pointer transition-all ${
+                          naacHubEnabled ? 'bg-blue-50/70 border-blue-300 shadow-2xs' : 'bg-gray-50/50 border-gray-200 hover:bg-gray-50'
+                        }`}>
+                          <input
+                            type="checkbox"
+                            checked={naacHubEnabled}
+                            onChange={e => handleUpdateCurrentSchema({ naacHubEnabled: e.target.checked } as any)}
+                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          <div>
+                            <span className="block text-xs font-semibold text-gray-800">NAAC Accreditation Hub</span>
+                            <span className="block text-[10px] text-gray-500">Auto-link entries to central audit register</span>
+                          </div>
+                        </label>
+
+                        <label className="flex items-center gap-2.5 p-3 rounded-xl border border-gray-200 bg-gray-50/50 hover:bg-gray-50 cursor-pointer">
+                          <input type="checkbox" defaultChecked className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                          <div>
+                            <span className="block text-xs font-semibold text-gray-800">Department & Faculty Portals</span>
+                            <span className="block text-[10px] text-gray-500">Expose as searchable reference list</span>
+                          </div>
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* NAAC Accreditation Card (Visible ONLY when NAAC Accreditation Hub is checked!) */}
+                    {naacHubEnabled && (
+                      <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-2xs space-y-4 animate-in fade-in duration-200">
+                        <div className="border-b border-gray-100 pb-3">
                           <h3 className="text-sm font-bold text-gray-900">NAAC Accreditation & Criterion Alignment</h3>
                           <p className="text-xs text-gray-500">Configure which NAAC Criteria, Key Indicators, and Metrics entries in this module automatically bind to.</p>
                         </div>
-                      </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
-                        {/* Criterion Selector */}
-                        <div>
-                          <label className="block text-xs font-bold text-gray-700 mb-1">
-                            1. NAAC Criterion <span className="text-red-500">*</span>
-                          </label>
-                          <select
-                            value={activeCriterionCode}
-                            onChange={e => handleUpdateCurrentSchema({ naacCriterion: e.target.value, naacIndicator: '' } as any)}
-                            className="w-full text-xs font-medium px-3 py-2 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none"
-                          >
-                            <option value="">-- No NAAC Binding --</option>
-                            {naacCriteriaList.map(c => (
-                              <option key={c.id} value={c.code}>
-                                {c.code}: {c.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-
-                        {/* Key Indicator Selector */}
-                        <div>
-                          <label className="block text-xs font-bold text-gray-700 mb-1">
-                            2. Key Indicator (KI)
-                          </label>
-                          <select
-                            value={activeCriterionCode ? (selectedCritObj?.code || '') : ''}
-                            disabled={!activeCriterionCode}
-                            className="w-full text-xs font-medium px-3 py-2 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none disabled:bg-gray-100 disabled:text-gray-400"
-                          >
-                            <option value="">{selectedCritObj ? `${selectedCritObj.code}: ${selectedCritObj.name}` : '-- Select Criterion First --'}</option>
-                          </select>
-                        </div>
-
-                        {/* Metric Selector */}
-                        <div>
-                          <label className="block text-xs font-bold text-gray-700 mb-1">
-                            3. Metric (QnM / QlM)
-                          </label>
-                          <select
-                            value={activeIndicatorCode}
-                            onChange={e => handleUpdateCurrentSchema({ naacIndicator: e.target.value } as any)}
-                            disabled={!activeCriterionCode}
-                            className="w-full text-xs font-medium px-3 py-2 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none disabled:bg-gray-100 disabled:text-gray-400"
-                          >
-                            <option value="">-- Select Metric --</option>
-                            {selectedCritObj?.indicators.map(ind => (
-                              <option key={ind.code} value={`${ind.code} ${ind.name}`}>
-                                [{ind.metricType}] {ind.code} - {ind.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-
-                      {/* Selected NAAC Summary Box */}
-                      {activeCriterionCode && activeIndicatorCode && (
-                        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 flex items-center justify-between text-xs">
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-amber-900">Active Binding Rule:</span>
-                            <span className="text-amber-800 font-medium">Entries auto-link to <strong className="font-bold">{activeCriterionCode}</strong> • Metric <strong className="font-bold">{activeIndicatorCode}</strong></span>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
+                          {/* Criterion Selector */}
+                          <div>
+                            <label className="block text-xs font-bold text-gray-700 mb-1">
+                              1. NAAC Criterion <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                              value={activeCriterionCode}
+                              onChange={e => handleUpdateCurrentSchema({ naacCriterion: e.target.value, naacIndicator: '' } as any)}
+                              className="w-full text-xs font-medium px-3 py-2 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                            >
+                              <option value="">-- No NAAC Binding --</option>
+                              {naacCriteriaList.map(c => (
+                                <option key={c.id} value={c.code}>
+                                  {c.code}: {c.name}
+                                </option>
+                              ))}
+                            </select>
                           </div>
-                          <span className="bg-amber-200/80 text-amber-900 font-bold px-2.5 py-1 rounded-lg text-[11px]">Active Link</span>
-                        </div>
-                      )}
-                    </div>
 
-                    {/* NIRF & Additional Institutional Frameworks (Extensible Card) */}
-                    <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-2xs space-y-4">
-                      <div className="flex items-center gap-3 border-b border-gray-100 pb-3">
-                        <span className="p-2.5 bg-blue-100 text-blue-800 rounded-xl font-bold text-base">🏆</span>
-                        <div>
-                          <h3 className="text-sm font-bold text-gray-900">NIRF & Additional Institutional Frameworks</h3>
-                          <p className="text-xs text-gray-500">Bind data entries to NIRF Ranking Parameters and NBA Accreditation Standards.</p>
+                          {/* Key Indicator Selector */}
+                          <div>
+                            <label className="block text-xs font-bold text-gray-700 mb-1">
+                              2. Key Indicator (KI)
+                            </label>
+                            <select
+                              value={activeCriterionCode ? (selectedCritObj?.code || '') : ''}
+                              disabled={!activeCriterionCode}
+                              className="w-full text-xs font-medium px-3 py-2 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none disabled:bg-gray-100 disabled:text-gray-400"
+                            >
+                              <option value="">{selectedCritObj ? `${selectedCritObj.code}: ${selectedCritObj.name}` : '-- Select Criterion First --'}</option>
+                            </select>
+                          </div>
+
+                          {/* Metric Selector */}
+                          <div>
+                            <label className="block text-xs font-bold text-gray-700 mb-1">
+                              3. Metric (QnM / QlM)
+                            </label>
+                            <select
+                              value={activeIndicatorCode}
+                              onChange={e => handleUpdateCurrentSchema({ naacIndicator: e.target.value } as any)}
+                              disabled={!activeCriterionCode}
+                              className="w-full text-xs font-medium px-3 py-2 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none disabled:bg-gray-100 disabled:text-gray-400"
+                            >
+                              <option value="">-- Select Metric --</option>
+                              {selectedCritObj?.indicators.map(ind => (
+                                <option key={ind.code} value={`${ind.code} ${ind.name}`}>
+                                  [{ind.metricType}] {ind.code} - {ind.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
                         </div>
+
+                        {/* Selected NAAC Summary Box */}
+                        {activeCriterionCode && activeIndicatorCode && (
+                          <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 flex items-center justify-between text-xs">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-gray-800">Active Binding Rule:</span>
+                              <span className="text-gray-700 font-medium">Entries auto-link to <strong className="font-bold">{activeCriterionCode}</strong> • Metric <strong className="font-bold">{activeIndicatorCode}</strong></span>
+                            </div>
+                            <span className="bg-gray-200 text-gray-800 font-bold px-2.5 py-1 rounded-lg text-[11px]">Active Link</span>
+                          </div>
+                        )}
                       </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
-                        <div>
-                          <label className="block text-xs font-bold text-gray-700 mb-1">NIRF Ranking Parameter</label>
-                          <select className="w-full text-xs font-medium px-3 py-2 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                            <option value="">-- Unbound --</option>
-                            <option value="TLR">TLR - Teaching, Learning & Resources</option>
-                            <option value="RPC">RPC - Research & Professional Practice</option>
-                            <option value="GO">GO - Graduation Outcomes</option>
-                            <option value="OI">OI - Outreach & Inclusivity</option>
-                            <option value="PER">PER - Peer Perception</option>
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-bold text-gray-700 mb-1">NBA Program Metric</label>
-                          <select className="w-full text-xs font-medium px-3 py-2 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                            <option value="">-- Unbound --</option>
-                            <option value="CO-PO">Course Outcome - Program Outcome Mapping</option>
-                            <option value="Student-Performance">Student Performance & Placement</option>
-                            <option value="Faculty-Contributions">Faculty Contributions & Cadre Ratio</option>
-                          </select>
-                        </div>
-                      </div>
-                    </div>
+                    )}
                   </div>
                 );
               })()}

@@ -28,11 +28,6 @@ export const Layout: React.FC<LayoutProps> = ({ onToggleViewMode }) => {
   const handleSelectMenuItem = (id: string, label: string) => {
     setActiveModuleId(id);
     setActiveModuleLabel(label);
-    if (id.includes('studio')) {
-      setPortalRole('superadmin');
-    } else if (id.includes('content-manager') || id === 'dashboard') {
-      setPortalRole('collegeadmin');
-    }
   };
 
   const handleSwitchPortalRole = (role: 'superadmin' | 'collegeadmin') => {

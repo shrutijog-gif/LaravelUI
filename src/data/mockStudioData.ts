@@ -139,14 +139,14 @@ export const INITIAL_STUDIO_TEMPLATES: StudioTemplate[] = [
           showInCard: true, 
           showInTable: true,
           options: [
-            { label: 'Semester 1 (Odd)', value: 'Sem 1' },
-            { label: 'Semester 2 (Even)', value: 'Sem 2' },
-            { label: 'Semester 3 (Odd)', value: 'Sem 3' },
-            { label: 'Semester 4 (Even)', value: 'Sem 4' },
-            { label: 'Semester 5 (Odd)', value: 'Sem 5' },
-            { label: 'Semester 6 (Even)', value: 'Sem 6' },
-            { label: 'Semester 7 (Odd)', value: 'Sem 7' },
-            { label: 'Semester 8 (Even)', value: 'Sem 8' },
+            { label: '1', value: '1' },
+            { label: '2', value: '2' },
+            { label: '3', value: '3' },
+            { label: '4', value: '4' },
+            { label: '5', value: '5' },
+            { label: '6', value: '6' },
+            { label: '7', value: '7' },
+            { label: '8', value: '8' },
           ]
         },
         { 
@@ -157,9 +157,10 @@ export const INITIAL_STUDIO_TEMPLATES: StudioTemplate[] = [
           showInCard: true, 
           showInTable: true,
           options: [
-            { label: 'Section A', value: 'Section A' },
-            { label: 'Section B', value: 'Section B' },
-            { label: 'Section C', value: 'Section C' },
+            { label: 'A', value: 'A' },
+            { label: 'B', value: 'B' },
+            { label: 'C', value: 'C' },
+            { label: 'D', value: 'D' },
             { label: 'All Sections', value: 'All Sections' },
           ]
         },
@@ -185,10 +186,11 @@ export const INITIAL_STUDIO_TEMPLATES: StudioTemplate[] = [
         moduleSlug: 'timetables',
         showOnWebsite: true,
         data: {
-          title: 'MSc Nutrition & Food Technology - Odd Sem 2026',
+          title: 'B.Tech Computer Science & AI End Sem Examination',
           year: '2026-2027',
-          branch: ['MSc Nutrition', 'Food Tech'],
-          semester: [1, 3],
+          branch: 'Computer Science',
+          semester: 'Semester 5',
+          section: 'Section A',
           fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
         },
         createdAt: '2026-08-01T00:00:00Z',
@@ -200,14 +202,47 @@ export const INITIAL_STUDIO_TEMPLATES: StudioTemplate[] = [
         moduleSlug: 'timetables',
         showOnWebsite: true,
         data: {
-          title: 'B.Tech Computer Science End Sem Exam Schedule',
+          title: 'M.Sc Nutrition & Clinical Dietetics Timetable',
           year: '2026-2027',
-          branch: ['Computer Science', 'Information Tech'],
-          semester: [5, 7],
+          branch: 'MSc Nutrition',
+          semester: 'Semester 3',
+          section: 'Section B',
           fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
         },
         createdAt: '2026-08-05T00:00:00Z',
         updatedAt: '2026-08-05T00:00:00Z',
+      },
+      {
+        id: 'tt-3',
+        tenantId: 'st-xaviers',
+        moduleSlug: 'timetables',
+        showOnWebsite: true,
+        data: {
+          title: 'B.A. Mass Communication & Digital Media Schedule',
+          year: '2026-2027',
+          branch: 'Media Studies',
+          semester: 'Semester 1',
+          section: 'All Sections',
+          fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+        },
+        createdAt: '2026-08-10T00:00:00Z',
+        updatedAt: '2026-08-10T00:00:00Z',
+      },
+      {
+        id: 'tt-4',
+        tenantId: 'st-xaviers',
+        moduleSlug: 'timetables',
+        showOnWebsite: true,
+        data: {
+          title: 'MBA Executive Weekend Program Lecture Grid',
+          year: '2026-2027',
+          branch: 'Commerce & Business',
+          semester: 'Semester 2',
+          section: 'Section A',
+          fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+        },
+        createdAt: '2026-08-12T00:00:00Z',
+        updatedAt: '2026-08-12T00:00:00Z',
       },
     ],
   },
@@ -281,6 +316,111 @@ export const saveStudioTemplates = (templates: StudioTemplate[]): void => {
   }
 };
 
+export const generateDynamicSampleItems = (schema: ModuleSchema, targetTenantId: string): DynamicEntityItem[] => {
+  const isTimetable = schema.slug.includes('time') || 
+                      schema.slug.includes('table') || 
+                      schema.name.toLowerCase().includes('time') || 
+                      schema.name.toLowerCase().includes('table');
+
+  if (isTimetable) {
+    const timetables = getStoredTimetables();
+    if (timetables && timetables.length > 0) {
+      return timetables.map(t => {
+        const rowData: Record<string, any> = {};
+        const rawSem = Array.isArray(t.semester) ? t.semester.join(', ') : String(t.semester || '1');
+        const semVal = rawSem.replace(/semester|sem/gi, '').trim() || '1';
+
+        const rawSec = Array.isArray(t.section) ? t.section.join(', ') : String(t.section || 'A');
+        const secVal = rawSec.replace(/section/gi, '').trim() || 'A';
+
+        schema.fields.forEach(f => {
+          const fn = f.name.toLowerCase();
+          const fl = f.label.toLowerCase();
+          if (fn.includes('title') || fn.includes('name') || fl.includes('title') || fl.includes('name')) {
+            rowData[f.name] = t.name;
+          } else if (fn.includes('year') || fl.includes('year')) {
+            rowData[f.name] = t.year;
+          } else if (fn.includes('branch') || fn.includes('program') || fl.includes('branch') || fl.includes('program')) {
+            rowData[f.name] = Array.isArray(t.branch) ? t.branch.join(', ') : t.branch;
+          } else if (fn.includes('sem') || fl.includes('sem')) {
+            rowData[f.name] = semVal;
+          } else if (fn.includes('sec') || fl.includes('sec')) {
+            rowData[f.name] = secVal;
+          } else if (f.type === 'file_pdf' || fn.includes('file') || fl.includes('file')) {
+            rowData[f.name] = t.fileUrl || SAMPLE_PDF;
+            rowData[`${f.name}_filename`] = t.fileName || 'Academic_Schedule.pdf';
+          } else if (f.options && f.options.length > 0) {
+            rowData[f.name] = f.options[0].value;
+          } else {
+            rowData[f.name] = secVal;
+          }
+        });
+
+        // Common key aliases
+        rowData['title'] = t.name;
+        rowData['name'] = t.name;
+        rowData['year'] = t.year;
+        rowData['academic_year'] = t.year;
+        rowData['branch'] = Array.isArray(t.branch) ? t.branch.join(', ') : t.branch;
+        rowData['program'] = Array.isArray(t.branch) ? t.branch.join(', ') : t.branch;
+        rowData['program_branch'] = Array.isArray(t.branch) ? t.branch.join(', ') : t.branch;
+        rowData['semester'] = semVal;
+        rowData['section'] = secVal;
+        rowData['fileUrl'] = t.fileUrl || SAMPLE_PDF;
+        rowData['choose_file'] = t.fileUrl || SAMPLE_PDF;
+        rowData['choose_file_filename'] = t.fileName || 'Academic_Schedule.pdf';
+
+        return {
+          id: `${schema.slug}-${t.id}`,
+          tenantId: targetTenantId,
+          moduleSlug: schema.slug,
+          showOnWebsite: true,
+          data: rowData,
+          createdAt: t.createdAt,
+          updatedAt: t.createdAt,
+        };
+      });
+    }
+  }
+
+  // Generic 4-row generator for any custom module schema
+  const presets = [
+    { title: `${schema.name} Entry 01`, year: 2026, category: 'Academic', image: 'https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=600&q=80' },
+    { title: `${schema.name} Entry 02`, year: 2026, category: 'Examination', image: 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=600&q=80' },
+    { title: `${schema.name} Entry 03`, year: 2025, category: 'Governance', image: 'https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&w=600&q=80' },
+    { title: `${schema.name} Entry 04`, year: 2025, category: 'Recognition', image: 'https://images.unsplash.com/photo-1567427017947-545c5f8d16ad?auto=format&fit=crop&w=600&q=80' },
+  ];
+
+  return presets.map((p, idx) => {
+    const rowData: Record<string, any> = {};
+    schema.fields.forEach(f => {
+      if (f.type === 'image') rowData[f.name] = p.image;
+      else if (f.type === 'file_pdf') {
+        rowData[f.name] = SAMPLE_PDF;
+        rowData[`${f.name}_filename`] = `${schema.name.replace(/\s+/g, '_')}_Doc_${idx + 1}.pdf`;
+      } else if (f.type === 'number') rowData[f.name] = p.year;
+      else if (f.type === 'date') rowData[f.name] = '2026-08-15';
+      else if (f.options && f.options.length > 0) {
+        rowData[f.name] = f.options[idx % f.options.length].value;
+      } else {
+        const fn = f.name.toLowerCase();
+        if (fn.includes('title') || fn.includes('name')) rowData[f.name] = p.title;
+        else if (fn.includes('year')) rowData[f.name] = p.year;
+        else rowData[f.name] = `${f.label} Sample Value ${idx + 1}`;
+      }
+    });
+    return {
+      id: `${schema.slug}-auto-${idx + 1}`,
+      tenantId: targetTenantId,
+      moduleSlug: schema.slug,
+      showOnWebsite: true,
+      data: rowData,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+  });
+};
+
 // Helper functions for entity items persistence
 export const getStoredEntitiesBySlug = (slug: string, tenantId?: string): DynamicEntityItem[] => {
   const activeTenant = getActiveTenant();
@@ -310,42 +450,55 @@ export const getStoredEntitiesBySlug = (slug: string, tenantId?: string): Dynami
     }
   } catch (e) {}
 
-  // If timetables slug, bridge with timetables dataset
-  if (slug === 'timetables' || slug.includes('timetable') || slug.includes('time_table')) {
-    try {
-      const timetables = getStoredTimetables();
-      if (timetables && timetables.length > 0) {
-        return timetables.map(t => ({
-          id: t.id,
-          tenantId: targetTenantId,
-          moduleSlug: slug,
-          showOnWebsite: t.showOnWebsite !== false,
-          data: {
-            title: t.name,
-            year: t.year,
-            branch: t.branch,
-            semester: t.semester,
-            section: t.section,
-            fileUrl: t.fileUrl,
-            choose_file_filename: t.fileName,
-            file_pdf_filename: t.fileName,
-          },
-          createdAt: t.createdAt,
-          updatedAt: t.createdAt,
-        }));
-      }
-    } catch (e) {
-      console.error('Error bridging timetables in getStoredEntitiesBySlug:', e);
+  const template = getStoredStudioTemplates().find(t => t.schema.slug === slug || t.schema.name.toLowerCase().replace(/\s+/g, '_') === slug);
+  if (template) {
+    if (template.sampleItems && template.sampleItems.length > 0) {
+      const tenantFiltered = template.sampleItems.filter(item => !item.tenantId || item.tenantId === targetTenantId);
+      if (tenantFiltered.length > 0) return tenantFiltered;
+      return template.sampleItems;
+    }
+    // Generate dynamic sample items for this template's schema
+    return generateDynamicSampleItems(template.schema, targetTenantId);
+  }
+
+  const isTimetableSlug = slug === 'timetables' || 
+                          slug === 'time_table' || 
+                          slug.toLowerCase().includes('timetable') || 
+                          slug.toLowerCase().includes('time');
+
+  if (isTimetableSlug) {
+    const timetables = getStoredTimetables();
+    if (timetables && timetables.length > 0) {
+      return timetables.map(t => ({
+        id: t.id,
+        tenantId: targetTenantId,
+        moduleSlug: slug,
+        showOnWebsite: t.showOnWebsite !== false,
+        data: {
+          title: t.name,
+          name: t.name,
+          year: t.year,
+          academic_year: t.year,
+          academic_year_master: t.year,
+          branch: Array.isArray(t.branch) ? t.branch.join(', ') : t.branch,
+          program: Array.isArray(t.branch) ? t.branch.join(', ') : t.branch,
+          program_branch: Array.isArray(t.branch) ? t.branch.join(', ') : t.branch,
+          semester: Array.isArray(t.semester) ? t.semester.join(', ') : t.semester,
+          section: Array.isArray(t.section) ? (t.section.join(', ') || 'Section A') : (t.section || 'Section A'),
+          fileUrl: t.fileUrl || SAMPLE_PDF,
+          file: t.fileUrl || SAMPLE_PDF,
+          choose_file: t.fileUrl || SAMPLE_PDF,
+          file_pdf: t.fileUrl || SAMPLE_PDF,
+          choose_file_filename: t.fileName || 'Academic_Timetable.pdf',
+          file_pdf_filename: t.fileName || 'Academic_Timetable.pdf',
+          file_filename: t.fileName || 'Academic_Timetable.pdf',
+        },
+        createdAt: t.createdAt,
+        updatedAt: t.createdAt,
+      }));
     }
   }
 
-  // Fallback to sample items in initial template definition
-  const template = getStoredStudioTemplates().find(t => t.schema.slug === slug);
-  if (template && template.sampleItems) {
-    const tenantFiltered = template.sampleItems.filter(item => !item.tenantId || item.tenantId === targetTenantId);
-    if (tenantFiltered.length > 0) return tenantFiltered;
-    return template.sampleItems;
-  }
   return [];
 };
 

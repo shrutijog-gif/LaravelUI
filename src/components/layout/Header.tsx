@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Menu, Globe, Building2, ChevronDown, ShieldCheck, Layers, FileText } from 'lucide-react';
+import { Menu, Globe, Building2, ChevronDown, ShieldCheck, Layers, FileText, Wrench, FileSpreadsheet } from 'lucide-react';
 import { collegeTenantsList, getActiveTenant, setActiveTenantId, CollegeTenant } from '../../data/tenantData';
 
 interface HeaderProps {
@@ -8,6 +8,8 @@ interface HeaderProps {
   onSelectModule?: (id: string, label: string) => void;
   portalRole?: 'superadmin' | 'collegeadmin';
   onSwitchPortalRole?: (role: 'superadmin' | 'collegeadmin') => void;
+  collegeSubRole?: 'tech_configurator' | 'data_entry';
+  onSwitchCollegeSubRole?: (role: 'tech_configurator' | 'data_entry') => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -16,6 +18,8 @@ export const Header: React.FC<HeaderProps> = ({
   onSelectModule,
   portalRole = 'superadmin',
   onSwitchPortalRole,
+  collegeSubRole = 'tech_configurator',
+  onSwitchCollegeSubRole,
 }) => {
   const [currentTenant, setCurrentTenant] = useState<CollegeTenant>(getActiveTenant());
   const isSuperadmin = portalRole === 'superadmin';

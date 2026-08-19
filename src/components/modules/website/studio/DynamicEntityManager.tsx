@@ -147,9 +147,14 @@ export const DynamicEntityManager: React.FC<DynamicEntityManagerProps> = ({ modu
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-gray-50 text-gray-700 text-xs font-bold uppercase border-b border-gray-200">
-                {schema.fields.map(f => (
-                  <th key={f.id} className="py-3.5 px-4">{f.label}</th>
-                ))}
+                {schema.fields.map(f => {
+                  const headerText = (f.label.toLowerCase() === 'choose file' || f.name.toLowerCase() === 'choose_file')
+                    ? 'File Name'
+                    : f.label;
+                  return (
+                    <th key={f.id} className="py-3.5 px-4">{headerText}</th>
+                  );
+                })}
                 <th className="py-3.5 px-5 text-right">Actions</th>
               </tr>
             </thead>
@@ -169,15 +174,15 @@ export const DynamicEntityManager: React.FC<DynamicEntityManagerProps> = ({ modu
                         <td key={f.id} className="py-3.5 px-4 max-w-xs truncate font-medium text-gray-800">
                           {f.type === 'image' && val ? (
                             <img src={val} alt="Thumbnail" className="w-10 h-10 object-cover rounded-lg border border-gray-200" />
-                          ) : f.type === 'file_pdf' && val ? (
+                          ) : (f.type === 'file_pdf' || f.name.toLowerCase().includes('file')) && val ? (
                             <a
                               href={val}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg border border-blue-200 transition-colors"
+                              className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-800 underline underline-offset-2 transition-colors"
                             >
-                              <FileText className="w-3.5 h-3.5 text-blue-500" />
-                              <span>{item.data[`${f.name}_filename`] || 'View PDF'}</span>
+                              <FileText className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                              <span>{item.data[`${f.name}_filename`] || item.data['choose_file_filename'] || item.data['file_pdf_filename'] || 'View Document PDF'}</span>
                             </a>
                           ) : f.type === 'badge' ? (
                             <span className="bg-blue-50 text-blue-700 font-bold px-2 py-0.5 rounded border border-blue-100">
@@ -246,44 +251,70 @@ export const DynamicEntityManager: React.FC<DynamicEntityManagerProps> = ({ modu
           <form id="dynamic-entity-form" onSubmit={handleSaveItem} className="space-y-4">
             {schema.fields.map(field => {
               const getOptions = (): { label: string; value: string }[] => {
-                if (field.options && field.options.length > 0) return field.options;
                 const lname = (field.name + ' ' + field.label).toLowerCase();
+
+                // If field has custom options configured, check if they are valid (not draft junk like "w", "122")
+                if (field.options && field.options.length > 0) {
+                  const validCustom = field.options.filter(o => o.label && o.label !== 'w' && o.label !== 'x' && o.label !== '122' && o.label.length > 1);
+                  // If custom options were explicitly set to numbers 1..8 or clean letters A..D, use them
+                  const isCleanCustom = field.options.every(o => o.label && o.label !== 'w' && o.label !== 'x');
+                  if (isCleanCustom && field.options.length >= 2 && !lname.includes('year') && !lname.includes('sem') && !lname.includes('sec')) {
+                    return field.options;
+                  }
+                  if (validCustom.length >= 2 && !lname.includes('year') && !lname.includes('sem') && !lname.includes('sec')) {
+                    return validCustom;
+                  }
+                }
+
+                // Standard Academic Year Master
                 if (lname.includes('year')) {
                   return [
                     { label: '2026-2027', value: '2026-2027' },
                     { label: '2025-2026', value: '2025-2026' },
                     { label: '2024-2025', value: '2024-2025' },
+                    { label: '2023-2024', value: '2023-2024' },
                   ];
                 }
+
+                // Standard Semester Master (1, 2, 3, 4, 5, 6, 7, 8)
                 if (lname.includes('sem')) {
                   return [
-                    { label: 'Sem 1', value: 'Sem 1' },
-                    { label: 'Sem 2', value: 'Sem 2' },
-                    { label: 'Sem 3', value: 'Sem 3' },
-                    { label: 'Sem 4', value: 'Sem 4' },
-                    { label: 'Sem 5', value: 'Sem 5' },
-                    { label: 'Sem 6', value: 'Sem 6' },
-                    { label: 'Sem 7', value: 'Sem 7' },
-                    { label: 'Sem 8', value: 'Sem 8' },
+                    { label: '1', value: '1' },
+                    { label: '2', value: '2' },
+                    { label: '3', value: '3' },
+                    { label: '4', value: '4' },
+                    { label: '5', value: '5' },
+                    { label: '6', value: '6' },
+                    { label: '7', value: '7' },
+                    { label: '8', value: '8' },
                   ];
                 }
-                if (lname.includes('branch') || lname.includes('program') || lname.includes('stream')) {
+
+                // Standard Section Master (A, B, C, D, All Sections)
+                if (lname.includes('section') || lname.includes('sec')) {
                   return [
-                    { label: 'Computer Science', value: 'Computer Science' },
-                    { label: 'Information Tech', value: 'Information Tech' },
-                    { label: 'MSc Nutrition', value: 'MSc Nutrition' },
-                    { label: 'Food Tech', value: 'Food Tech' },
-                    { label: 'Commerce & Business', value: 'Commerce & Business' },
-                  ];
-                }
-                if (lname.includes('section')) {
-                  return [
-                    { label: 'Section A', value: 'Section A' },
-                    { label: 'Section B', value: 'Section B' },
-                    { label: 'Section C', value: 'Section C' },
+                    { label: 'A', value: 'A' },
+                    { label: 'B', value: 'B' },
+                    { label: 'C', value: 'C' },
+                    { label: 'D', value: 'D' },
                     { label: 'All Sections', value: 'All Sections' },
                   ];
                 }
+
+                // Standard Program / Branch / Stream Master
+                if (lname.includes('branch') || lname.includes('program') || lname.includes('stream')) {
+                  return [
+                    { label: 'Computer Science', value: 'Computer Science' },
+                    { label: 'Media Studies', value: 'Media Studies' },
+                    { label: 'Commerce & Finance', value: 'Commerce & Finance' },
+                    { label: 'MSc Nutrition', value: 'MSc Nutrition' },
+                    { label: 'Food Tech', value: 'Food Tech' },
+                    { label: 'Pedagogy & Child Dev', value: 'Pedagogy & Child Dev' },
+                    { label: 'Finance & HR', value: 'Finance & HR' },
+                    { label: 'Agronomy', value: 'Agronomy' },
+                  ];
+                }
+
                 if (lname.includes('category')) {
                   return [
                     { label: 'Academic', value: 'Academic' },
@@ -291,6 +322,11 @@ export const DynamicEntityManager: React.FC<DynamicEntityManagerProps> = ({ modu
                     { label: 'Research', value: 'Research' },
                   ];
                 }
+
+                if (field.options && field.options.length > 0) {
+                  return field.options;
+                }
+
                 return [
                   { label: 'Option 1', value: 'Option 1' },
                   { label: 'Option 2', value: 'Option 2' },
@@ -319,31 +355,57 @@ export const DynamicEntityManager: React.FC<DynamicEntityManagerProps> = ({ modu
                         </option>
                       ))}
                     </select>
-                  ) : field.type === 'multiselect' ? (
-                    <div className="flex flex-wrap gap-1.5 p-2 bg-gray-50 border border-gray-200 rounded-xl">
+                  ) : field.type === 'radio' ? (
+                    <div className="flex flex-wrap gap-2 p-2.5 bg-gray-50 border border-gray-200 rounded-xl">
+                      {fieldOptions.map((opt, idx) => {
+                        const isSelected = formData[field.name] === opt.value;
+                        return (
+                          <label
+                            key={idx}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border cursor-pointer transition-all ${
+                              isSelected ? 'bg-blue-50 text-blue-800 border-blue-300 shadow-2xs' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name={`field_${field.id}`}
+                              value={opt.value}
+                              checked={isSelected}
+                              onChange={() => setFormData({ ...formData, [field.name]: opt.value })}
+                              className="text-blue-600 focus:ring-blue-500"
+                            />
+                            {opt.label}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  ) : field.type === 'checkbox' || field.type === 'multiselect' ? (
+                    <div className="flex flex-wrap gap-2 p-2.5 bg-gray-50 border border-gray-200 rounded-xl">
                       {fieldOptions.map((opt, idx) => {
                         const currentVals: string[] = Array.isArray(formData[field.name])
                           ? formData[field.name]
                           : formData[field.name] ? [formData[field.name]] : [];
                         const isSelected = currentVals.includes(opt.value);
                         return (
-                          <button
+                          <label
                             key={idx}
-                            type="button"
-                            onClick={() => {
-                              const newVals = isSelected
-                                ? currentVals.filter(v => v !== opt.value)
-                                : [...currentVals, opt.value];
-                              setFormData({ ...formData, [field.name]: newVals });
-                            }}
-                            className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all border cursor-pointer ${
-                              isSelected
-                                ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
-                                : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border cursor-pointer transition-all ${
+                              isSelected ? 'bg-blue-50 text-blue-800 border-blue-300 shadow-2xs' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
                             }`}
                           >
-                            {isSelected ? '✓ ' : '+ '} {opt.label}
-                          </button>
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => {
+                                const newVals = isSelected
+                                  ? currentVals.filter(v => v !== opt.value)
+                                  : [...currentVals, opt.value];
+                                setFormData({ ...formData, [field.name]: newVals });
+                              }}
+                              className="rounded text-blue-600 focus:ring-blue-500"
+                            />
+                            {opt.label}
+                          </label>
                         );
                       })}
                     </div>

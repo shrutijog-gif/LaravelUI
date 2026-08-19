@@ -70,7 +70,7 @@ export const getCollegeAdminMenuItems = (): MenuItem[] => {
     { id: 'module-reports', label: 'Examination Reports' },
   ];
 
-  const moduleChildren = studioChildren.length > 0 
+  const dynamicModules = studioChildren.length > 0 
     ? Array.from(new Map(studioChildren.map(item => [item.id, item])).values())
     : defaultStudioChildren;
 
@@ -81,10 +81,10 @@ export const getCollegeAdminMenuItems = (): MenuItem[] => {
       icon: 'home',
     },
     {
-      id: 'module-manager-group',
-      label: 'Module Manager ⚡',
+      id: 'dynamic-modules-group',
+      label: 'Dynamic Modules',
       icon: 'layers',
-      children: moduleChildren,
+      children: dynamicModules,
     },
     {
       id: 'homepage',
@@ -139,7 +139,11 @@ export const getCollegeAdminMenuItems = (): MenuItem[] => {
       id: 'setup-config',
       label: 'Setup/Config',
       icon: 'database',
-      children: [],
+      children: [
+        { id: 'module-studio', label: 'Custom Module Studio ⚡' },
+        { id: 'setup-email-template', label: 'Email Template' },
+        { id: 'setup-manage-users', label: 'Manage Users' },
+      ],
     },
   ];
 
@@ -156,7 +160,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({
-    'module-manager-group': true,
+    'dynamic-modules-group': true,
+    'setup-config': true,
     ecommerce: false,
     homepage: false,
     website: false,

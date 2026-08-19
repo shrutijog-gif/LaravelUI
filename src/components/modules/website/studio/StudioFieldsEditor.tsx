@@ -1,6 +1,58 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FieldDefinition, FieldType } from '../../../../types/moduleStudio';
-import { Plus, Trash2, GripVertical, Check, Layers, AlertCircle } from 'lucide-react';
+import { getStoredStudioTemplates } from '../../../../data/mockStudioData';
+import { Plus, Trash2, GripVertical, Check, Layers, AlertCircle, Link2 } from 'lucide-react';
+
+export const systemPicklists = [
+  {
+    id: 'categories',
+    label: 'Category / NAAC Criteria Picklist',
+    options: ['Academic Excellence', 'Research & Innovation', 'Student Sports & Cultural', 'Governance & Quality', 'Extension & Community Outreach'],
+  },
+  {
+    id: 'document_types',
+    label: 'Document Type / Category Picklist',
+    options: ['Circular & Notice', 'AQAR Annual Report', 'Policy Document', 'Financial Statement', 'Audit Report', 'Academic Calendar'],
+  },
+  {
+    id: 'designations',
+    label: 'Designation & Role Picklist',
+    options: ['Principal / Director', 'Professor & HOD', 'Associate Professor', 'Assistant Professor', 'Dean Academics', 'Registrar'],
+  },
+];
+
+export const systemMasters = [
+  {
+    id: 'departments',
+    label: 'Department Master (CSE, Mechanical, Electrical, Civil...)',
+    options: ['Computer Science & Engineering', 'Mechanical Engineering', 'Electrical & Electronics', 'Civil Engineering', 'Applied Sciences', 'Humanities & Social Sciences'],
+  },
+  {
+    id: 'programs',
+    label: 'Academic Program / Degree Master (B.Tech, M.Tech, MBA...)',
+    options: ['B.Tech Computer Science', 'B.Tech Mechanical Engineering', 'B.Tech Civil Engineering', 'M.Tech AI & Data Science', 'B.Sc Food Technology', 'B.Com Commerce & Finance', 'MBA Business Admin', 'Ph.D Research Scholars'],
+  },
+  {
+    id: 'streams',
+    label: 'Stream / Branch Master (AI & DS, Software, Thermal...)',
+    options: ['Artificial Intelligence & Data Science', 'Software Engineering', 'Structural Engineering', 'Power Systems', 'Robotics & Automation'],
+  },
+  {
+    id: 'years',
+    label: 'Academic Year Master (2026-27, 2025-26...)',
+    options: ['2026-2027', '2025-2026', '2024-2025', '2023-2024', '2022-2023'],
+  },
+  {
+    id: 'semesters',
+    label: 'Semester Master (1, 2, 3, 4, 5, 6, 7, 8)',
+    options: ['1', '2', '3', '4', '5', '6', '7', '8'],
+  },
+  {
+    id: 'sections',
+    label: 'Section Master (A, B, C, D, All Sections)',
+    options: ['A', 'B', 'C', 'D', 'All Sections'],
+  },
+];
 
 interface StudioFieldsEditorProps {
   fields: FieldDefinition[];
@@ -10,6 +62,7 @@ interface StudioFieldsEditorProps {
 export const StudioFieldsEditor: React.FC<StudioFieldsEditorProps> = ({ fields, onChange }) => {
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(fields[0]?.id || null);
   const [isAddingNew, setIsAddingNew] = useState(false);
+  const storedTemplates = getStoredStudioTemplates();
 
   // New field form state
   const [newLabel, setNewLabel] = useState('');
@@ -17,6 +70,17 @@ export const StudioFieldsEditor: React.FC<StudioFieldsEditorProps> = ({ fields, 
   const [newType, setNewType] = useState<FieldType>('text');
 
   const selectedField = fields.find(f => f.id === selectedFieldId);
+
+  // Raw text state for options input so commas can be typed without getting immediately stripped
+  const [optionsRawText, setOptionsRawText] = useState<string>('');
+
+  useEffect(() => {
+    if (selectedField?.options) {
+      setOptionsRawText(selectedField.options.map(o => o.label).join(', '));
+    } else {
+      setOptionsRawText('');
+    }
+  }, [selectedFieldId]);
 
   const handleAddField = () => {
     if (!newLabel.trim()) return;
@@ -157,6 +221,8 @@ export const StudioFieldsEditor: React.FC<StudioFieldsEditorProps> = ({ fields, 
                   <option value="number">Number</option>
                   <option value="select">Dropdown Select</option>
                   <option value="multiselect">Multi-Select Tags</option>
+                  <option value="radio">Radio Buttons (Single Pick)</option>
+                  <option value="checkbox">Checkbox Group (Multi Pick)</option>
                   <option value="badge">Badge Tag</option>
                   <option value="file_pdf">Document PDF Upload / URL</option>
                   <option value="image">Image Photo URL</option>
@@ -164,18 +230,79 @@ export const StudioFieldsEditor: React.FC<StudioFieldsEditorProps> = ({ fields, 
                 </select>
               </div>
 
-              {(newType === 'select' || newType === 'multiselect' || newType === 'badge') && (
-                <div className="sm:col-span-2 bg-blue-50/50 p-3 rounded-lg border border-blue-100">
-                  <label className="block text-xs font-bold text-blue-900 mb-1">
-                    Dropdown Choices / Options (Comma-Separated)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Sem 1, Sem 2, Sem 3, Sem 4 or 2026-2027, 2025-2026"
-                    id="new_field_options_input"
-                    className="w-full text-xs px-3 py-2 bg-white border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none placeholder:text-gray-400"
-                  />
-                  <p className="text-[10px] text-blue-700 mt-1">Separate each dropdown choice with a comma.</p>
+              {(newType === 'select' || newType === 'multiselect' || newType === 'radio' || newType === 'checkbox' || newType === 'badge') && (
+                <div className="sm:col-span-2 bg-gray-50/80 p-3.5 rounded-xl border border-gray-200 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-semibold text-gray-800">
+                      Field Choices & Options
+                    </label>
+                    <span className="text-[10px] text-gray-500 font-mono">
+                      Master or Manual Choices
+                    </span>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-700 mb-1">
+                      Bind to Central System Master or Module Data Lookup:
+                    </label>
+                    <select
+                      onChange={e => {
+                        const val = e.target.value;
+                        if (!val) return;
+                        const optsEl = document.getElementById('new_field_options_input') as HTMLInputElement | null;
+                        
+                        if (val.startsWith('module_')) {
+                          const slug = val.replace('module_', '');
+                          const t = storedTemplates.find(tmpl => tmpl.schema.slug === slug);
+                          if (t && t.sampleItems && t.sampleItems.length > 0) {
+                            const titles = Array.from(new Set(t.sampleItems.map(item => item.data.title || item.data.name || item.data.recipient || item.id).filter(Boolean)));
+                            if (optsEl) optsEl.value = titles.join(', ');
+                          }
+                        } else if (val.startsWith('picklist_')) {
+                          const pId = val.replace('picklist_', '');
+                          const found = systemPicklists.find(p => p.id === pId);
+                          if (found && optsEl) optsEl.value = found.options.join(', ');
+                        } else if (val.startsWith('master_')) {
+                          const mId = val.replace('master_', '');
+                          const found = systemMasters.find(m => m.id === mId);
+                          if (found && optsEl) optsEl.value = found.options.join(', ');
+                        }
+                      }}
+                      className="w-full text-xs px-3 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-gray-800 font-medium"
+                    >
+                      <option value="">-- Select Picklist, Master Table, or Module --</option>
+                      <optgroup label="System Picklists">
+                        {systemPicklists.map(p => (
+                          <option key={p.id} value={`picklist_${p.id}`}>{p.label}</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="Central Master Tables">
+                        {systemMasters.map(m => (
+                          <option key={m.id} value={`master_${m.id}`}>{m.label}</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="Custom Module References">
+                        {storedTemplates.map(t => (
+                          <option key={t.schema.slug} value={`module_${t.schema.slug}`}>
+                            Module: {t.schema.name || t.schema.slug}
+                          </option>
+                        ))}
+                      </optgroup>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-blue-900 mb-1">
+                      Option Values (Comma-Separated)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Sem 1, Sem 2, Sem 3, Sem 4 or 2026-2027, 2025-2026"
+                      id="new_field_options_input"
+                      className="w-full text-xs px-3 py-2 bg-white border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none placeholder:text-gray-400"
+                    />
+                    <p className="text-[10px] text-blue-700 mt-1">Select a picklist above to auto-populate, or type manual choices separated by commas.</p>
+                  </div>
                 </div>
               )}
             </div>
@@ -221,7 +348,7 @@ export const StudioFieldsEditor: React.FC<StudioFieldsEditorProps> = ({ fields, 
             </div>
           </div>
         ) : selectedField ? (
-          <div className="space-y-5">
+          <div className="space-y-4">
             <div className="border-b border-gray-200 pb-3 flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-sm text-gray-900">
@@ -229,19 +356,19 @@ export const StudioFieldsEditor: React.FC<StudioFieldsEditorProps> = ({ fields, 
                   {selectedField.required && <span className="text-red-500 font-bold ml-1 text-sm">*</span>}
                 </h3>
               </div>
-              <span className="bg-blue-50 text-blue-700 font-mono text-xs font-bold px-2.5 py-1 rounded-full uppercase border border-blue-200">
+              <span className="bg-gray-100 text-gray-700 font-mono text-xs font-bold px-2.5 py-1 rounded-md uppercase border border-gray-200">
                 {selectedField.type}
               </span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1">Field Label</label>
                 <input
                   type="text"
                   value={selectedField.label}
                   onChange={e => handleUpdateField(selectedField.id, { label: e.target.value })}
-                  className="w-full text-xs px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full text-xs px-3 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </div>
 
@@ -251,7 +378,7 @@ export const StudioFieldsEditor: React.FC<StudioFieldsEditorProps> = ({ fields, 
                   type="text"
                   value={selectedField.name}
                   onChange={e => handleUpdateField(selectedField.id, { name: e.target.value })}
-                  className="w-full text-xs font-mono px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full text-xs font-mono px-3 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </div>
 
@@ -260,13 +387,15 @@ export const StudioFieldsEditor: React.FC<StudioFieldsEditorProps> = ({ fields, 
                 <select
                   value={selectedField.type}
                   onChange={e => handleUpdateField(selectedField.id, { type: e.target.value as FieldType })}
-                  className="w-full text-xs px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white"
+                  className="w-full text-xs px-3 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white"
                 >
                   <option value="text">Text Input (Single Line)</option>
                   <option value="textarea">Textarea (Multi Line)</option>
                   <option value="number">Number</option>
                   <option value="select">Dropdown Select</option>
                   <option value="multiselect">Multi-Select Tags</option>
+                  <option value="radio">Radio Buttons (Single Pick)</option>
+                  <option value="checkbox">Checkbox Group (Multi Pick)</option>
                   <option value="badge">Badge Tag</option>
                   <option value="file_pdf">Document PDF Upload / URL</option>
                   <option value="image">Image Photo URL</option>
@@ -280,43 +409,118 @@ export const StudioFieldsEditor: React.FC<StudioFieldsEditorProps> = ({ fields, 
                   type="text"
                   value={selectedField.placeholder || ''}
                   onChange={e => handleUpdateField(selectedField.id, { placeholder: e.target.value })}
-                  className="w-full text-xs px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full text-xs px-3 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </div>
             </div>
 
-            {/* Options configurator for select/multiselect/badge */}
-            {(selectedField.type === 'select' || selectedField.type === 'multiselect' || selectedField.type === 'badge') && (
-              <div className="bg-blue-50/60 p-4 rounded-xl border border-blue-200 space-y-3">
+            {/* Field Rules */}
+            <div className="flex items-center gap-3 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">
+              <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-gray-800">
+                <input
+                  type="checkbox"
+                  checked={selectedField.required || false}
+                  onChange={e => handleUpdateField(selectedField.id, { required: e.target.checked })}
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                Mandatory Field (Required for Submission)
+              </label>
+            </div>
+
+            {/* Options configurator for select/multiselect/radio/checkbox/badge */}
+            {(selectedField.type === 'select' || selectedField.type === 'multiselect' || selectedField.type === 'radio' || selectedField.type === 'checkbox' || selectedField.type === 'badge') && (
+              <div className="bg-gray-50/80 p-3.5 rounded-xl border border-gray-200 space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-bold text-blue-900 uppercase tracking-wider">Dropdown Choices & Options</h4>
-                  <span className="text-[10px] text-blue-700 font-mono font-semibold">
+                  <h4 className="text-xs font-semibold text-gray-800">Field Choices & Options</h4>
+                  <span className="text-[10px] text-gray-500 font-mono">
                     {selectedField.options?.length || 0} choices configured
                   </span>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                  <label className="block text-[11px] font-medium text-gray-600 mb-1">
+                    Bind to Central Master Table or Module Reference:
+                  </label>
+                  <select
+                    onChange={e => {
+                      const val = e.target.value;
+                      if (!val) return;
+                      
+                      if (val.startsWith('module_')) {
+                        const slug = val.replace('module_', '');
+                        const t = storedTemplates.find(tmpl => tmpl.schema.slug === slug);
+                        if (t && t.sampleItems && t.sampleItems.length > 0) {
+                          const titles = Array.from(new Set(t.sampleItems.map(item => item.data.title || item.data.name || item.data.recipient || item.id).filter(Boolean)));
+                          const textVal = titles.join(', ');
+                          setOptionsRawText(textVal);
+                          const parsed = titles.map(val => ({ label: val, value: val }));
+                          handleUpdateField(selectedField.id, { options: parsed });
+                        }
+                      } else if (val.startsWith('picklist_')) {
+                        const pId = val.replace('picklist_', '');
+                        const found = systemPicklists.find(p => p.id === pId);
+                        if (found) {
+                          const textVal = found.options.join(', ');
+                          setOptionsRawText(textVal);
+                          const parsed = found.options.map(val => ({ label: val, value: val }));
+                          handleUpdateField(selectedField.id, { options: parsed });
+                        }
+                      } else if (val.startsWith('master_')) {
+                        const mId = val.replace('master_', '');
+                        const found = systemMasters.find(m => m.id === mId);
+                        if (found) {
+                          const textVal = found.options.join(', ');
+                          setOptionsRawText(textVal);
+                          const parsed = found.options.map(val => ({ label: val, value: val }));
+                          handleUpdateField(selectedField.id, { options: parsed });
+                        }
+                      }
+                    }}
+                    className="w-full text-xs px-2.5 py-1.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-gray-800"
+                  >
+                    <option value="">-- Select Picklist, Master Table, or Module --</option>
+                    <optgroup label="System Picklists">
+                      {systemPicklists.map(p => (
+                        <option key={p.id} value={`picklist_${p.id}`}>{p.label}</option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="Central Master Tables">
+                      {systemMasters.map(m => (
+                        <option key={m.id} value={`master_${m.id}`}>{m.label}</option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="Custom Module References">
+                      {storedTemplates.map(t => (
+                        <option key={t.schema.slug} value={`module_${t.schema.slug}`}>
+                          Module: {t.schema.name || t.schema.slug}
+                        </option>
+                      ))}
+                    </optgroup>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-medium text-gray-600 mb-1">
                     Option Values (Comma-Separated)
                   </label>
                   <input
                     type="text"
-                    value={selectedField.options ? selectedField.options.map(o => o.label).join(', ') : ''}
+                    value={optionsRawText}
                     onChange={e => {
                       const raw = e.target.value;
+                      setOptionsRawText(raw);
                       const parsed = raw.split(',').map(s => s.trim()).filter(Boolean).map(val => ({ label: val, value: val }));
                       handleUpdateField(selectedField.id, { options: parsed });
                     }}
-                    placeholder="e.g. 2026-2027, 2025-2026, 2024-2025 or Sem 1, Sem 2, Sem 3"
-                    className="w-full text-xs px-3 py-2 bg-white border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    placeholder="e.g. Sem 1, Sem 2, Sem 3 or 2026-2027, 2025-2026"
+                    className="w-full text-xs px-2.5 py-1.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
                   />
-                  <p className="text-[11px] text-gray-500 mt-1">Type options separated by commas. They will automatically render as dropdown items in the College Admin Manager form.</p>
                 </div>
 
                 {selectedField.options && selectedField.options.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 pt-1">
+                  <div className="flex flex-wrap gap-1 pt-1">
                     {selectedField.options.map((opt, idx) => (
-                      <span key={idx} className="bg-white border border-blue-200 text-blue-800 text-[11px] font-semibold px-2 py-0.5 rounded-md shadow-2xs">
+                      <span key={idx} className="bg-white border border-gray-200 text-gray-700 text-[10px] font-medium px-2 py-0.5 rounded shadow-2xs">
                         {opt.label}
                       </span>
                     ))}
@@ -324,22 +528,6 @@ export const StudioFieldsEditor: React.FC<StudioFieldsEditorProps> = ({ fields, 
                 )}
               </div>
             )}
-
-            {/* Field Rules */}
-            <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 space-y-3">
-              <h4 className="text-xs font-bold text-gray-800 uppercase tracking-wider">Field Rules</h4>
-              <div className="max-w-xs">
-                <label className="flex items-center gap-2 cursor-pointer bg-white p-2.5 rounded-lg border border-gray-200 hover:border-blue-300">
-                  <input
-                    type="checkbox"
-                    checked={selectedField.required || false}
-                    onChange={e => handleUpdateField(selectedField.id, { required: e.target.checked })}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-xs font-semibold text-gray-800">Required Field</span>
-                </label>
-              </div>
-            </div>
           </div>
         ) : (
           <div className="py-16 text-center text-gray-400 text-xs">
