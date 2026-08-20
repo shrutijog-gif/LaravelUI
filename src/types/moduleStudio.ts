@@ -8,6 +8,8 @@ export type FieldType =
   | 'checkbox'
   | 'file_pdf' 
   | 'image' 
+  | 'icon'
+  | 'url'
   | 'date' 
   | 'boolean' 
   | 'badge';

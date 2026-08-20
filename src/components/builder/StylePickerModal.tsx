@@ -71,19 +71,41 @@ const tableStylesList = [
   },
 ];
 
+const iconBadgeStylesList = [
+  {
+    id: 'icon-1',
+    name: 'Tile Style 1 (Circular White Ring Badges)',
+    description: 'Circular navy icon badge with a white border ring, drop shadow, and centered title underneath.',
+  },
+  {
+    id: 'icon-2',
+    name: 'Tile Style 2 (Solid Crimson Circle Badges)',
+    description: 'Deep red circular badge with white icon, subtle shadow, and centered title underneath.',
+  },
+  {
+    id: 'icon-3',
+    name: 'Tile Style 3 (Rotated Diamond Badges)',
+    description: '45-degree rotated diamond icon tile with an upright white icon and centered title underneath.',
+  },
+];
+
 export const StylePickerModal: React.FC<StylePickerModalProps> = ({
   isOpen,
   onClose,
   selectedStyle,
   onSelectStyle,
 }) => {
-  const [activeTab, setActiveTab] = useState<'card' | 'table'>(
-    selectedStyle?.startsWith('table-') ? 'table' : 'card'
-  );
+  const [activeTab, setActiveTab] = useState<'card' | 'table' | 'icon'>((
+    selectedStyle?.startsWith('table-')
+      ? 'table'
+      : (selectedStyle?.startsWith('icon-') || selectedStyle?.startsWith('quicklink-'))
+      ? 'icon'
+      : 'card'
+  ));
 
   if (!isOpen) return null;
 
-  const currentList = activeTab === 'card' ? cardStylesList : tableStylesList;
+  const currentList = activeTab === 'card' ? cardStylesList : activeTab === 'table' ? tableStylesList : iconBadgeStylesList;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/50 backdrop-blur-sm overflow-y-auto">
@@ -100,7 +122,7 @@ export const StylePickerModal: React.FC<StylePickerModalProps> = ({
             <button
               type="button"
               onClick={() => setActiveTab('card')}
-              className={`flex items-center justify-center gap-1.5 px-4 py-1 rounded-lg text-xs font-extrabold transition-all ${
+              className={`flex items-center justify-center gap-1.5 px-3 py-1 rounded-lg text-xs font-extrabold transition-all ${
                 activeTab === 'card'
                   ? 'bg-white text-blue-600 shadow-sm'
                   : 'text-gray-600 hover:text-gray-900'
@@ -112,7 +134,7 @@ export const StylePickerModal: React.FC<StylePickerModalProps> = ({
             <button
               type="button"
               onClick={() => setActiveTab('table')}
-              className={`flex items-center justify-center gap-1.5 px-4 py-1 rounded-lg text-xs font-extrabold transition-all ${
+              className={`flex items-center justify-center gap-1.5 px-3 py-1 rounded-lg text-xs font-extrabold transition-all ${
                 activeTab === 'table'
                   ? 'bg-white text-blue-600 shadow-sm'
                   : 'text-gray-600 hover:text-gray-900'
@@ -120,6 +142,17 @@ export const StylePickerModal: React.FC<StylePickerModalProps> = ({
             >
               <Table className="w-3.5 h-3.5" />
               Table Styles ({tableStylesList.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('icon')}
+              className={`flex items-center justify-center gap-1.5 px-3 py-1 rounded-lg text-xs font-extrabold transition-all ${
+                activeTab === 'icon'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              ⚡ Compact Tile Styles ({iconBadgeStylesList.length})
             </button>
           </div>
 
@@ -182,23 +215,78 @@ export const StylePickerModal: React.FC<StylePickerModalProps> = ({
                 {/* Visual Preview Container */}
                 <div className="md:w-[65%] w-full bg-gray-50/80 p-3 sm:p-4 rounded-xl border border-gray-100 min-w-0 flex items-center justify-center">
                   <div className="w-full max-w-[380px] mx-auto">
-                    <TimetableBlock
-                      title=""
-                      description=""
-                      view={activeTab}
-                      cardStyle={styleItem.id as any}
-                      tableStyle={styleItem.id as any}
-                      timetables={activeTab === 'table' ? sampleTimetables : [sampleTimetables[0]]}
-                      isPreview={true}
-                      showFields={{
-                        title: true,
-                        file: true,
-                        branch: true,
-                        semester: true,
-                        download: true,
-                        year: true,
-                      }}
-                    />
+                    {(styleItem.id.startsWith('icon-') || styleItem.id.startsWith('quicklink-')) ? (
+                      <div className="flex items-center justify-center gap-6 py-3">
+                        {styleItem.id.includes('1') ? (
+                          <>
+                            <div className="flex flex-col items-center gap-2">
+                              <div className="w-14 h-14 rounded-full bg-[#0F2748] text-white flex items-center justify-center border-4 border-white shadow-md">
+                                <LayoutGrid className="w-6 h-6 text-white" />
+                              </div>
+                              <span className="text-[11px] font-bold text-gray-800 text-center">UG Program</span>
+                            </div>
+                            <div className="flex flex-col items-center gap-2">
+                              <div className="w-14 h-14 rounded-full bg-[#0F2748] text-white flex items-center justify-center border-4 border-white shadow-md">
+                                <Table className="w-6 h-6 text-white" />
+                              </div>
+                              <span className="text-[11px] font-bold text-gray-800 text-center">PG Program</span>
+                            </div>
+                          </>
+                        ) : styleItem.id.includes('2') ? (
+                          <>
+                            <div className="flex flex-col items-center gap-2">
+                              <div className="w-14 h-14 rounded-full bg-[#8B1D0F] text-white flex items-center justify-center shadow-sm">
+                                <LayoutGrid className="w-6 h-6 text-white" />
+                              </div>
+                              <span className="text-[11px] font-bold text-gray-800 text-center">Time Table</span>
+                            </div>
+                            <div className="flex flex-col items-center gap-2">
+                              <div className="w-14 h-14 rounded-full bg-[#8B1D0F] text-white flex items-center justify-center shadow-sm">
+                                <Table className="w-6 h-6 text-white" />
+                              </div>
+                              <span className="text-[11px] font-bold text-gray-800 text-center">Examination</span>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="flex flex-col items-center gap-3">
+                              <div className="w-12 h-12 rotate-45 bg-[#0F2748] text-white flex items-center justify-center shadow-md">
+                                <div className="-rotate-45">
+                                  <LayoutGrid className="w-5 h-5 text-white" />
+                                </div>
+                              </div>
+                              <span className="text-[11px] font-bold text-gray-800 text-center">Prospectus</span>
+                            </div>
+                            <div className="flex flex-col items-center gap-3">
+                              <div className="w-12 h-12 rotate-45 bg-teal-700 text-white flex items-center justify-center shadow-md">
+                                <div className="-rotate-45">
+                                  <Table className="w-5 h-5 text-white" />
+                                </div>
+                              </div>
+                              <span className="text-[11px] font-bold text-gray-800 text-center">Results</span>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    ) : (
+                      <TimetableBlock
+                        title=""
+                        description=""
+                        view={activeTab as any}
+                        cardStyle={styleItem.id as any}
+                        tableStyle={styleItem.id as any}
+                        timetables={activeTab === 'table' ? sampleTimetables : [sampleTimetables[0]]}
+                        isPreview={true}
+                        showFields={{
+                          title: true,
+                          file: true,
+                          branch: true,
+                          semester: true,
+                          download: true,
+                          year: true,
+                        }}
+                      />
+                    )}
                   </div>
                 </div>
               </div>

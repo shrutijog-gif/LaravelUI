@@ -217,6 +217,7 @@ export const StudioFieldsEditor: React.FC<StudioFieldsEditorProps> = ({ fields, 
                   className="w-full text-xs px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white"
                 >
                   <option value="text">Text Input (Single Line)</option>
+                  <option value="url">URL / Website Link</option>
                   <option value="textarea">Textarea (Multi Line)</option>
                   <option value="number">Number</option>
                   <option value="select">Dropdown Select</option>
@@ -226,6 +227,7 @@ export const StudioFieldsEditor: React.FC<StudioFieldsEditorProps> = ({ fields, 
                   <option value="badge">Badge Tag</option>
                   <option value="file_pdf">Document PDF Upload / URL</option>
                   <option value="image">Image Photo URL</option>
+                  <option value="icon">Vector Icon Picker / Symbol</option>
                   <option value="date">Date Picker</option>
                 </select>
               </div>
@@ -390,6 +392,7 @@ export const StudioFieldsEditor: React.FC<StudioFieldsEditorProps> = ({ fields, 
                   className="w-full text-xs px-3 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white"
                 >
                   <option value="text">Text Input (Single Line)</option>
+                  <option value="url">URL / Website Link</option>
                   <option value="textarea">Textarea (Multi Line)</option>
                   <option value="number">Number</option>
                   <option value="select">Dropdown Select</option>
@@ -399,6 +402,7 @@ export const StudioFieldsEditor: React.FC<StudioFieldsEditorProps> = ({ fields, 
                   <option value="badge">Badge Tag</option>
                   <option value="file_pdf">Document PDF Upload / URL</option>
                   <option value="image">Image Photo URL</option>
+                  <option value="icon">Vector Icon Picker / Symbol</option>
                   <option value="date">Date Picker</option>
                 </select>
               </div>

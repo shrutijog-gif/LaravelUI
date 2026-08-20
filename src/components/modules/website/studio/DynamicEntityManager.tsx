@@ -4,7 +4,7 @@ import { getStoredStudioTemplates, getStoredEntitiesBySlug, saveStoredEntitiesBy
 import { getActiveTenant } from '../../../../data/tenantData';
 import { naacCriteriaList } from '../../../../data/naacCriteriaData';
 import { Drawer } from '../../../common/Drawer';
-import { Plus, Search, Trash2, Edit, Eye, EyeOff, Check, X, ShieldCheck, Download, Award, FileText, Layers, Upload, ExternalLink } from 'lucide-react';
+import { Plus, Search, Trash2, Edit, Eye, EyeOff, Check, X, ShieldCheck, Download, Award, Trophy, BookOpen, GraduationCap, FileText, Layers, Upload, ExternalLink, Globe } from 'lucide-react';
 
 interface DynamicEntityManagerProps {
   moduleSlug?: string;
@@ -174,6 +174,19 @@ export const DynamicEntityManager: React.FC<DynamicEntityManagerProps> = ({ modu
                         <td key={f.id} className="py-3.5 px-4 max-w-xs truncate font-medium text-gray-800">
                           {f.type === 'image' && val ? (
                             <img src={val} alt="Thumbnail" className="w-10 h-10 object-cover rounded-lg border border-gray-200" />
+                          ) : f.type === 'icon' && val ? (
+                            <span className="text-xl inline-block">
+                              {val === 'award' || val === 'trophy' ? '🏆' :
+                               val === 'calendar' ? '📅' :
+                               val === 'book' ? '📚' :
+                               val === 'graduation-cap' ? '🎓' :
+                               val === 'shield' ? '🛡️' :
+                               val === 'layers' ? '⚡' :
+                               val === 'globe' ? '🌐' :
+                               val === 'download' ? '📥' :
+                               val === 'external-link' ? '🔗' :
+                               '📄'}
+                            </span>
                           ) : (f.type === 'file_pdf' || f.name.toLowerCase().includes('file')) && val ? (
                             <a
                               href={val}
@@ -409,6 +422,33 @@ export const DynamicEntityManager: React.FC<DynamicEntityManagerProps> = ({ modu
                         );
                       })}
                     </div>
+                  ) : field.type === 'icon' ? (
+                    <select
+                      value={formData[field.name] || 'file-text'}
+                      onChange={e => setFormData({ ...formData, [field.name]: e.target.value })}
+                      className="w-full text-xs px-3 py-2 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    >
+                      <option value="calendar">📅 Calendar / Schedule</option>
+                      <option value="award">🏆 Award / Trophy</option>
+                      <option value="book">📚 Book / Syllabus</option>
+                      <option value="file-text">📄 Document / Manual</option>
+                      <option value="shield">🛡️ Shield / Security</option>
+                      <option value="layers">⚡ Layers / System</option>
+                      <option value="globe">🌐 Globe / Portal</option>
+                      <option value="download">📥 Download / File</option>
+                      <option value="external-link">🔗 External Link</option>
+                    </select>
+                  ) : field.type === 'url' ? (
+                    <div className="relative">
+                      <Globe className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="url"
+                        placeholder={field.placeholder || "https://example.com/link"}
+                        value={formData[field.name] || ''}
+                        onChange={e => setFormData({ ...formData, [field.name]: e.target.value })}
+                        className="w-full text-xs pl-9 pr-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white font-mono text-blue-600"
+                      />
+                    </div>
                   ) : field.type === 'file_pdf' ? (
                     <div className="flex items-center w-full bg-white border border-gray-300 rounded-xl overflow-hidden shadow-2xs focus-within:ring-2 focus-within:ring-blue-500">
                       <label className="px-4 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 text-xs font-bold border-r border-gray-300 cursor-pointer shrink-0 transition-colors">
@@ -437,14 +477,29 @@ export const DynamicEntityManager: React.FC<DynamicEntityManagerProps> = ({ modu
                         {formData[`${field.name}_filename`] || (formData[field.name] ? 'PDF File Attached' : 'No file chosen')}
                       </span>
                       {formData[field.name] && (
-                        <a
-                          href={formData[field.name]}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="mr-2 px-2.5 py-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 shrink-0"
-                        >
-                          View PDF
-                        </a>
+                        <div className="flex items-center gap-1 mr-2 shrink-0">
+                          <a
+                            href={formData[field.name]}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="px-2.5 py-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 shrink-0"
+                          >
+                            View PDF
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const nextData = { ...formData };
+                              delete nextData[field.name];
+                              delete nextData[`${field.name}_filename`];
+                              setFormData(nextData);
+                            }}
+                            className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                            title="Remove PDF File"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       )}
                     </div>
                   ) : field.type === 'image' ? (
@@ -475,11 +530,26 @@ export const DynamicEntityManager: React.FC<DynamicEntityManagerProps> = ({ modu
                         {formData[`${field.name}_filename`] || (formData[field.name] ? 'Image Attached' : 'No file chosen')}
                       </span>
                       {formData[field.name] && (
-                        <img
-                          src={formData[field.name]}
-                          alt="Preview"
-                          className="w-7 h-7 object-cover rounded-md border border-gray-200 mr-2 shrink-0"
-                        />
+                        <div className="flex items-center gap-1 mr-2 shrink-0">
+                          <img
+                            src={formData[field.name]}
+                            alt="Preview"
+                            className="w-7 h-7 object-cover rounded-md border border-gray-200 shrink-0"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const nextData = { ...formData };
+                              delete nextData[field.name];
+                              delete nextData[`${field.name}_filename`];
+                              setFormData(nextData);
+                            }}
+                            className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                            title="Remove Image"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       )}
                     </div>
                   ) : field.type === 'textarea' ? (

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { StudioTemplate, DynamicEntityItem, ModuleSchema } from '../../../types/moduleStudio';
 import { getStoredStudioTemplates, getStoredEntitiesBySlug } from '../../../data/mockStudioData';
 import { getActiveTenant } from '../../../data/tenantData';
-import { Search, ArrowUpRight, FileText, Calendar, Award, ExternalLink, ShieldCheck } from 'lucide-react';
+import { Search, ArrowUpRight, FileText, Calendar, Award, Trophy, BookOpen, ExternalLink, ShieldCheck, Layers, Globe, Download } from 'lucide-react';
 
 export interface DynamicModuleBlockProps {
   moduleSlug?: string;
@@ -215,20 +215,102 @@ export const DynamicModuleBlock: React.FC<DynamicModuleBlockProps> = ({
         </div>
       )}
 
-      {/* Card View Rendering */}
+      {/* Card & Icon Badge View Rendering */}
       {!isTableView && filteredItems.length > 0 && (
-        <div className={`grid ${gridColsClass} gap-6`}>
+        <div className={(activeStyle.startsWith('icon-') || activeStyle.startsWith('quicklink-')) ? 'flex flex-wrap items-center justify-center gap-6 sm:gap-8 py-4' : `grid ${gridColsClass} gap-6`}>
           {displayedItems.map(item => {
             const cardFields = fields.filter(f => f.showInCard !== false && (showFields ? showFields[f.name] !== false : true));
             const imageField = fields.find(f => f.type === 'image');
             const itemData = item?.data || {};
             const imageUrl = imageField ? itemData[imageField.name] : null;
+            const linkField = fields.find(f => f.type === 'url') || fields.find(f => f.name.toLowerCase().includes('link') || f.name.toLowerCase() === 'url');
             const pdfField = fields.find(f => f.type === 'file_pdf') || fields.find(f => f.name.toLowerCase().includes('file'));
-            const fileUrl = getValidUrl(pdfField ? itemData[pdfField.name] : '#');
+            const rawTargetUrl = (linkField && itemData[linkField.name]) ? itemData[linkField.name] : (pdfField ? itemData[pdfField.name] : '#');
+            const fileUrl = getValidUrl(rawTargetUrl);
             const titleVal = itemData.title || itemData.name || itemData.recipient || 'Untitled Record';
             const yearVal = itemData.year;
+            const iconField = fields.find(f => f.type === 'icon') || fields.find(f => f.name.toLowerCase() === 'icon');
+            const iconVal = iconField ? itemData[iconField.name] : null;
             const showDownload = showFields ? showFields.download !== false : true;
             const showIcon = showFields ? showFields.icon !== false : true;
+
+            const renderItemMedia = (iconSizeClass = "w-8 h-8") => {
+              if (imageUrl) {
+                return <img src={imageUrl} alt={titleVal} className={`${iconSizeClass} object-contain`} />;
+              }
+              if (iconVal === 'award' || iconVal === 'trophy') return <span className="text-2xl sm:text-3xl leading-none select-none">🏆</span>;
+              if (iconVal === 'calendar') return <span className="text-2xl sm:text-3xl leading-none select-none">📅</span>;
+              if (iconVal === 'book') return <span className="text-2xl sm:text-3xl leading-none select-none">📚</span>;
+              if (iconVal === 'graduation-cap') return <span className="text-2xl sm:text-3xl leading-none select-none">🎓</span>;
+              if (iconVal === 'shield') return <span className="text-2xl sm:text-3xl leading-none select-none">🛡️</span>;
+              if (iconVal === 'layers') return <span className="text-2xl sm:text-3xl leading-none select-none">⚡</span>;
+              if (iconVal === 'globe') return <span className="text-2xl sm:text-3xl leading-none select-none">🌐</span>;
+              if (iconVal === 'download') return <span className="text-2xl sm:text-3xl leading-none select-none">📥</span>;
+              if (iconVal === 'external-link') return <span className="text-2xl sm:text-3xl leading-none select-none">🔗</span>;
+              return <FileText className={iconSizeClass} />;
+            };
+
+            /* ICON BADGE STYLE 1: Circular Navy Badges with White Ring Border */
+            if (activeStyle === 'icon-1' || activeStyle === 'quicklink-1') {
+              return (
+                <a
+                  key={item.id}
+                  href={fileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group flex flex-col items-center gap-3 p-2 transition-transform hover:-translate-y-1 cursor-pointer max-w-[110px]"
+                >
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-[#0F2748] text-white flex items-center justify-center border-4 border-white shadow-md group-hover:bg-blue-600 transition-all shrink-0">
+                    {renderItemMedia("w-7 h-7 sm:w-8 sm:h-8")}
+                  </div>
+                  <span className="text-xs font-semibold text-gray-800 text-center leading-snug group-hover:text-blue-600 transition-colors">
+                    {titleVal}
+                  </span>
+                </a>
+              );
+            }
+
+            /* ICON BADGE STYLE 2: Solid Crimson Circle Badges */
+            if (activeStyle === 'icon-2' || activeStyle === 'quicklink-2') {
+              return (
+                <a
+                  key={item.id}
+                  href={fileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group flex flex-col items-center gap-3 p-2 transition-transform hover:-translate-y-1 cursor-pointer max-w-[110px]"
+                >
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-[#8B1D0F] text-white flex items-center justify-center shadow-sm group-hover:bg-amber-700 transition-all shrink-0">
+                    {renderItemMedia("w-7 h-7 sm:w-8 sm:h-8")}
+                  </div>
+                  <span className="text-xs font-semibold text-gray-800 text-center leading-snug group-hover:text-amber-700 transition-colors">
+                    {titleVal}
+                  </span>
+                </a>
+              );
+            }
+
+            /* ICON BADGE STYLE 3: Rotated Diamond Badges */
+            if (activeStyle === 'icon-3' || activeStyle === 'quicklink-3') {
+              return (
+                <a
+                  key={item.id}
+                  href={fileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group flex flex-col items-center gap-4 p-2 transition-transform hover:-translate-y-1 cursor-pointer max-w-[110px]"
+                >
+                  <div className="w-14 h-14 sm:w-16 sm:h-16 rotate-45 bg-[#0F2748] group-hover:bg-teal-600 text-white flex items-center justify-center shadow-md transition-colors shrink-0">
+                    <div className="-rotate-45">
+                      {renderItemMedia("w-6 h-6 sm:w-7 sm:h-7")}
+                    </div>
+                  </div>
+                  <span className="text-xs font-semibold text-gray-800 text-center leading-snug group-hover:text-teal-700 transition-colors">
+                    {titleVal}
+                  </span>
+                </a>
+              );
+            }
 
             /* STYLE 4: Dual-Pane Split Card */
             if (activeStyle === 'style-4') {
