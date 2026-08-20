@@ -10,97 +10,166 @@ import {
 } from 'lucide-react';
 import { MenuItem } from '../../types/navigation';
 
-interface SidebarProps {
+export interface SidebarProps {
   activeItem: string;
   onSelectMenuItem: (id: string, label: string) => void;
   isOpen: boolean;
+  portalRole?: 'superadmin' | 'collegeadmin';
 }
 
-export const initialMenuItems: MenuItem[] = [
+import { getStoredStudioTemplates } from '../../data/mockStudioData';
+
+export const superadminMenuItems: MenuItem[] = [
   {
-    id: 'dashboard',
-    label: 'Dashboard',
+    id: 'platform-overview',
+    label: 'Platform Dashboard',
     icon: 'home',
   },
   {
-    id: 'file-manager',
-    label: 'File Manager',
-    icon: 'circle',
-  },
-  {
-    id: 'homepage',
-    label: 'Home Page',
-    icon: 'circle',
-    children: [
-      { id: 'news-notices', label: 'News And Notices' },
-      { id: 'dynamic-popup', label: 'Dynamic Popup' },
-      { id: 'home-slider', label: 'Home Slider' },
-      { id: 'testimonials', label: 'Testimonials' },
-    ],
-  },
-  {
-    id: 'website',
-    label: 'Website',
-    icon: 'circle',
-    children: [
-      { id: 'photo-gallery', label: 'Photo Gallery' },
-      { id: 'admission-enquiry', label: 'Website Admission Enquiry Form' },
-      { id: 'website-timetable', label: 'Timetable' },
-    ],
-  },
-  {
-    id: 'website-builder',
-    label: 'Website Builder',
-    icon: 'circle',
-    children: [
-      { id: 'webpage', label: 'Webpage' },
-      { id: 'menu-builder', label: 'Menu Builder' },
-    ],
-  },
-  {
-    id: 'academics',
-    label: 'Academics',
-    icon: 'circle',
-    children: [],
-  },
-  {
-    id: 'ecommerce',
-    label: 'Ecommerce',
-    icon: 'shopping-bag',
-    children: [
-      { id: 'ecommerce-dashboard', label: 'Dashboard' },
-      { id: 'ecommerce-products', label: 'List of Products' },
-      { id: 'ecommerce-offers', label: 'Offers & Coupons' },
-      { id: 'ecommerce-categories', label: 'Categories' },
-      { id: 'ecommerce-orders', label: 'Orders' },
-    ],
-  },
-  {
-    id: 'setup-config',
-    label: 'Setup/Config',
+    id: 'module-studio',
+    label: 'Module Studio ⚡',
     icon: 'database',
-    children: [],
   },
   {
-    id: 'developers-area',
-    label: 'Developers Area',
+    id: 'tenant-management',
+    label: 'Colleges & SaaS Tenants',
     icon: 'circle',
-    children: [],
+  },
+  {
+    id: 'global-notifications',
+    label: 'Notification Studio',
+    icon: 'circle',
+  },
+  {
+    id: 'schema-registry',
+    label: 'Global Schema Registry',
+    icon: 'circle',
+  },
+  {
+    id: 'user-roles',
+    label: 'User Roles & Access Control',
+    icon: 'circle',
+  },
+  {
+    id: 'platform-settings',
+    label: 'Platform Setup & Configuration',
+    icon: 'database',
   },
 ];
+
+export const getCollegeAdminMenuItems = (): MenuItem[] => {
+  const templates = getStoredStudioTemplates();
+
+  const studioChildren = templates.map(t => ({
+    id: `module-${t.schema.slug}`,
+    label: t.schema.name || t.schema.slug,
+  }));
+
+  const defaultStudioChildren = [
+    { id: 'module-awards', label: 'Awards & Recognitions' },
+    { id: 'module-reports', label: 'Examination Reports' },
+  ];
+
+  const dynamicModules = studioChildren.length > 0 
+    ? Array.from(new Map(studioChildren.map(item => [item.id, item])).values())
+    : defaultStudioChildren;
+
+  const menu: MenuItem[] = [
+    {
+      id: 'dashboard',
+      label: 'Dashboard',
+      icon: 'home',
+    },
+    {
+      id: 'dynamic-modules-group',
+      label: 'Dynamic Modules',
+      icon: 'layers',
+      children: dynamicModules,
+    },
+    {
+      id: 'homepage',
+      label: 'Home Page',
+      icon: 'circle',
+      children: [
+        { id: 'news-notices', label: 'News And Notices' },
+        { id: 'dynamic-popup', label: 'Dynamic Popup' },
+        { id: 'home-slider', label: 'Home Slider' },
+        { id: 'testimonials', label: 'Testimonials' },
+      ],
+    },
+    {
+      id: 'website',
+      label: 'Website',
+      icon: 'circle',
+      children: [
+        { id: 'photo-gallery', label: 'Photo Gallery' },
+        { id: 'admission-enquiry', label: 'Website Admission Enquiry Form' },
+      ],
+    },
+    {
+      id: 'website-builder',
+      label: 'Website Builder',
+      icon: 'circle',
+      children: [
+        { id: 'webpage', label: 'Webpage' },
+        { id: 'menu-builder', label: 'Menu Builder' },
+      ],
+    },
+    {
+      id: 'academics',
+      label: 'Academics',
+      icon: 'circle',
+      children: [
+        { id: 'website-timetable', label: 'Timetables' },
+      ],
+    },
+    {
+      id: 'ecommerce',
+      label: 'Ecommerce',
+      icon: 'shopping-bag',
+      children: [
+        { id: 'ecommerce-dashboard', label: 'Dashboard' },
+        { id: 'ecommerce-products', label: 'List of Products' },
+        { id: 'ecommerce-offers', label: 'Offers & Coupons' },
+        { id: 'ecommerce-categories', label: 'Categories' },
+        { id: 'ecommerce-orders', label: 'Orders' },
+      ],
+    },
+    {
+      id: 'setup-config',
+      label: 'Setup/Config',
+      icon: 'database',
+      children: [
+        { id: 'module-studio', label: 'Custom Module Studio ⚡' },
+        { id: 'setup-email-template', label: 'Email Template' },
+        { id: 'setup-manage-users', label: 'Manage Users' },
+      ],
+    },
+  ];
+
+  return menu;
+};
+
+export const initialMenuItems: MenuItem[] = getCollegeAdminMenuItems();
 
 export const Sidebar: React.FC<SidebarProps> = ({ 
   activeItem, 
   onSelectMenuItem,
-  isOpen 
+  isOpen,
+  portalRole = 'superadmin'
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({
+    'dynamic-modules-group': true,
+    'setup-config': true,
     ecommerce: false,
     homepage: false,
     website: false,
     'website-builder': false,
   });
+
+  const isSuperAdmin = portalRole === 'superadmin';
+  const menuList = isSuperAdmin ? superadminMenuItems : getCollegeAdminMenuItems();
 
   const toggleSubmenu = (id: string) => {
     setOpenSubmenus(prev => ({
@@ -109,7 +178,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }));
   };
 
-  const filteredMenuItems = initialMenuItems.filter(item => {
+  const filteredMenuItems = menuList.filter(item => {
     if (!searchQuery.trim()) return true;
     const query = searchQuery.toLowerCase();
     const matchesLabel = item.label.toLowerCase().includes(query);
@@ -121,11 +190,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <aside 
-      className={`bg-[#1d4ed8] text-white flex-shrink-0 flex flex-col transition-all duration-200 z-20 ${
+      className={`text-white flex-shrink-0 flex flex-col transition-all duration-300 z-20 ${
+        isSuperAdmin ? 'bg-[#0f172a] border-r border-amber-500/20' : 'bg-[#1d4ed8]'
+      } ${
         isOpen ? 'w-64' : 'w-0 overflow-hidden'
       }`}
       style={{ minHeight: 'calc(100vh - 4rem)' }}
     >
+
+
+      {/* Module Search Input */}
       {/* Module Search Input */}
       <div className="p-4">
         <div className="relative">

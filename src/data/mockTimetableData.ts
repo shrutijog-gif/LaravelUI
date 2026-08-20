@@ -14,7 +14,7 @@ export const getStoredTimetables = (): Timetable[] => {
     const saved = localStorage.getItem(key);
     if (saved) {
       const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed) && parsed.length >= 4) {
         return parsed.map((t: Timetable) => ({
           ...t,
           fileUrl: (t.fileUrl && t.fileUrl.trim() !== '' && t.fileUrl !== '#') ? t.fileUrl : SAMPLE_PDF

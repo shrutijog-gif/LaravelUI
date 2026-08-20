@@ -119,7 +119,7 @@ export const TimetableBlock: React.FC<TimetableBlockProps> = ({
                           <div className="flex flex-wrap gap-1">
                             {timetable.semester.map(sem => (
                               <span key={sem} className="bg-blue-50 text-blue-700 text-xs font-semibold px-2 py-0.5 rounded">
-                                Sem {sem}
+                                {sem}
                               </span>
                             ))}
                           </div>
