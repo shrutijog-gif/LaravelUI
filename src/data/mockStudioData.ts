@@ -1,6 +1,6 @@
 import { StudioTemplate, ModuleSchema, DynamicEntityItem } from '../types/moduleStudio';
 import { getActiveTenant } from './tenantData';
-import { getStoredTimetables } from './mockTimetableData';
+import { getStoredTimetables, SAMPLE_PDF } from './mockTimetableData';
 
 const STORAGE_KEY_TEMPLATES = 'laravel_ui_module_studio_templates';
 const STORAGE_KEY_ENTITIES_PREFIX = 'laravel_ui_module_studio_entities_';
