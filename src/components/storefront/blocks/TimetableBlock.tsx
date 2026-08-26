@@ -2,12 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { Calendar, FileText, Bookmark, ArrowUpRight } from 'lucide-react';
 import { Timetable } from '../../../types/timetable';
 import { getStoredTimetables } from '../../../data/mockTimetableData';
+import { getStoredCardPresets, CardSlotConfig } from '../../../utils/cardPresets';
+import { CardPresetView } from '../../modules/developer/CardPresetView';
 
 export interface TimetableBlockProps {
   title?: string;
   description?: string;
   view?: 'card' | 'grid' | 'table';
-  cardStyle?: 'style-1' | 'style-2' | 'style-3' | 'style-4' | 'table-1' | 'table-2' | 'table-3';
+  cardStyle?: string;
+  tableStyle?: string;
   columns?: 2 | 3 | 4;
   className?: string;
   anchorId?: string;
@@ -18,6 +21,7 @@ export interface TimetableBlockProps {
     semester?: boolean;
     download?: boolean;
     year?: boolean;
+    icon?: boolean;
   };
   timetables?: Timetable[];
   isPreview?: boolean;
@@ -255,7 +259,10 @@ export const TimetableBlock: React.FC<TimetableBlockProps> = ({
       );
     }
 
-    /* CARD VIEWS - Optimized specifically for Title + Mandatory Year + File Link */
+    const cardPresets = getStoredCardPresets();
+    const matchedPreset = cardPresets.find(p => p.id === selectedStyle);
+
+    /* CARD VIEWS - Dynamic Slot Preset Rendering */
     return (
       <div className={
         isPreview 
@@ -273,6 +280,29 @@ export const TimetableBlock: React.FC<TimetableBlockProps> = ({
                 : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
       }>
         {displayedTimetables.map(timetable => {
+          if (matchedPreset) {
+            return (
+              <a 
+                key={timetable.id} 
+                href={getValidFileUrl(timetable.fileUrl)} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="block"
+              >
+                <CardPresetView
+                  preset={matchedPreset}
+                  sampleData={{
+                    year: timetable.year,
+                    logoText: timetable.branch?.[0] ? timetable.branch[0].slice(0, 3).toUpperCase() : 'PDF',
+                    title: timetable.name,
+                    recipient: timetable.branch?.length ? `${timetable.branch.join(', ')} • Sem ${timetable.semester?.join(', ') || ''}` : '',
+                    pdf_url: timetable.fileUrl,
+                  }}
+                />
+              </a>
+            );
+          }
+
           /* Style 4 (Dual-Pane Split Card) - Title + Year + File Link */
           if (cardStyle === 'style-4') {
             return (

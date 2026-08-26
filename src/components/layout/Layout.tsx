@@ -10,6 +10,8 @@ import { PageAdmin } from '../modules/website/pages/PageAdmin';
 
 import { ModuleStudio } from '../modules/website/studio/ModuleStudio';
 import { DynamicEntityManager } from '../modules/website/studio/DynamicEntityManager';
+import { DesignSettings } from '../modules/developer/DesignSettings';
+import { CardBuilderStudio } from '../modules/developer/CardBuilderStudio';
 
 interface LayoutProps {
   onToggleViewMode?: () => void;
@@ -17,9 +19,9 @@ interface LayoutProps {
 
 export const Layout: React.FC<LayoutProps> = ({ onToggleViewMode }) => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [portalRole, setPortalRole] = useState<'superadmin' | 'collegeadmin'>('superadmin');
-  const [activeModuleId, setActiveModuleId] = useState('module-studio');
-  const [activeModuleLabel, setActiveModuleLabel] = useState('Module Studio');
+  const [portalRole, setPortalRole] = useState<'superadmin' | 'collegeadmin'>('collegeadmin');
+  const [activeModuleId, setActiveModuleId] = useState('card-builder-studio');
+  const [activeModuleLabel, setActiveModuleLabel] = useState('Card Builder Studio');
 
   const toggleSidebar = () => {
     setSidebarOpen(prev => !prev);
@@ -36,8 +38,8 @@ export const Layout: React.FC<LayoutProps> = ({ onToggleViewMode }) => {
       setActiveModuleId('module-studio');
       setActiveModuleLabel('Module Studio');
     } else {
-      setActiveModuleId('dashboard');
-      setActiveModuleLabel('Dashboard');
+      setActiveModuleId('card-builder-studio');
+      setActiveModuleLabel('Card Builder Studio');
     }
   };
 
@@ -80,7 +82,11 @@ export const Layout: React.FC<LayoutProps> = ({ onToggleViewMode }) => {
         {/* Right Main Content Area */}
         <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
           <main className="flex-1 p-6">
-            {activeModuleId === 'dashboard' ? (
+            {activeModuleId === 'card-builder-studio' ? (
+              <CardBuilderStudio />
+            ) : activeModuleId === 'design-settings' ? (
+              <DesignSettings />
+            ) : activeModuleId === 'dashboard' ? (
               <DashboardModule />
             ) : activeModuleId.startsWith('ecommerce') ? (
               <EcommerceContainer initialSubTab={getEcommerceSubTab()} />
