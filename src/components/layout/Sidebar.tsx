@@ -6,7 +6,8 @@ import {
   Circle, 
   Database,
   Search,
-  ShoppingBag
+  ShoppingBag,
+  Code2
 } from 'lucide-react';
 import { MenuItem } from '../../types/navigation';
 
@@ -29,6 +30,15 @@ export const superadminMenuItems: MenuItem[] = [
     id: 'module-studio',
     label: 'Module Studio ⚡',
     icon: 'database',
+  },
+  {
+    id: 'developers-area',
+    label: 'Developers Area',
+    icon: 'code',
+    children: [
+      { id: 'design-settings', label: 'Design Settings' },
+      { id: 'card-builder-studio', label: 'Card Builder Studio 🎨' },
+    ],
   },
   {
     id: 'tenant-management',
@@ -136,6 +146,15 @@ export const getCollegeAdminMenuItems = (): MenuItem[] => {
       ],
     },
     {
+      id: 'developers-area',
+      label: 'Developers Area',
+      icon: 'code',
+      children: [
+        { id: 'design-settings', label: 'Design Settings' },
+        { id: 'card-builder-studio', label: 'Card Builder Studio 🎨' },
+      ],
+    },
+    {
       id: 'setup-config',
       label: 'Setup/Config',
       icon: 'database',
@@ -160,8 +179,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({
-    'dynamic-modules-group': true,
-    'setup-config': true,
+    'developers-area': true,
+    'dynamic-modules-group': false,
+    'setup-config': false,
     ecommerce: false,
     homepage: false,
     website: false,
@@ -241,6 +261,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   {item.icon === 'home' && <Home className="w-4 h-4" />}
                   {item.icon === 'shopping-bag' && <ShoppingBag className="w-4 h-4" />}
                   {item.icon === 'database' && <Database className="w-4 h-4" />}
+                  {item.icon === 'code' && <Code2 className="w-4 h-4" />}
                   {item.icon === 'circle' && <Circle className="w-4 h-4 stroke-[2]" />}
                   <span>{item.label}</span>
                 </div>

@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Check, LayoutGrid, Table } from 'lucide-react';
 import { TimetableBlock } from '../storefront/blocks/TimetableBlock';
+import { getStoredCardPresets } from '../../utils/cardPresets';
+import { CardPresetView } from '../modules/developer/CardPresetView';
 
 export interface StylePickerModalProps {
   isOpen: boolean;
@@ -27,29 +29,6 @@ const sampleTimetables = [
     semester: ['V'],
     fileName: 'bca_3rd_sem5.pdf',
     fileUrl: '#',
-  },
-];
-
-const cardStylesList = [
-  {
-    id: 'style-1',
-    name: 'Card Style 1 (Classic Document)',
-    description: 'Classic card layout with top calendar icon badge, prominent timetable title, and bottom action link.',
-  },
-  {
-    id: 'style-2',
-    name: 'Card Style 2 (Minimalist File)',
-    description: 'Clean minimalist card with a file icon badge, title-focused layout, and bottom PDF link.',
-  },
-  {
-    id: 'style-3',
-    name: 'Card Style 3 (Modern Gradient Banner)',
-    description: 'Vibrant top accent banner presenting the title in bold, with a white body holding the download action button.',
-  },
-  {
-    id: 'style-4',
-    name: 'Card Style 4 (Dual-Pane Split Card)',
-    description: 'Modern split-pane horizontal card with a left gradient icon block and clean right pane for title & action button.',
   },
 ];
 
@@ -95,6 +74,29 @@ export const StylePickerModal: React.FC<StylePickerModalProps> = ({
   selectedStyle,
   onSelectStyle,
 }) => {
+  const [cardPresets, setCardPresets] = useState(getStoredCardPresets());
+
+  useEffect(() => {
+    if (isOpen) {
+      setCardPresets(getStoredCardPresets());
+    }
+    const handleUpdate = () => {
+      setCardPresets(getStoredCardPresets());
+    };
+    window.addEventListener('card-presets-updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+    return () => {
+      window.removeEventListener('card-presets-updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
+  }, [isOpen]);
+
+  const cardStylesList = cardPresets.map(preset => ({
+    id: preset.id,
+    name: preset.name,
+    description: preset.description,
+  }));
+
   const [activeTab, setActiveTab] = useState<'card' | 'table' | 'icon'>((
     selectedStyle?.startsWith('table-')
       ? 'table'
@@ -268,6 +270,22 @@ export const StylePickerModal: React.FC<StylePickerModalProps> = ({
                           </>
                         )}
                       </div>
+                    ) : activeTab === 'card' ? (
+                      (() => {
+                        const matchedPreset = cardPresets.find(p => p.id === styleItem.id) || cardPresets[0];
+                        return (
+                          <CardPresetView
+                            preset={matchedPreset}
+                            sampleData={{
+                              year: 'Active',
+                              logoText: 'UGC',
+                              title: 'UGC Affiliation',
+                              recipient: 'University Grants Commission',
+                              pdf_url: '#',
+                            }}
+                          />
+                        );
+                      })()
                     ) : (
                       <TimetableBlock
                         title=""
@@ -275,7 +293,7 @@ export const StylePickerModal: React.FC<StylePickerModalProps> = ({
                         view={activeTab as any}
                         cardStyle={styleItem.id as any}
                         tableStyle={styleItem.id as any}
-                        timetables={activeTab === 'table' ? sampleTimetables : [sampleTimetables[0]]}
+                        timetables={sampleTimetables}
                         isPreview={true}
                         showFields={{
                           title: true,

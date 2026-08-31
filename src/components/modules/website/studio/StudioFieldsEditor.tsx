@@ -128,6 +128,30 @@ export const StudioFieldsEditor: React.FC<StudioFieldsEditorProps> = ({ fields, 
     onChange(updated);
   };
 
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === targetIndex) return;
+
+    const updated = [...fields];
+    const [movedItem] = updated.splice(draggedIndex, 1);
+    updated.splice(targetIndex, 0, movedItem);
+
+    onChange(updated);
+    setDraggedIndex(null);
+  };
+
   return (
     <div className="flex flex-col lg:flex-row gap-6 min-h-[420px]">
       {/* Left List of Fields */}
@@ -152,18 +176,24 @@ export const StudioFieldsEditor: React.FC<StudioFieldsEditorProps> = ({ fields, 
           </div>
 
           <div className="space-y-2 max-h-[340px] overflow-y-auto pr-1">
-            {fields.map(field => (
+            {fields.map((field, index) => (
               <div
                 key={field.id}
+                draggable
+                onDragStart={(e) => handleDragStart(e, index)}
+                onDragOver={handleDragOver}
+                onDrop={(e) => handleDrop(e, index)}
                 onClick={() => { setSelectedFieldId(field.id); setIsAddingNew(false); }}
                 className={`p-3 rounded-lg border transition-all cursor-pointer flex items-center justify-between group ${
-                  selectedFieldId === field.id && !isAddingNew
+                  draggedIndex === index
+                    ? 'opacity-40 border-dashed border-blue-500 bg-blue-50'
+                    : selectedFieldId === field.id && !isAddingNew
                     ? 'bg-white border-blue-500 shadow-sm ring-2 ring-blue-500/20'
                     : 'bg-white/70 border-gray-200 hover:border-gray-300 hover:bg-white'
                 }`}
               >
                 <div className="flex items-center gap-2 overflow-hidden">
-                  <GripVertical className="w-4 h-4 text-gray-400 shrink-0 cursor-grab" />
+                  <GripVertical className="w-4 h-4 text-gray-400 shrink-0 cursor-grab active:cursor-grabbing hover:text-gray-700" />
                   <div className="truncate">
                     <p className="font-semibold text-xs text-gray-900 truncate">
                       {field.label}
