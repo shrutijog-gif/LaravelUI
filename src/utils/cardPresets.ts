@@ -3,6 +3,8 @@ export interface CardSlotConfig {
   name: string;
   description: string;
   isCustom?: boolean;
+  presetStyleType?: 'official' | 'minimal' | 'gradient-banner' | 'split-card' | 'custom';
+  moduleContextId?: string;
   showTopAccent: boolean;
   accentPosition: 'top' | 'left' | 'bottom' | 'right' | 'all' | 'none';
   accentSides: {
@@ -13,17 +15,30 @@ export interface CardSlotConfig {
   };
   accentWidth: number; // 2, 4, 6, or 8px
   accentColor: string;
+  gradientColor?: string;
   badgeSlot: {
     enabled: boolean;
     fieldVar: string;
     bgColor: string;
     textColor: string;
+    displayMode?: 'label_and_value' | 'value_only';
   };
   mediaSlot: {
     enabled: boolean;
-    type: 'logo' | 'icon' | 'image';
+    type: 'icon' | 'initials' | 'image' | 'logo';
     fieldVar: string;
     bgStyle: 'white' | 'subtle' | 'primary';
+    iconName?: string;
+    imageUrl?: string;
+    initialsText?: string;
+    initialsSource?: 'static' | 'field';
+    initialsFieldVar?: string;
+    initialsLength?: 1 | 2 | 3 | 4;
+    initialsCasing?: 'uppercase' | 'lowercase' | 'original';
+    shape?: 'square' | 'rounded' | 'circle';
+    size?: 'sm' | 'md' | 'lg';
+    bgColor?: string;
+    iconColor?: string;
   };
   titleSlot: {
     fieldVar: string;
@@ -32,12 +47,15 @@ export interface CardSlotConfig {
   subtitleSlot: {
     enabled: boolean;
     fieldVar: string;
+    displayMode?: 'label_and_value' | 'value_only';
+    customLabel?: string;
   };
   showDivider: boolean;
   footerLeftSlot: {
     enabled: boolean;
     label: string;
     fieldVar: string;
+    displayMode?: 'label_and_value' | 'value_only';
   };
   footerRightSlot: {
     enabled: boolean;
@@ -45,27 +63,128 @@ export interface CardSlotConfig {
     fieldVar: string;
     showArrow: boolean;
   };
+  borderRadius?: 'none' | 'sm' | 'md' | 'lg';
+  shadowSize?: 'none' | 'sm' | 'md' | 'lg';
+  hoverEffect?: 'none' | 'lift' | 'scale' | 'glow';
+  cardBgColor?: string;
+  detailLineMode?: 'label_and_value' | 'value_only' | 'custom_label';
+  customDetailLabel?: string;
 }
+
+export interface ModuleSchema {
+  id: string;
+  name: string;
+  fields: { name: string; label: string; type: string }[];
+  sampleData: {
+    year: string;
+    logoText: string;
+    title: string;
+    recipient: string;
+    pdf_url: string;
+  };
+}
+
+export const MODULE_SCHEMAS: ModuleSchema[] = [
+  {
+    id: 'affiliation',
+    name: 'Affiliation & Accreditation',
+    fields: [
+      { name: 'title', label: 'Affiliation Title', type: 'text' },
+      { name: 'year', label: 'Status / Year', type: 'text' },
+      { name: 'recipient', label: 'Authority Name', type: 'text' },
+      { name: 'logoText', label: 'Logo Initials', type: 'text' },
+      { name: 'pdf_url', label: 'Document Link', type: 'url' },
+    ],
+    sampleData: {
+      year: 'Active',
+      logoText: 'UGC',
+      title: 'UGC Affiliation',
+      recipient: 'University Grants Commission',
+      pdf_url: '#',
+    },
+  },
+  {
+    id: 'timetable',
+    name: 'Academic Timetables',
+    fields: [
+      { name: 'title', label: 'Timetable Name', type: 'text' },
+      { name: 'year', label: 'Academic Year', type: 'text' },
+      { name: 'recipient', label: 'Branch & Semester', type: 'text' },
+      { name: 'logoText', label: 'Branch Code', type: 'text' },
+      { name: 'pdf_url', label: 'Download PDF', type: 'url' },
+    ],
+    sampleData: {
+      year: '2024-25',
+      logoText: 'CS',
+      title: 'B.Tech First Year (Sem 1)',
+      recipient: 'Computer Science, IT • Sem I, II',
+      pdf_url: '#',
+    },
+  },
+  {
+    id: 'results',
+    name: 'Results & Academic Awards',
+    fields: [
+      { name: 'title', label: 'Result Name', type: 'text' },
+      { name: 'year', label: 'Exam Year', type: 'text' },
+      { name: 'recipient', label: 'Top Scorer / Student', type: 'text' },
+      { name: 'logoText', label: 'Grade Badge', type: 'text' },
+      { name: 'pdf_url', label: 'Result PDF', type: 'url' },
+    ],
+    sampleData: {
+      year: '2024',
+      logoText: 'A+',
+      title: 'Annual Examination Results',
+      recipient: 'Batch 2020-2024 - 98.4% Pass Rate',
+      pdf_url: '#',
+    },
+  },
+  {
+    id: 'reports',
+    name: 'Annual Reports & Archives',
+    fields: [
+      { name: 'title', label: 'Report Title', type: 'text' },
+      { name: 'year', label: 'Report Year', type: 'text' },
+      { name: 'recipient', label: 'Publishing Department', type: 'text' },
+      { name: 'logoText', label: 'Report Code', type: 'text' },
+      { name: 'pdf_url', label: 'Report File', type: 'url' },
+    ],
+    sampleData: {
+      year: '2023-24',
+      logoText: 'AR',
+      title: 'Annual Institutional Audit Report',
+      recipient: 'Internal Quality Assurance Cell (IQAC)',
+      pdf_url: '#',
+    },
+  },
+];
 
 export const INITIAL_CARD_PRESETS: CardSlotConfig[] = [
   {
     id: 'style-1',
     name: 'Style 1: Official Document / Affiliation Card',
-    description: 'Top accent line, upper-left badge, logo box with title/subtitle, divider line, and bottom download action.',
-    showTopAccent: true,
+    description: 'Upper-left badge, logo box with title/subtitle, divider line, and bottom download action.',
+    presetStyleType: 'official',
+    showTopAccent: false,
     accentPosition: 'top',
-    accentSides: { top: true, bottom: false, left: false, right: false },
+    accentSides: { top: false, bottom: false, left: false, right: false },
     accentWidth: 4,
-    accentColor: '#ea580c', // Orange/Crimson Accent
+    accentColor: '#2563eb', // Primary Blue
+    gradientColor: '#2563eb',
     badgeSlot: {
       enabled: true,
       fieldVar: 'year',
-      bgColor: '#fff7ed',
-      textColor: '#c2410c',
+      bgColor: '#eff6ff',
+      textColor: '#1d4ed8',
     },
     mediaSlot: {
       enabled: true,
-      type: 'logo',
+      type: 'initials',
+      initialsLength: 2,
+      shape: 'rounded',
+      size: 'md',
+      bgColor: '#2563eb',
+      iconColor: '#ffffff',
       fieldVar: 'recipient',
       bgStyle: 'white',
     },
@@ -85,29 +204,36 @@ export const INITIAL_CARD_PRESETS: CardSlotConfig[] = [
     },
     footerRightSlot: {
       enabled: true,
-      label: 'Open PDF',
+      label: 'View Document',
       fieldVar: 'pdf_url',
       showArrow: true,
     },
   },
   {
     id: 'style-2',
-    name: 'Style 2: Results & Academic Award Card',
-    description: 'Minimalist card layout featuring ribbon/badge icon, top year pill, and direct result action link.',
-    showTopAccent: true,
+    name: 'Style 2: Compact Minimal Card',
+    description: 'Minimalist card layout featuring document icon badge, top year pill, and direct action link.',
+    presetStyleType: 'minimal',
+    showTopAccent: false,
     accentPosition: 'top',
-    accentSides: { top: true, bottom: false, left: false, right: false },
+    accentSides: { top: false, bottom: false, left: false, right: false },
     accentWidth: 4,
-    accentColor: '#ea580c',
+    accentColor: '#2563eb',
+    gradientColor: '#2563eb',
     badgeSlot: {
       enabled: true,
       fieldVar: 'year',
-      bgColor: '#fff7ed',
-      textColor: '#c2410c',
+      bgColor: '#eff6ff',
+      textColor: '#1d4ed8',
     },
     mediaSlot: {
       enabled: true,
-      type: 'icon',
+      type: 'initials',
+      initialsLength: 2,
+      shape: 'rounded',
+      size: 'md',
+      bgColor: '#2563eb',
+      iconColor: '#ffffff',
       fieldVar: 'category',
       bgStyle: 'subtle',
     },
@@ -117,39 +243,46 @@ export const INITIAL_CARD_PRESETS: CardSlotConfig[] = [
     },
     subtitleSlot: {
       enabled: true,
-      fieldVar: 'description',
+      fieldVar: 'recipient',
     },
     showDivider: true,
     footerLeftSlot: {
       enabled: true,
-      label: 'PDF Document',
+      label: 'Official Document',
       fieldVar: '',
     },
     footerRightSlot: {
       enabled: true,
-      label: 'View Result',
+      label: 'View Document',
       fieldVar: 'pdf_url',
       showArrow: true,
     },
   },
   {
     id: 'style-3',
-    name: 'Style 3: Annual Report & Archive Card',
-    description: 'Clean structured document card with document icon box and report metadata.',
-    showTopAccent: true,
+    name: 'Style 3: Modern Gradient Banner',
+    description: 'Vibrant top gradient banner presenting the title in bold, with a white body holding details and action button.',
+    presetStyleType: 'gradient-banner',
+    showTopAccent: false,
     accentPosition: 'top',
-    accentSides: { top: true, bottom: false, left: false, right: false },
+    accentSides: { top: false, bottom: false, left: false, right: false },
     accentWidth: 4,
-    accentColor: '#7c2d12',
+    accentColor: '#2563eb',
+    gradientColor: '#3b82f6',
     badgeSlot: {
       enabled: true,
       fieldVar: 'year',
-      bgColor: '#fff7ed',
-      textColor: '#9a3412',
+      bgColor: '#ffffff33',
+      textColor: '#ffffff',
     },
     mediaSlot: {
       enabled: true,
-      type: 'icon',
+      type: 'initials',
+      initialsLength: 2,
+      shape: 'rounded',
+      size: 'md',
+      bgColor: '#2563eb',
+      iconColor: '#ffffff',
       fieldVar: '',
       bgStyle: 'subtle',
     },
@@ -159,40 +292,47 @@ export const INITIAL_CARD_PRESETS: CardSlotConfig[] = [
     },
     subtitleSlot: {
       enabled: true,
-      fieldVar: 'category',
+      fieldVar: 'recipient',
     },
     showDivider: true,
     footerLeftSlot: {
       enabled: true,
-      label: 'PDF Document',
+      label: 'Semester',
       fieldVar: '',
     },
     footerRightSlot: {
-      enabled: false,
-      label: '',
-      fieldVar: '',
-      showArrow: false,
+      enabled: true,
+      label: 'View Document',
+      fieldVar: 'pdf_url',
+      showArrow: true,
     },
   },
   {
     id: 'style-4',
     name: 'Style 4: Dual-Pane Split Card',
-    description: 'Horizontal split-pane layout with left accent icon block and clean right pane for details.',
-    showTopAccent: true,
+    description: 'Horizontal split-pane layout with left gradient icon block and clean right pane for details.',
+    presetStyleType: 'split-card',
+    showTopAccent: false,
     accentPosition: 'left',
-    accentSides: { top: false, bottom: false, left: true, right: false },
+    accentSides: { top: false, bottom: false, left: false, right: false },
     accentWidth: 6,
     accentColor: '#2563eb',
+    gradientColor: '#3b82f6',
     badgeSlot: {
       enabled: true,
-      fieldVar: 'category',
-      bgColor: '#eff6ff',
-      textColor: '#1d4ed8',
+      fieldVar: 'year',
+      bgColor: '#ffffff33',
+      textColor: '#ffffff',
     },
     mediaSlot: {
       enabled: true,
-      type: 'image',
-      fieldVar: 'image',
+      type: 'initials',
+      initialsLength: 2,
+      shape: 'rounded',
+      size: 'md',
+      bgColor: '#2563eb',
+      iconColor: '#ffffff',
+      fieldVar: '',
       bgStyle: 'white',
     },
     titleSlot: {
@@ -218,29 +358,28 @@ export const INITIAL_CARD_PRESETS: CardSlotConfig[] = [
   },
 ];
 
-const STORAGE_KEY = 'laravel_ui_card_presets';
+let memoryPresetsCache: CardSlotConfig[] | null = null;
 
 export const getStoredCardPresets = (): CardSlotConfig[] => {
+  if (memoryPresetsCache) return memoryPresetsCache;
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       const parsed: CardSlotConfig[] = JSON.parse(stored);
-      return parsed.map(p => ({
-        ...p,
-        accentPosition: p.accentPosition || (p.showTopAccent ? 'top' : 'none'),
-        accentSides: p.accentSides || {
-          top: p.accentPosition === 'top' || p.accentPosition === 'all' || Boolean(p.showTopAccent),
-          bottom: p.accentPosition === 'bottom' || p.accentPosition === 'all',
-          left: p.accentPosition === 'left' || p.accentPosition === 'all',
-          right: p.accentPosition === 'right' || p.accentPosition === 'all',
-        },
-        accentWidth: p.accentWidth || 4,
-      }));
+      // Merge stored updates onto INITIAL_CARD_PRESETS, and add any extra custom presets
+      const mergedInitial = INITIAL_CARD_PRESETS.map(initial => {
+        const foundStored = parsed.find(p => p.id === initial.id);
+        return foundStored || initial;
+      });
+      const customOnes = parsed.filter(p => !mergedInitial.some(i => i.id === p.id));
+      memoryPresetsCache = [...mergedInitial, ...customOnes];
+      return memoryPresetsCache;
     }
   } catch (e) {
     console.error('Failed to parse card presets', e);
   }
-  return INITIAL_CARD_PRESETS;
+  memoryPresetsCache = INITIAL_CARD_PRESETS;
+  return memoryPresetsCache;
 };
 
 export const saveCardPreset = (presetToSave: CardSlotConfig): CardSlotConfig[] => {
@@ -255,14 +394,49 @@ export const saveCardPreset = (presetToSave: CardSlotConfig): CardSlotConfig[] =
     updated = [...current, presetToSave];
   }
 
+  memoryPresetsCache = updated;
+
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  } catch (e) {
+    console.warn('localStorage quota reached, preset saved to memory cache', e);
+  }
+
+  window.dispatchEvent(new CustomEvent('card-presets-updated', { detail: updated }));
+  return updated;
+};
+
+export const deleteCardPreset = (id: string): CardSlotConfig[] => {
+  const current = getStoredCardPresets();
+  const updated = current.filter(p => p.id !== id);
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
     window.dispatchEvent(new CustomEvent('card-presets-updated', { detail: updated }));
   } catch (e) {
-    console.error('Failed to save card preset', e);
+    console.error('Failed to delete card preset', e);
   }
-
   return updated;
+};
+
+export const resetAllCardPresets = (): CardSlotConfig[] => {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+    window.dispatchEvent(new CustomEvent('card-presets-updated', { detail: INITIAL_CARD_PRESETS }));
+  } catch (e) {
+    console.error('Failed to reset card presets', e);
+  }
+  return INITIAL_CARD_PRESETS;
+};
+
+export const duplicateCardPreset = (preset: CardSlotConfig): CardSlotConfig => {
+  const newPreset: CardSlotConfig = {
+    ...JSON.parse(JSON.stringify(preset)),
+    id: `style-copy-${Date.now().toString().slice(-4)}`,
+    name: `${preset.name} (Copy)`,
+    isCustom: Boolean(preset.isCustom),
+  };
+  saveCardPreset(newPreset);
+  return newPreset;
 };
 
 export const createNewCardPreset = (): CardSlotConfig => {
@@ -272,41 +446,47 @@ export const createNewCardPreset = (): CardSlotConfig => {
     name: `Style ${count}: Custom Card Layout`,
     description: 'Custom card layout built in Card Builder Studio.',
     isCustom: true,
+    presetStyleType: 'custom',
     showTopAccent: true,
     accentPosition: 'left',
     accentSides: { top: false, bottom: false, left: true, right: false },
     accentWidth: 4,
     accentColor: '#2563eb',
     badgeSlot: {
-      enabled: true,
-      fieldVar: 'year',
+      enabled: false,
+      fieldVar: '',
       bgColor: '#eff6ff',
       textColor: '#1d4ed8',
     },
     mediaSlot: {
       enabled: true,
-      type: 'logo',
-      fieldVar: 'recipient',
+      type: 'initials',
+      initialsLength: 2,
+      shape: 'circle',
+      size: 'md',
+      bgColor: '#2563eb',
+      iconColor: '#ffffff',
+      fieldVar: '',
       bgStyle: 'white',
     },
     titleSlot: {
-      fieldVar: 'title',
+      fieldVar: '',
       fontSize: 'base',
     },
     subtitleSlot: {
-      enabled: true,
-      fieldVar: 'recipient',
+      enabled: false,
+      fieldVar: '',
     },
     showDivider: true,
     footerLeftSlot: {
-      enabled: true,
-      label: 'Official Document',
+      enabled: false,
+      label: '',
       fieldVar: '',
     },
     footerRightSlot: {
-      enabled: true,
-      label: 'View Document',
-      fieldVar: 'pdf_url',
+      enabled: false,
+      label: '',
+      fieldVar: '',
       showArrow: true,
     },
   };

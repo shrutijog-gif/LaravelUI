@@ -77,12 +77,19 @@ export const StylePickerModal: React.FC<StylePickerModalProps> = ({
   const [cardPresets, setCardPresets] = useState(getStoredCardPresets());
 
   useEffect(() => {
+    if (isOpen) {
+      setCardPresets(getStoredCardPresets());
+    }
     const handleUpdate = () => {
       setCardPresets(getStoredCardPresets());
     };
     window.addEventListener('card-presets-updated', handleUpdate);
-    return () => window.removeEventListener('card-presets-updated', handleUpdate);
-  }, []);
+    window.addEventListener('storage', handleUpdate);
+    return () => {
+      window.removeEventListener('card-presets-updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
+  }, [isOpen]);
 
   const cardStylesList = cardPresets.map(preset => ({
     id: preset.id,

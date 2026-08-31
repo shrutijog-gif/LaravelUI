@@ -298,6 +298,7 @@ export const TimetableBlock: React.FC<TimetableBlockProps> = ({
                     recipient: timetable.branch?.length ? `${timetable.branch.join(', ')} • Sem ${timetable.semester?.join(', ') || ''}` : '',
                     pdf_url: timetable.fileUrl,
                   }}
+                  viewMode="sample"
                 />
               </a>
             );
