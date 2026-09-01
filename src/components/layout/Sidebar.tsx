@@ -7,7 +7,8 @@ import {
   Database,
   Search,
   ShoppingBag,
-  Code2
+  Code2,
+  Layers
 } from 'lucide-react';
 import { MenuItem } from '../../types/navigation';
 
@@ -93,7 +94,7 @@ export const getCollegeAdminMenuItems = (): MenuItem[] => {
     {
       id: 'dynamic-modules-group',
       label: 'Dynamic Modules',
-      icon: 'layers',
+      icon: 'circle',
       children: dynamicModules,
     },
     {
@@ -130,7 +131,9 @@ export const getCollegeAdminMenuItems = (): MenuItem[] => {
       label: 'Academics',
       icon: 'circle',
       children: [
+        { id: 'departments', label: 'Departments' },
         { id: 'website-timetable', label: 'Timetables' },
+        { id: 'committees', label: 'Committees' },
       ],
     },
     {
@@ -265,6 +268,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   {item.icon === 'database' && <Database className="w-4 h-4" />}
                   {item.icon === 'code' && <Code2 className="w-4 h-4" />}
                   {item.icon === 'circle' && <Circle className="w-4 h-4 stroke-[2]" />}
+                  {item.icon === 'layers' && <Layers className="w-4 h-4" />}
                   <span>{item.label}</span>
                 </div>
                 {hasChildren && (

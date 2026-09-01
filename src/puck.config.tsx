@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import type { Config } from '@measured/puck';
 import { ChevronDown } from 'lucide-react';
 import { TimetableBlock, TimetableBlockProps } from './components/storefront/blocks/TimetableBlock';
+import { CommitteesBlock } from './components/storefront/blocks/CommitteesBlock';
 import { StylePickerModal } from './components/builder/StylePickerModal';
 
 import { DynamicModuleBlock } from './components/storefront/blocks/DynamicModuleBlock';
@@ -417,6 +418,272 @@ export const getDynamicPuckConfig = (): Config<Props> => {
             descriptionOverride={descriptionOverride}
           />
         ),
+      },
+      CommitteesBlock: {
+        label: 'Committees',
+        fields: {
+          /* 1. Block Header accordion */
+          headerConfig: {
+            type: 'custom',
+            render: ({ value = { title: 'Committees', description: '' }, onChange }: any) => {
+              const [isExpanded, setIsExpanded] = useState(true);
+              return (
+                <div className="border border-gray-200 rounded-lg overflow-hidden my-1 bg-white shadow-2xs">
+                  <button
+                    type="button"
+                    onClick={() => setIsExpanded(!isExpanded)}
+                    className="w-full bg-gray-100 px-3 py-2 border-b border-gray-200 flex items-center justify-between hover:bg-gray-200/80 transition-colors text-left"
+                  >
+                    <span className="text-xs font-semibold text-gray-700">Block Header</span>
+                    <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                  </button>
+                  {isExpanded && (
+                    <div className="p-3 space-y-3 bg-white">
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-600 mb-1">Title</label>
+                        <input
+                          type="text"
+                          className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                          value={value?.title ?? 'Committees'}
+                          onChange={(e) => onChange({ ...value, title: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-600 mb-1">Description</label>
+                        <textarea
+                          rows={2}
+                          className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-y outline-none"
+                          value={value?.description ?? ''}
+                          onChange={(e) => onChange({ ...value, description: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            },
+          },
+
+          /* 2. Committee Selector accordion */
+          committeeConfig: {
+            type: 'custom',
+            render: ({ value = { committeeId: 'c1' }, onChange }: any) => {
+              const [isExpanded, setIsExpanded] = useState(true);
+              const committees = [
+                { id: 'c1', name: 'IQAC' },
+                { id: 'c2', name: 'Anti-Ragging Committee' },
+                { id: 'c3', name: 'Women Empowerment Cell' },
+                { id: 'c4', name: 'NSS Committee' },
+                { id: 'c5', name: 'Cultural Committee' },
+              ];
+              const selected = committees.find(c => c.id === (value?.committeeId ?? 'c1'));
+              return (
+                <div className="border border-gray-200 rounded-lg overflow-hidden my-1 bg-white shadow-2xs">
+                  <button
+                    type="button"
+                    onClick={() => setIsExpanded(!isExpanded)}
+                    className="w-full bg-gray-100 px-3 py-2 border-b border-gray-200 flex items-center justify-between hover:bg-gray-200/80 transition-colors text-left"
+                  >
+                    <span className="text-xs font-semibold text-gray-700">Committee</span>
+                    <div className="flex items-center gap-2">
+                      {!isExpanded && selected && (
+                        <span className="text-xs font-semibold text-blue-600 uppercase">{selected.name}</span>
+                      )}
+                      <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                    </div>
+                  </button>
+                  {isExpanded && (
+                    <div className="p-3 bg-white">
+                      <label className="block text-xs font-semibold text-gray-600 mb-1">Select Committee</label>
+                      <select
+                        value={value?.committeeId ?? 'c1'}
+                        onChange={(e) => onChange({ ...value, committeeId: e.target.value })}
+                        className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white"
+                      >
+                        {committees.map(c => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+              );
+            },
+          },
+
+          /* 3. Members Settings */
+          membersConfig: {
+            type: 'custom',
+            render: ({ value = { showPhoto: true, showDesignation: true, gridCols: 2, cardStyle: '' }, onChange }: any) => {
+              const [isExpanded, setIsExpanded] = useState(true);
+              const [isModalOpen, setIsModalOpen] = useState(false);
+              const activeStyle = value?.cardStyle ?? '';
+              const activeColumns = value?.gridCols ?? 2;
+
+              return (
+                <div className="border border-gray-200 rounded-lg overflow-hidden my-1 bg-white shadow-2xs">
+                  <button
+                    type="button"
+                    onClick={() => setIsExpanded(!isExpanded)}
+                    className="w-full bg-gray-100 px-3 py-2 border-b border-gray-200 flex items-center justify-between hover:bg-gray-200/80 transition-colors text-left"
+                  >
+                    <span className="text-xs font-semibold text-gray-700">Members Settings</span>
+                    <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                  </button>
+                  {isExpanded && (
+                    <div className="p-3 bg-white">
+                      {/* Content Settings */}
+                      <div className="space-y-3">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={value?.showPhoto ?? true}
+                            onChange={(e) => onChange({ ...value, showPhoto: e.target.checked })}
+                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          />
+                          <span className="text-xs font-semibold text-gray-700">Show Profile Photo</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={value?.showDesignation ?? true}
+                            onChange={(e) => onChange({ ...value, showDesignation: e.target.checked })}
+                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          />
+                          <span className="text-xs font-semibold text-gray-700">Show Designation</span>
+                        </label>
+                      </div>
+
+                      <hr className="my-4 border-gray-100" />
+
+                      {/* Style Settings */}
+                      <div className="space-y-2">
+                        <button
+                          type="button"
+                          onClick={() => setIsModalOpen(true)}
+                          className="w-full py-1.5 px-3 bg-gray-100 hover:bg-gray-200 border border-gray-300 active:bg-gray-300 rounded-md font-semibold text-xs text-gray-700 transition-colors flex items-center justify-between"
+                        >
+                          <span>Select Style</span>
+                          <span className="text-[11px] bg-white border border-gray-200 px-2 py-0.5 rounded font-mono text-blue-600 uppercase font-bold">
+                            {activeStyle || 'Default'}
+                          </span>
+                        </button>
+
+                        <div className="w-full py-1.5 px-3 bg-gray-100 border border-gray-300 rounded-md font-semibold text-xs text-gray-700 flex items-center justify-between">
+                          <span>Cards Per Row</span>
+                          <select
+                            value={activeColumns}
+                            onChange={(e) => onChange({ ...value, gridCols: parseInt(e.target.value) })}
+                            className="bg-white border border-gray-200 px-2 py-0.5 rounded font-mono text-blue-600 font-bold text-[11px] outline-none cursor-pointer hover:border-blue-400 transition-colors"
+                          >
+                            <option value={1}>1 Card</option>
+                            <option value={2}>2 Cards</option>
+                            <option value={3}>3 Cards</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <StylePickerModal
+                    isOpen={isModalOpen}
+                    onClose={() => setIsModalOpen(false)}
+                    selectedStyle={activeStyle}
+                    onSelectStyle={(newStyle) => {
+                      onChange({ ...value, cardStyle: newStyle });
+                    }}
+                  />
+                </div>
+              );
+            },
+          },
+
+          /* 4. Advanced Controller Box */
+          advancedConfig: {
+            type: 'custom',
+            render: ({ value = { anchorId: '', className: '' }, onChange }) => {
+              const [isExpanded, setIsExpanded] = useState(false);
+              const activeAnchorId = typeof value === 'object' && value?.anchorId ? value.anchorId : '';
+              const activeClassName = typeof value === 'object' && value?.className ? value.className : (typeof value === 'string' ? value : '');
+
+              return (
+                <div className="border border-gray-200 rounded-lg overflow-hidden my-1 bg-white shadow-2xs">
+                  <button
+                    type="button"
+                    onClick={() => setIsExpanded(!isExpanded)}
+                    className="w-full bg-gray-100 px-3 py-2 border-b border-gray-200 flex items-center justify-between hover:bg-gray-200/80 transition-colors text-left"
+                  >
+                    <span className="text-xs font-semibold text-gray-700">Advanced Controller</span>
+                    <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {isExpanded && (
+                    <div className="p-3 bg-white space-y-2">
+                      <div className="w-full py-1.5 px-3 bg-gray-100 border border-gray-300 rounded-md font-semibold text-xs text-gray-700 flex items-center justify-between gap-2">
+                        <span className="shrink-0">Anchor Id</span>
+                        <input
+                          type="text"
+                          placeholder="e.g. custom_module_"
+                          className="bg-white border border-gray-200 px-2 py-0.5 rounded text-xs font-mono text-gray-800 text-left w-36 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                          value={activeAnchorId}
+                          onChange={(e) => {
+                            const currentObj = typeof value === 'object' ? value : {};
+                            onChange({ ...currentObj, anchorId: e.target.value });
+                          }}
+                        />
+                      </div>
+
+                      <div className="w-full py-1.5 px-3 bg-gray-100 border border-gray-300 rounded-md font-semibold text-xs text-gray-700 flex items-center justify-between gap-2">
+                        <span className="shrink-0">Css Class</span>
+                        <input
+                          type="text"
+                          placeholder="e.g. custom-class"
+                          className="bg-white border border-gray-200 px-2 py-0.5 rounded text-xs font-mono text-gray-800 text-left w-36 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                          value={activeClassName}
+                          onChange={(e) => {
+                            const currentObj = typeof value === 'object' ? value : {};
+                            onChange({ ...currentObj, className: e.target.value });
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            },
+          },
+        },
+        defaultProps: {
+          headerConfig: { title: 'Committees', description: '' },
+          committeeConfig: { committeeId: 'c1' },
+          membersConfig: { showPhoto: true, showDesignation: true, gridCols: 2, cardStyle: '' },
+          advancedConfig: { anchorId: '', className: '' },
+        },
+        render: ({ headerConfig, committeeConfig, membersConfig, advancedConfig }: any) => {
+          const title = headerConfig?.title ?? 'Committees';
+          const description = headerConfig?.description ?? '';
+          const committeeId = committeeConfig?.committeeId ?? 'c1';
+          const gridCols = membersConfig?.gridCols ?? 2;
+          const cardStyle = membersConfig?.cardStyle ?? '';
+          const showPhoto = membersConfig?.showPhoto ?? true;
+          const showDesignation = membersConfig?.showDesignation ?? true;
+          const anchorId = typeof advancedConfig === 'object' ? advancedConfig?.anchorId : '';
+          const className = typeof advancedConfig === 'object' ? advancedConfig?.className : (typeof advancedConfig === 'string' ? advancedConfig : '');
+          
+          return (
+            <CommitteesBlock 
+              committeeId={committeeId}
+              title={title}
+              description={description}
+              showPhoto={showPhoto}
+              showDesignation={showDesignation}
+              gridCols={gridCols}
+              cardStyle={cardStyle}
+              anchorId={anchorId}
+              className={className}
+            />
+          );
+        },
       },
       HeadingBlock: {
         label: '📝 Title Heading',

@@ -12,6 +12,7 @@ import { ModuleStudio } from '../modules/website/studio/ModuleStudio';
 import { DynamicEntityManager } from '../modules/website/studio/DynamicEntityManager';
 import { DesignSettings } from '../modules/developer/DesignSettings';
 import { CardBuilderStudio } from '../modules/developer/CardBuilderStudio';
+import { CommitteesAdmin } from '../modules/website/committees/CommitteesAdmin';
 
 interface LayoutProps {
   onToggleViewMode?: () => void;
@@ -98,6 +99,8 @@ export const Layout: React.FC<LayoutProps> = ({ onToggleViewMode }) => {
               <DynamicEntityManager moduleSlug="awards" />
             ) : activeModuleId === 'website-timetable' ? (
               <TimetableAdmin />
+            ) : activeModuleId === 'committees' ? (
+              <CommitteesAdmin />
             ) : activeModuleId === 'webpage' ? (
               <PageAdmin />
             ) : (
