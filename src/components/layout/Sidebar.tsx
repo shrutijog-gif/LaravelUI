@@ -36,8 +36,8 @@ export const superadminMenuItems: MenuItem[] = [
     label: 'Developers Area',
     icon: 'code',
     children: [
-      { id: 'design-settings', label: 'Design Settings' },
-      { id: 'card-builder-studio', label: 'Card Builder Studio 🎨' },
+      { id: 'dev-header', label: 'Header' },
+      { id: 'dev-footer', label: 'Footer' },
     ],
   },
   {
@@ -150,8 +150,8 @@ export const getCollegeAdminMenuItems = (): MenuItem[] => {
       label: 'Developers Area',
       icon: 'code',
       children: [
-        { id: 'design-settings', label: 'Design Settings' },
-        { id: 'card-builder-studio', label: 'Card Builder Studio 🎨' },
+        { id: 'dev-header', label: 'Header' },
+        { id: 'dev-footer', label: 'Footer' },
       ],
     },
     {
@@ -159,6 +159,8 @@ export const getCollegeAdminMenuItems = (): MenuItem[] => {
       label: 'Setup/Config',
       icon: 'database',
       children: [
+        { id: 'design-settings', label: 'Design Settings' },
+        { id: 'card-builder-studio', label: 'Card Builder' },
         { id: 'module-studio', label: 'Custom Module Studio ⚡' },
         { id: 'setup-email-template', label: 'Email Template' },
         { id: 'setup-manage-users', label: 'Manage Users' },
@@ -179,7 +181,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({
-    'developers-area': true,
+    'developers-area': false,
     'dynamic-modules-group': false,
     'setup-config': false,
     ecommerce: false,
