@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Settings, X, Plus, Eye, EyeOff, Trash2, GripVertical, AlignLeft, Layers, Home, Pencil } from 'lucide-react';
 import { Committee } from './CommitteesAdmin';
+import { CommitteeMembersManager } from './CommitteeMembersManager';
 
 // ─────────────────────────────────────────────
 // Types
@@ -434,6 +435,8 @@ export const CommitteeContentManager: React.FC<CommitteeContentManagerProps> = (
                 tab={activeTab}
                 onContentChange={updateTabContent}
               />
+            ) : activeTab.id === 'tab-members' ? (
+              <CommitteeMembersManager key={activeTab.id} />
             ) : (
               <DynamicTabPanel key={activeTab.id} tab={activeTab} />
             )
