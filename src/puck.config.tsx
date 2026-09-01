@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import type { Config } from '@measured/puck';
 import { ChevronDown } from 'lucide-react';
 import { TimetableBlock, TimetableBlockProps } from './components/storefront/blocks/TimetableBlock';
+import { CommitteesBlock } from './components/storefront/blocks/CommitteesBlock';
 import { StylePickerModal } from './components/builder/StylePickerModal';
 
 import { DynamicModuleBlock } from './components/storefront/blocks/DynamicModuleBlock';
@@ -415,6 +416,168 @@ export const getDynamicPuckConfig = (): Config<Props> => {
             moduleSlug={moduleSlug}
             titleOverride={titleOverride}
             descriptionOverride={descriptionOverride}
+          />
+        ),
+      },
+      CommitteesBlock: {
+        label: 'Committees',
+        fields: {
+          /* 1. Block Header accordion */
+          headerConfig: {
+            type: 'custom',
+            render: ({ value = { title: 'Committees', description: '' }, onChange }: any) => {
+              const [isExpanded, setIsExpanded] = useState(true);
+              return (
+                <div className="border border-gray-200 rounded-lg overflow-hidden my-1 bg-white shadow-2xs">
+                  <button
+                    type="button"
+                    onClick={() => setIsExpanded(!isExpanded)}
+                    className="w-full bg-gray-100 px-3 py-2 border-b border-gray-200 flex items-center justify-between hover:bg-gray-200/80 transition-colors text-left"
+                  >
+                    <span className="text-xs font-semibold text-gray-700">Block Header</span>
+                    <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                  </button>
+                  {isExpanded && (
+                    <div className="p-3 space-y-3 bg-white">
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-600 mb-1">Title</label>
+                        <input
+                          type="text"
+                          className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                          value={value?.title ?? 'Committees'}
+                          onChange={(e) => onChange({ ...value, title: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-600 mb-1">Description</label>
+                        <textarea
+                          rows={2}
+                          className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-y outline-none"
+                          value={value?.description ?? ''}
+                          onChange={(e) => onChange({ ...value, description: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            },
+          },
+
+          /* 2. Committee Selector accordion */
+          committeeConfig: {
+            type: 'custom',
+            render: ({ value = { committeeId: 'c1' }, onChange }: any) => {
+              const [isExpanded, setIsExpanded] = useState(true);
+              const committees = [
+                { id: 'c1', name: 'IQAC' },
+                { id: 'c2', name: 'Anti-Ragging Committee' },
+                { id: 'c3', name: 'Women Empowerment Cell' },
+                { id: 'c4', name: 'NSS Committee' },
+                { id: 'c5', name: 'Cultural Committee' },
+              ];
+              const selected = committees.find(c => c.id === (value?.committeeId ?? 'c1'));
+              return (
+                <div className="border border-gray-200 rounded-lg overflow-hidden my-1 bg-white shadow-2xs">
+                  <button
+                    type="button"
+                    onClick={() => setIsExpanded(!isExpanded)}
+                    className="w-full bg-gray-100 px-3 py-2 border-b border-gray-200 flex items-center justify-between hover:bg-gray-200/80 transition-colors text-left"
+                  >
+                    <span className="text-xs font-semibold text-gray-700">Committee</span>
+                    <div className="flex items-center gap-2">
+                      {!isExpanded && selected && (
+                        <span className="text-xs font-semibold text-blue-600 uppercase">{selected.name}</span>
+                      )}
+                      <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                    </div>
+                  </button>
+                  {isExpanded && (
+                    <div className="p-3 bg-white">
+                      <label className="block text-xs font-semibold text-gray-600 mb-1">Select Committee</label>
+                      <select
+                        value={value?.committeeId ?? 'c1'}
+                        onChange={(e) => onChange({ ...value, committeeId: e.target.value })}
+                        className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white"
+                      >
+                        {committees.map(c => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+              );
+            },
+          },
+
+          /* 3. Advanced Controller Box */
+          advancedConfig: {
+            type: 'custom',
+            render: ({ value = { anchorId: '', className: '' }, onChange }) => {
+              const [isExpanded, setIsExpanded] = useState(false);
+              const activeAnchorId = typeof value === 'object' && value?.anchorId ? value.anchorId : '';
+              const activeClassName = typeof value === 'object' && value?.className ? value.className : (typeof value === 'string' ? value : '');
+
+              return (
+                <div className="border border-gray-200 rounded-lg overflow-hidden my-1 bg-white shadow-2xs">
+                  <button
+                    type="button"
+                    onClick={() => setIsExpanded(!isExpanded)}
+                    className="w-full bg-gray-100 px-3 py-2 border-b border-gray-200 flex items-center justify-between hover:bg-gray-200/80 transition-colors text-left"
+                  >
+                    <span className="text-xs font-semibold text-gray-700">Advanced Controller</span>
+                    <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {isExpanded && (
+                    <div className="p-3 bg-white space-y-2">
+                      <div className="w-full py-1.5 px-3 bg-gray-100 border border-gray-300 rounded-md font-semibold text-xs text-gray-700 flex items-center justify-between gap-2">
+                        <span className="shrink-0">Anchor Id</span>
+                        <input
+                          type="text"
+                          placeholder="e.g. custom_module_"
+                          className="bg-white border border-gray-200 px-2 py-0.5 rounded text-xs font-mono text-gray-800 text-left w-36 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                          value={activeAnchorId}
+                          onChange={(e) => {
+                            const currentObj = typeof value === 'object' ? value : {};
+                            onChange({ ...currentObj, anchorId: e.target.value });
+                          }}
+                        />
+                      </div>
+
+                      <div className="w-full py-1.5 px-3 bg-gray-100 border border-gray-300 rounded-md font-semibold text-xs text-gray-700 flex items-center justify-between gap-2">
+                        <span className="shrink-0">Css Class</span>
+                        <input
+                          type="text"
+                          placeholder="e.g. custom-class"
+                          className="bg-white border border-gray-200 px-2 py-0.5 rounded text-xs font-mono text-gray-800 text-left w-36 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                          value={activeClassName}
+                          onChange={(e) => {
+                            const currentObj = typeof value === 'object' ? value : {};
+                            onChange({ ...currentObj, className: e.target.value });
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            },
+          },
+        },
+        defaultProps: {
+          headerConfig: { title: 'Committees', description: '' },
+          committeeConfig: { committeeId: 'c1' },
+          advancedConfig: { anchorId: '', className: '' },
+        },
+        render: ({ headerConfig, committeeConfig, advancedConfig }: any) => (
+          <CommitteesBlock
+            committeeId={committeeConfig?.committeeId ?? 'c1'}
+            title={headerConfig?.title}
+            description={headerConfig?.description}
+            anchorId={advancedConfig?.anchorId}
+            className={advancedConfig?.className}
           />
         ),
       },
