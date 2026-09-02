@@ -13,6 +13,7 @@ import { DynamicEntityManager } from '../modules/website/studio/DynamicEntityMan
 import { DesignSettings } from '../modules/developer/DesignSettings';
 import { CardBuilderStudio } from '../modules/developer/CardBuilderStudio';
 import { CommitteesAdmin } from '../modules/website/committees/CommitteesAdmin';
+import { DepartmentsAdmin } from '../modules/website/departments/DepartmentsAdmin'; // Clean departments module
 
 interface LayoutProps {
   onToggleViewMode?: () => void;
@@ -101,6 +102,8 @@ export const Layout: React.FC<LayoutProps> = ({ onToggleViewMode }) => {
               <TimetableAdmin />
             ) : activeModuleId === 'committees' ? (
               <CommitteesAdmin />
+            ) : activeModuleId === 'departments' ? (
+              <DepartmentsAdmin />
             ) : activeModuleId === 'webpage' ? (
               <PageAdmin />
             ) : (
