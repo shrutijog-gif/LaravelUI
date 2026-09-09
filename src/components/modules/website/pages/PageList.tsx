@@ -1,24 +1,39 @@
 import React, { useState } from 'react';
-import { Search, MoreHorizontal, Copy } from 'lucide-react';
+import { Search, MoreHorizontal, Copy, Check, Trash2, Edit3, Files } from 'lucide-react';
 import { WebPage } from '../../../../types/page';
 
 interface PageListProps {
   pages: WebPage[];
   onAdd: () => void;
   onActionClick: (page: WebPage) => void;
+  onEditDetails?: (page: WebPage) => void;
+  onDuplicate?: (page: WebPage) => void;
+  onDelete?: (pageId: string) => void;
 }
 
 export const PageList: React.FC<PageListProps> = ({
   pages,
   onAdd,
-  onActionClick
+  onActionClick,
+  onEditDetails,
+  onDuplicate,
+  onDelete,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showCount, setShowCount] = useState('10');
+  const [activeMenuPageId, setActiveMenuPageId] = useState<string | null>(null);
+  const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
 
   const filteredPages = pages.filter(p => 
     p.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const handleCopyUrl = (url: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(url);
+    setCopiedUrl(url);
+    setTimeout(() => setCopiedUrl(null), 2000);
+  };
 
   return (
     <div className="space-y-4">
@@ -26,8 +41,9 @@ export const PageList: React.FC<PageListProps> = ({
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-xl font-bold text-gray-900">Pages</h1>
         <button
+          type="button"
           onClick={onAdd}
-          className="bg-[#2563eb] hover:bg-blue-700 text-white font-medium text-sm px-5 py-2 rounded shadow-sm transition-colors"
+          className="bg-[#2563eb] hover:bg-blue-700 text-white font-medium text-sm px-5 py-2 rounded shadow-sm transition-colors cursor-pointer"
         >
           Add Page
         </button>
@@ -73,7 +89,7 @@ export const PageList: React.FC<PageListProps> = ({
                 </th>
                 <th className="py-4 px-5">Page Name</th>
                 <th className="py-4 px-5">Last Modified On</th>
-                <th className="py-4 px-5 w-32">Action</th>
+                <th className="py-4 px-5 w-36">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 text-sm">
@@ -85,9 +101,11 @@ export const PageList: React.FC<PageListProps> = ({
                 </tr>
               ) : (
                 filteredPages.map(page => {
-                  const url = page.type === 'custom' 
+                  const origin = typeof window !== 'undefined' && window.location.origin ? window.location.origin : 'http://localhost:5173';
+                  const slug = (page.slug || page.name).toLowerCase().replace(/\s+/g, '-');
+                  const url = page.type === 'custom' && page.customLink 
                     ? page.customLink 
-                    : `https://preproladyirwin.whitecodetech.com/${page.name.toLowerCase().replace(/\s+/g, '-')}`;
+                    : `${origin}/${slug}`;
 
                   return (
                     <tr key={page.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
@@ -95,13 +113,38 @@ export const PageList: React.FC<PageListProps> = ({
                         <input type="checkbox" className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
                       </td>
                       <td className="py-4 px-5">
-                        <div className="text-gray-800 font-medium mb-1">{page.name}</div>
+                        <div 
+                          onClick={() => onActionClick(page)}
+                          className="text-gray-800 font-medium mb-1 hover:text-blue-600 cursor-pointer transition-colors"
+                        >
+                          {page.name}
+                        </div>
                         <div className="flex items-center gap-1.5 text-blue-600 text-xs">
-                          <a href={url} target="_blank" rel="noopener noreferrer" className="hover:underline truncate max-w-xs md:max-w-sm">
+                          <a 
+                            href={url} 
+                            onClick={(e) => {
+                              e.preventDefault();
+                              const liveUrl = page.type === 'custom' && page.customLink && page.customLink.startsWith('http') && !page.customLink.includes(window.location.host)
+                                ? page.customLink
+                                : `${origin}${window.location.pathname}?mode=storefront&page=${slug}`;
+                              window.open(liveUrl, '_blank');
+                            }}
+                            className="hover:underline truncate max-w-xs md:max-w-sm cursor-pointer"
+                            title="Click to view live page"
+                          >
                             {url}
                           </a>
-                          <button className="text-gray-400 hover:text-gray-600 transition-colors" title="Copy URL">
-                            <Copy className="w-3.5 h-3.5" />
+                          <button 
+                            type="button"
+                            onClick={(e) => handleCopyUrl(url, e)}
+                            className="text-gray-400 hover:text-gray-600 transition-colors cursor-pointer" 
+                            title="Copy URL"
+                          >
+                            {copiedUrl === url ? (
+                              <Check className="w-3.5 h-3.5 text-emerald-600" />
+                            ) : (
+                              <Copy className="w-3.5 h-3.5" />
+                            )}
                           </button>
                         </div>
                       </td>
@@ -109,16 +152,78 @@ export const PageList: React.FC<PageListProps> = ({
                         {page.lastModified}
                       </td>
                       <td className="py-4 px-5">
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 relative">
                           <button
+                            type="button"
                             onClick={() => onActionClick(page)}
-                            className="text-blue-600 hover:text-blue-800 font-medium whitespace-nowrap transition-colors"
+                            className="text-blue-600 hover:text-blue-800 font-medium whitespace-nowrap transition-colors cursor-pointer"
                           >
                             {page.type === 'custom' ? 'Custom Link' : 'Page Builder'}
                           </button>
-                          <button className="text-gray-400 hover:text-gray-700 transition-colors">
-                            <MoreHorizontal className="w-5 h-5" />
-                          </button>
+
+                          <div className="relative">
+                            <button 
+                              type="button"
+                              onClick={() => setActiveMenuPageId(activeMenuPageId === page.id ? null : page.id)}
+                              className="text-gray-400 hover:text-gray-700 p-1 rounded hover:bg-gray-100 transition-colors cursor-pointer"
+                              title="Page Options"
+                            >
+                              <MoreHorizontal className="w-5 h-5" />
+                            </button>
+
+                            {activeMenuPageId === page.id && (
+                              <>
+                                <div 
+                                  className="fixed inset-0 z-30" 
+                                  onClick={() => setActiveMenuPageId(null)} 
+                                />
+                                <div className="absolute right-0 top-full mt-1 w-44 bg-white rounded-xl shadow-xl border border-gray-200 py-1.5 z-40 text-xs animate-in fade-in zoom-in-95 duration-100">
+                                  {/* 1. Duplicate Page */}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setActiveMenuPageId(null);
+                                      if (onDuplicate) onDuplicate(page);
+                                    }}
+                                    className="w-full px-3.5 py-2 text-left text-gray-700 hover:bg-gray-50 flex items-center gap-2.5 transition-colors cursor-pointer"
+                                  >
+                                    <Files className="w-4 h-4 text-gray-600" />
+                                    <span>Duplicate Page</span>
+                                  </button>
+
+                                  {/* 2. Edit details */}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setActiveMenuPageId(null);
+                                      if (onEditDetails) onEditDetails(page);
+                                    }}
+                                    className="w-full px-3.5 py-2 text-left text-gray-700 hover:bg-gray-50 flex items-center gap-2.5 transition-colors cursor-pointer"
+                                  >
+                                    <Edit3 className="w-4 h-4 text-gray-600" />
+                                    <span>Edit details</span>
+                                  </button>
+
+                                  {/* 3. Delete */}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setActiveMenuPageId(null);
+                                      if (onDelete) {
+                                        if (confirm(`Are you sure you want to delete "${page.name}"?`)) {
+                                          onDelete(page.id);
+                                        }
+                                      }
+                                    }}
+                                    className="w-full px-3.5 py-2 text-left text-red-600 hover:bg-red-50 flex items-center gap-2.5 transition-colors cursor-pointer border-t border-gray-100 mt-0.5 pt-2"
+                                  >
+                                    <Trash2 className="w-4 h-4 text-red-500" />
+                                    <span>Delete</span>
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </div>
                         </div>
                       </td>
                     </tr>

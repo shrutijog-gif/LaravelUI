@@ -217,10 +217,10 @@ export const CardBuilderStudio: React.FC = () => {
   // Dynamic Module Schemas (Built-in + Module Studio Dynamic Entities)
   const studioTemplates = getStoredStudioTemplates();
   const dynamicSchemas: ModuleSchema[] = studioTemplates.map((t) => ({
-    id: t.schema.slug || t.id,
+    id: t.schema.slug || t.schema.id,
     name: t.schema.name,
-    fields: t.schema.fields.map((f) => ({
-      name: f.key,
+    fields: t.schema.fields.map((f: any) => ({
+      name: f.name || f.key || f.id,
       label: f.label,
       type: f.type,
     })),

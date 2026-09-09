@@ -12,6 +12,7 @@ export interface CollegeTenant {
     academicYear: string;
     branch?: string;
     semester?: string;
+    section?: string;
     fileUrl: string;
     fileName: string;
     fileSize: string;
