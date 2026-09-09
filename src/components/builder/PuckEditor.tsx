@@ -3,40 +3,27 @@ import { Puck, Render, usePuck } from '@measured/puck';
 import '@measured/puck/puck.css';
 import { config, getDynamicPuckConfig } from '../../puck.config';
 import { History, ChevronDown, X, Eye, CheckCircle } from 'lucide-react';
-
-const STORAGE_KEY = 'puck_saved_page_data';
-
-const getSavedPuckData = () => {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      return JSON.parse(saved);
-    }
-  } catch (e) {
-    console.error('Error loading saved Puck data:', e);
-  }
-  return {
-    content: [],
-    root: {},
-  };
-};
+import { getStoredPagePuckData, saveStoredPagePuckData } from '../../data/mockPageData';
 
 interface PuckEditorProps {
   onBack?: () => void;
+  pageId?: string;
   pageName?: string;
 }
 
 // Inner Header Actions component that accesses live Puck state
 const HeaderActions: React.FC<{
+  pageId?: string;
+  pageName?: string;
   onBack?: () => void;
   onViewPage: (data: any) => void;
-}> = ({ onBack, onViewPage }) => {
+}> = ({ pageId = 'default', pageName = 'Page', onBack, onViewPage }) => {
   const { appState } = usePuck();
   const [showToast, setShowToast] = useState(false);
 
   const handleSave = () => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(appState.data));
+      saveStoredPagePuckData(pageId, appState.data, pageName);
       setShowToast(true);
       setTimeout(() => setShowToast(false), 2500);
     } catch (e) {
@@ -51,14 +38,20 @@ const HeaderActions: React.FC<{
   return (
     <div className="flex items-center gap-3 text-sm ml-auto whitespace-nowrap relative">
       {showToast && (
-        <div className="absolute -bottom-10 right-0 bg-emerald-600 text-white text-xs font-bold px-3 py-1.5 rounded-md shadow-lg flex items-center gap-1.5 z-50">
+        <div className="absolute -bottom-10 right-0 bg-emerald-600 text-white text-xs font-bold px-3 py-1.5 rounded-md shadow-lg flex items-center gap-1.5 z-50 animate-in fade-in duration-150">
           <CheckCircle className="w-4 h-4" /> Page Saved Successfully!
         </div>
       )}
 
-      <button onClick={onBack} className="text-gray-700 hover:text-black font-medium transition-colors mr-2 cursor-pointer">
-        Back
-      </button>
+      {onBack && (
+        <button 
+          type="button"
+          onClick={onBack} 
+          className="text-gray-700 hover:text-black font-medium transition-colors mr-2 cursor-pointer flex items-center gap-1"
+        >
+          <span>Back</span>
+        </button>
+      )}
 
       <div className="flex items-center gap-2 bg-gray-50 rounded px-3 py-1.5 border border-gray-200 cursor-pointer hover:bg-gray-100 transition-colors">
         <span className="text-gray-500 text-xs">Breadcrumb:</span>
@@ -66,7 +59,10 @@ const HeaderActions: React.FC<{
         <ChevronDown className="w-3 h-3 text-gray-500"/>
       </div>
 
-      <button className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 rounded text-gray-700 hover:bg-gray-50 transition-colors bg-white">
+      <button 
+        type="button"
+        className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 rounded text-gray-700 hover:bg-gray-50 transition-colors bg-white cursor-pointer"
+      >
         <History className="w-4 h-4"/> History
       </button>
 
@@ -89,8 +85,12 @@ const HeaderActions: React.FC<{
   );
 };
 
-export const PuckEditor: React.FC<PuckEditorProps> = ({ onBack, pageName = 'Page' }) => {
-  const [initialData] = useState(() => getSavedPuckData());
+export const PuckEditor: React.FC<PuckEditorProps> = ({ 
+  onBack, 
+  pageId = 'default',
+  pageName = 'Page' 
+}) => {
+  const [initialData] = useState(() => getStoredPagePuckData(pageId, pageName));
   const [previewData, setPreviewData] = useState<any>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
@@ -101,18 +101,26 @@ export const PuckEditor: React.FC<PuckEditorProps> = ({ onBack, pageName = 'Page
     setIsPreviewOpen(true);
   };
 
+  const pageSlug = pageName ? pageName.toLowerCase().replace(/\s+/g, '-') : 'page';
+
   return (
     <div className="h-screen w-full relative">
       <Puck 
         config={dynamicConfig} 
         data={initialData} 
+        headerTitle={`Page /${pageSlug}`}
         overrides={{
           headerActions: () => (
-            <HeaderActions onBack={onBack} onViewPage={handleOpenPreview} />
+            <HeaderActions 
+              pageId={pageId}
+              pageName={pageName}
+              onBack={onBack} 
+              onViewPage={handleOpenPreview} 
+            />
           )
         }}
         onPublish={async (data) => {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+          saveStoredPagePuckData(pageId, data, pageName);
           handleOpenPreview(data);
         }} 
       />

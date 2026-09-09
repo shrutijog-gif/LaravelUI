@@ -43,6 +43,7 @@ export interface CardSlotConfig {
   titleSlot: {
     fieldVar: string;
     fontSize: 'sm' | 'base' | 'lg';
+    enabled?: boolean;
   };
   subtitleSlot: {
     enabled: boolean;
@@ -358,6 +359,7 @@ export const INITIAL_CARD_PRESETS: CardSlotConfig[] = [
   },
 ];
 
+export const STORAGE_KEY = 'college_cms_card_presets';
 let memoryPresetsCache: CardSlotConfig[] | null = null;
 
 export const getStoredCardPresets = (): CardSlotConfig[] => {

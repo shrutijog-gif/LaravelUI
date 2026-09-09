@@ -4,15 +4,23 @@ import CollegeStorefront from './components/storefront/CollegeStorefront';
 import PublicStoreApp from './components/storefront/PublicStoreApp';
 
 export function App() {
+  const isDirectPagePath = () => {
+    if (typeof window === 'undefined') return false;
+    const path = window.location.pathname;
+    return path !== '/' && path !== '' && !path.startsWith('/@') && !path.startsWith('/src') && !path.includes('.');
+  };
+
   const [viewMode, setViewMode] = useState<'storefront' | 'admin'>(() => {
-    return window.location.search.includes('mode=storefront') ? 'storefront' : 'admin';
+    return (window.location.search.includes('mode=storefront') || window.location.search.includes('page=') || isDirectPagePath()) 
+      ? 'storefront' 
+      : 'admin';
   });
 
   const isEcommerceStorefront = window.location.search.includes('view=ecommerce');
 
   useEffect(() => {
     const handlePopState = () => {
-      if (window.location.search.includes('mode=storefront')) {
+      if (window.location.search.includes('mode=storefront') || window.location.search.includes('page=') || isDirectPagePath()) {
         setViewMode('storefront');
       } else {
         setViewMode('admin');

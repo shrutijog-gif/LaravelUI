@@ -7,6 +7,10 @@ import { DepartmentsBlock } from './components/storefront/blocks/DepartmentsBloc
 import { StylePickerModal } from './components/builder/StylePickerModal';
 
 import { DynamicModuleBlock } from './components/storefront/blocks/DynamicModuleBlock';
+import { CodeEditorBlock } from './components/storefront/blocks/CodeEditorBlock';
+import { RichTextBlock } from './components/storefront/blocks/RichTextBlock';
+import { HtmlCodeEditorField } from './components/builder/HtmlCodeEditorField';
+import { RichTextEditorField } from './components/builder/RichTextEditorField';
 import { getStoredStudioTemplates } from './data/mockStudioData';
 import { getStoredDepartments } from './data/mockDepartmentData';
 
@@ -385,6 +389,12 @@ export const getDynamicPuckConfig = (): Config<Props> => {
 
   return {
     categories: {
+      'SYSTEM COMPONENTS': {
+        components: ['CodeEditor'],
+      },
+      'UI COMPONENTS': {
+        components: ['RichText'],
+      },
       '⚡ Module Studio': {
         components: [...studioComponentKeys, 'DynamicStudioModule'],
       },
@@ -394,6 +404,127 @@ export const getDynamicPuckConfig = (): Config<Props> => {
     },
     components: {
       ...dynamicModuleComponents,
+      RichText: {
+        label: 'Rich Text',
+        fields: {
+          richTextConfig: {
+            type: 'custom',
+            render: ({ value = { content: '<p>Please Edit This</p>' }, onChange }: any) => {
+              return (
+                <RichTextEditorField
+                  value={value}
+                  onChange={onChange}
+                />
+              );
+            },
+          },
+          advancedConfig: {
+            type: 'custom',
+            render: ({ value = { anchorId: '', className: '' }, onChange }: any) => {
+              const [isExpanded, setIsExpanded] = useState(false);
+              const activeAnchorId = typeof value === 'object' && value?.anchorId ? value.anchorId : '';
+              const activeClassName = typeof value === 'object' && value?.className ? value.className : (typeof value === 'string' ? value : '');
+
+              return (
+                <div className="border border-gray-200 rounded-lg overflow-hidden my-1 bg-white shadow-2xs">
+                  <button
+                    type="button"
+                    onClick={() => setIsExpanded(!isExpanded)}
+                    className="w-full bg-gray-100 px-3 py-2 border-b border-gray-200 flex items-center justify-between hover:bg-gray-200/80 transition-colors text-left"
+                  >
+                    <span className="text-xs font-semibold text-gray-700">Advanced Controller</span>
+                    <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {isExpanded && (
+                    <div className="p-3 bg-white space-y-2">
+                      <div className="w-full py-1.5 px-3 bg-gray-100 border border-gray-300 rounded-md font-semibold text-xs text-gray-700 flex items-center justify-between gap-2">
+                        <span className="shrink-0">Anchor Id</span>
+                        <input
+                          type="text"
+                          placeholder="e.g. rich-text-section"
+                          className="bg-white border border-gray-200 px-2 py-0.5 rounded text-xs font-mono text-gray-800 text-left w-36 outline-none focus:border-blue-500"
+                          value={activeAnchorId}
+                          onChange={(e) => {
+                            const currentObj = typeof value === 'object' ? value : {};
+                            onChange({ ...currentObj, anchorId: e.target.value });
+                          }}
+                        />
+                      </div>
+
+                      <div className="w-full py-1.5 px-3 bg-gray-100 border border-gray-300 rounded-md font-semibold text-xs text-gray-700 flex items-center justify-between gap-2">
+                        <span className="shrink-0">Css Class</span>
+                        <input
+                          type="text"
+                          placeholder="e.g. custom-prose"
+                          className="bg-white border border-gray-200 px-2 py-0.5 rounded text-xs font-mono text-gray-800 text-left w-36 outline-none focus:border-blue-500"
+                          value={activeClassName}
+                          onChange={(e) => {
+                            const currentObj = typeof value === 'object' ? value : {};
+                            onChange({ ...currentObj, className: e.target.value });
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            },
+          },
+        },
+        defaultProps: {
+          richTextConfig: {
+            content: '<p>Please Edit This</p>',
+          },
+          advancedConfig: {
+            anchorId: '',
+            className: '',
+          },
+        },
+        render: ({ richTextConfig, advancedConfig, content, className, anchorId }: any) => {
+          return (
+            <RichTextBlock
+              richTextConfig={richTextConfig}
+              advancedConfig={advancedConfig}
+              content={content}
+              className={className}
+              anchorId={anchorId}
+            />
+          );
+        },
+      },
+      CodeEditor: {
+        label: 'Code Editer',
+        fields: {
+          /* 1. HTML Code Editor */
+          codeConfig: {
+            type: 'custom',
+            render: ({ value = { code: '', editorHeight: '500px', containerStyle: 'default' }, onChange }: any) => {
+              return (
+                <HtmlCodeEditorField 
+                  value={value} 
+                  onChange={onChange} 
+                />
+              );
+            },
+          },
+        },
+        defaultProps: {
+          codeConfig: {
+            code: '',
+            editorHeight: '500px',
+            containerStyle: 'default',
+          },
+        },
+        render: ({ codeConfig, code }: any) => {
+          return (
+            <CodeEditorBlock
+              codeConfig={codeConfig}
+              code={code}
+            />
+          );
+        },
+      },
       DynamicStudioModule: {
         label: '🧩 Generic Module Selector',
         fields: {
@@ -434,13 +565,6 @@ export const getDynamicPuckConfig = (): Config<Props> => {
             <h2 className="text-2xl font-extrabold text-gray-900">{title}</h2>
           </div>
         ),
-      },
-      TimetableBlock: {
-        label: 'Timetable',
-        fields: {
-            /* Placeholder for Timetable Fields */
-        },
-        render: () => <div>Timetable Component</div>
       },
       CommitteesBlock: {
         label: 'Committees',

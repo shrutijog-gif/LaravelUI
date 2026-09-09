@@ -18,8 +18,11 @@ const sampleTimetables = [
     year: '2024-25',
     branch: ['Computer Science', 'IT'],
     semester: ['I', 'II'],
+    section: ['A'],
     fileName: 'btech_1st_sem1.pdf',
     fileUrl: '#',
+    showOnWebsite: true,
+    createdAt: '2024-01-01T00:00:00.000Z',
   },
   {
     id: 'sample-2',
@@ -27,8 +30,11 @@ const sampleTimetables = [
     year: '2024-25',
     branch: ['BCA'],
     semester: ['V'],
+    section: ['A'],
     fileName: 'bca_3rd_sem5.pdf',
     fileUrl: '#',
+    showOnWebsite: true,
+    createdAt: '2024-01-01T00:00:00.000Z',
   },
 ];
 

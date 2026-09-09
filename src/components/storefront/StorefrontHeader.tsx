@@ -130,8 +130,7 @@ export const StorefrontHeader: React.FC<StorefrontHeaderProps> = ({
               <input
                 type="text"
                 placeholder="Search Timetables, Circulars, Courses..."
-                className="w-full pl-9 pr-4 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-full focus:outline-none focus:ring-2 focus:bg-white text-gray-800 placeholder-gray-400"
-                style={{ focusRingColor: tenant.primaryColor }}
+                className="w-full pl-9 pr-4 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white text-gray-800 placeholder-gray-400"
               />
               <Search className="w-4 h-4 text-gray-400 absolute left-3 top-2" />
             </div>

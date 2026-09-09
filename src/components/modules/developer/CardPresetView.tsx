@@ -17,7 +17,10 @@ export interface CardPresetViewProps {
     title?: string;
     recipient?: string;
     pdf_url?: string;
+    imageUrl?: string;
+    badge?: string;
     fieldEntries?: Array<{ name: string; label: string; value: any }>;
+    [key: string]: any;
   };
   viewMode?: 'blueprint' | 'sample';
   className?: string;

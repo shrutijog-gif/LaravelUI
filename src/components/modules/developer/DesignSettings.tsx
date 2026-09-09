@@ -338,7 +338,7 @@ export const DesignSettings: React.FC = () => {
               <button
                 style={{
                   backgroundColor: tokens.primaryColor,
-                  borderRadius: tokens.borderRadius === 'full' ? '9999px' : tokens.borderRadius === 'sharp' ? '0' : '0.5rem',
+                  borderRadius: tokens.borderRadius === 'full' ? '9999px' : tokens.borderRadius === 'sm' ? '0.25rem' : '0.5rem',
                 }}
                 className="px-5 py-2.5 text-white font-semibold text-sm shadow-md hover:opacity-90 transition-opacity"
               >
@@ -347,7 +347,7 @@ export const DesignSettings: React.FC = () => {
               <button
                 style={{
                   backgroundColor: tokens.secondaryColor,
-                  borderRadius: tokens.borderRadius === 'full' ? '9999px' : tokens.borderRadius === 'sharp' ? '0' : '0.5rem',
+                  borderRadius: tokens.borderRadius === 'full' ? '9999px' : tokens.borderRadius === 'sm' ? '0.25rem' : '0.5rem',
                 }}
                 className="px-5 py-2.5 text-white font-semibold text-sm shadow-md hover:opacity-90 transition-opacity"
               >
@@ -357,7 +357,7 @@ export const DesignSettings: React.FC = () => {
                 style={{
                   borderColor: tokens.primaryColor,
                   color: tokens.primaryColor,
-                  borderRadius: tokens.borderRadius === 'full' ? '9999px' : tokens.borderRadius === 'sharp' ? '0' : '0.5rem',
+                  borderRadius: tokens.borderRadius === 'full' ? '9999px' : tokens.borderRadius === 'sm' ? '0.25rem' : '0.5rem',
                 }}
                 className="px-5 py-2.5 border-2 font-semibold text-sm hover:bg-blue-50 transition-colors"
               >
@@ -366,7 +366,7 @@ export const DesignSettings: React.FC = () => {
               <button
                 style={{
                   backgroundColor: tokens.accentColor,
-                  borderRadius: tokens.borderRadius === 'full' ? '9999px' : tokens.borderRadius === 'sharp' ? '0' : '0.5rem',
+                  borderRadius: tokens.borderRadius === 'full' ? '9999px' : tokens.borderRadius === 'sm' ? '0.25rem' : '0.5rem',
                 }}
                 className="px-5 py-2.5 text-white font-bold text-sm shadow-md hover:opacity-90 transition-opacity"
               >

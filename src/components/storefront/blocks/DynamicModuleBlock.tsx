@@ -12,7 +12,7 @@ export interface DynamicModuleBlockProps {
   titleOverride?: string;
   descriptionOverride?: string;
   headerAlign?: 'left' | 'center' | 'right';
-  cardStyle?: 'style-1' | 'style-2' | 'style-3' | 'style-4' | 'table-1' | 'table-2' | 'table-3';
+  cardStyle?: 'style-1' | 'style-2' | 'style-3' | 'style-4' | 'table-1' | 'table-2' | 'table-3' | 'icon-1' | 'icon-2' | 'icon-3' | 'quicklink-1' | 'quicklink-2' | 'quicklink-3' | string;
   columns?: 2 | 3 | 4;
   className?: string;
   anchorId?: string;
