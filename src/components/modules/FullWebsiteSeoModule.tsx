@@ -20,7 +20,7 @@ import {
 import { PageItem } from './WebpageModule';
 import { SerpPreview } from '../seo/SerpPreview';
 import { GoogleSearchPreviewModal } from '../seo/GoogleSearchPreviewModal';
-import { exportPagesCsv } from '../../utils/seoEngine';
+import { calculateSeoScore, exportPagesCsv } from '../../utils/seoEngine';
 import { GlobalWebsiteSeo } from '../../types/seo';
 import { syncDomHeadSeo } from '../../utils/seoDomInjector';
 import { getActiveTenant, getTenantSeoDefaults } from '../../data/tenantData';
@@ -90,6 +90,8 @@ export const normalizePageToItem = (p: any, tenantName: string = getActiveTenant
     kw = `${pageName.toLowerCase()}, ${tenantName.toLowerCase()}, academic portal, higher education`;
   }
 
+  const pageAudit = calculateSeoScore(title, desc, kw, { brand: tenantName });
+
   return {
     id: p.id || `p-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
     name: pageName,
@@ -102,7 +104,7 @@ export const normalizePageToItem = (p: any, tenantName: string = getActiveTenant
     metaDescription: desc,
     seoKeywords: kw,
     metaKeywords: kw,
-    seoScore: typeof p.seoScore === 'number' ? p.seoScore : 100,
+    seoScore: pageAudit.score,
     lastModified: p.lastModified || 'Just now',
     type: p.type || 'builder'
   };
@@ -233,6 +235,83 @@ export const FullWebsiteSeoModule: React.FC = () => {
     }
   }, [globalSeo.domainUrl]);
 
+  // Real-time Overall Site SEO & Compliance Engine
+  const siteSeoMetrics = useMemo(() => {
+    if (!pages || pages.length === 0) {
+      return {
+        overallScore: 100,
+        overallGrade: 'EXCELLENT' as const,
+        overallStatus: 'Google SERP Ready',
+        titleCompliance: 100,
+        descCompliance: 100,
+        titleCompliantCount: 0,
+        descCompliantCount: 0,
+        optimizedCount: 0,
+        pageAudits: new Map<string, ReturnType<typeof calculateSeoScore>>()
+      };
+    }
+
+    const brand = globalSeo.brandName || currentTenant.name;
+    let totalScore = 0;
+    let titleCompliantCount = 0;
+    let descCompliantCount = 0;
+    let optimizedCount = 0;
+    const pageAudits = new Map<string, ReturnType<typeof calculateSeoScore>>();
+
+    pages.forEach(p => {
+      const pageTitle = (p.seoTitle || p.title || p.name || '').trim();
+      const pageDesc = (p.description || p.metaDescription || '').trim();
+      const pageKw = (p.seoKeywords || p.metaKeywords || '').trim();
+
+      const audit = calculateSeoScore(pageTitle, pageDesc, pageKw, { brand });
+      pageAudits.set(p.id, audit);
+      totalScore += audit.score;
+
+      if (audit.score >= 85) {
+        optimizedCount++;
+      }
+
+      // Title compliance: optimal Google SERP title length is 40-65 chars
+      const tLen = pageTitle.length;
+      if (tLen >= 40 && tLen <= 65) {
+        titleCompliantCount++;
+      }
+
+      // Description compliance: optimal Google SERP description length is 120-165 chars
+      const dLen = pageDesc.length;
+      if (dLen >= 120 && dLen <= 165) {
+        descCompliantCount++;
+      }
+    });
+
+    const overallScore = Math.round(totalScore / pages.length);
+    const titleCompliance = Math.round((titleCompliantCount / pages.length) * 100);
+    const descCompliance = Math.round((descCompliantCount / pages.length) * 100);
+
+    let overallGrade: 'EXCELLENT' | 'GOOD' | 'CRITICAL' = 'EXCELLENT';
+    let overallStatus = 'Google SERP Ready';
+
+    if (overallScore < 70) {
+      overallGrade = 'CRITICAL';
+      overallStatus = 'Needs Immediate Attention';
+    } else if (overallScore < 90) {
+      overallGrade = 'GOOD';
+      overallStatus = 'Minor Adjustments Recommended';
+    }
+
+    return {
+      overallScore,
+      overallGrade,
+      overallStatus,
+      titleCompliance,
+      descCompliance,
+      titleCompliantCount,
+      descCompliantCount,
+      optimizedCount,
+      pageAudits
+    };
+  }, [pages, globalSeo.brandName, currentTenant.name]);
+
   return (
     <div className="space-y-6 animate-fade-in font-sans">
       
@@ -251,14 +330,28 @@ export const FullWebsiteSeoModule: React.FC = () => {
           <div>
             <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">OVERALL SITE SEO</p>
             <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-2xl sm:text-3xl font-extrabold text-gray-900">100%</span>
-              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                EXCELLENT
+              <span className="text-2xl sm:text-3xl font-extrabold text-gray-900">
+                {siteSeoMetrics.overallScore}%
+              </span>
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
+                siteSeoMetrics.overallGrade === 'EXCELLENT'
+                  ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                  : siteSeoMetrics.overallGrade === 'GOOD'
+                  ? 'text-amber-700 bg-amber-50 border-amber-200'
+                  : 'text-rose-700 bg-rose-50 border-rose-200'
+              }`}>
+                {siteSeoMetrics.overallGrade}
               </span>
             </div>
-            <p className="text-[11px] text-gray-400 mt-1">Google SERP Ready</p>
+            <p className="text-[11px] text-gray-400 mt-1">{siteSeoMetrics.overallStatus}</p>
           </div>
-          <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shadow-2xs">
+          <div className={`w-11 h-11 rounded-xl flex items-center justify-center shadow-2xs ${
+            siteSeoMetrics.overallGrade === 'EXCELLENT'
+              ? 'bg-emerald-50 text-emerald-600'
+              : siteSeoMetrics.overallGrade === 'GOOD'
+              ? 'bg-amber-50 text-amber-600'
+              : 'bg-rose-50 text-rose-600'
+          }`}>
             <TrendingUp className="w-5 h-5" />
           </div>
         </div>
@@ -270,7 +363,7 @@ export const FullWebsiteSeoModule: React.FC = () => {
             <div className="flex items-baseline gap-2 mt-1">
               <span className="text-2xl sm:text-3xl font-extrabold text-gray-900">{pages.length}</span>
               <span className="text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200">
-                100% Tracked
+                {siteSeoMetrics.optimizedCount}/{pages.length} Optimized
               </span>
             </div>
             <p className="text-[11px] text-gray-400 mt-1">All inner pages active</p>
@@ -285,14 +378,26 @@ export const FullWebsiteSeoModule: React.FC = () => {
           <div>
             <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">TITLE COMPLIANCE</p>
             <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-2xl sm:text-3xl font-extrabold text-gray-900">100%</span>
-              <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200">
-                50-60 chars
+              <span className="text-2xl sm:text-3xl font-extrabold text-gray-900">
+                {siteSeoMetrics.titleCompliance}%
+              </span>
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
+                siteSeoMetrics.titleCompliance >= 80
+                  ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                  : siteSeoMetrics.titleCompliance >= 50
+                  ? 'text-indigo-700 bg-indigo-50 border-indigo-200'
+                  : 'text-amber-700 bg-amber-50 border-amber-200'
+              }`}>
+                {siteSeoMetrics.titleCompliantCount}/{pages.length} Optimal
               </span>
             </div>
-            <p className="text-[11px] text-gray-400 mt-1">Optimal SERP click-through</p>
+            <p className="text-[11px] text-gray-400 mt-1">Optimal 45–62 chars for SERP</p>
           </div>
-          <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-2xs">
+          <div className={`w-11 h-11 rounded-xl flex items-center justify-center shadow-2xs ${
+            siteSeoMetrics.titleCompliance >= 80
+              ? 'bg-emerald-50 text-emerald-600'
+              : 'bg-indigo-50 text-indigo-600'
+          }`}>
             <FileText className="w-5 h-5" />
           </div>
         </div>
@@ -302,14 +407,28 @@ export const FullWebsiteSeoModule: React.FC = () => {
           <div>
             <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">DESC COMPLIANCE</p>
             <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-2xl sm:text-3xl font-extrabold text-gray-900">100%</span>
-              <span className="text-[10px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200">
-                120-155 chars
+              <span className="text-2xl sm:text-3xl font-extrabold text-gray-900">
+                {siteSeoMetrics.descCompliance}%
+              </span>
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
+                siteSeoMetrics.descCompliance >= 80
+                  ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                  : siteSeoMetrics.descCompliance >= 50
+                  ? 'text-purple-700 bg-purple-50 border-purple-200'
+                  : 'text-amber-700 bg-amber-50 border-amber-200'
+              }`}>
+                {siteSeoMetrics.descCompliantCount}/{pages.length} Optimal
               </span>
             </div>
-            <p className="text-[11px] text-gray-400 mt-1">Full snippet display</p>
+            <p className="text-[11px] text-gray-400 mt-1">Full 125–165 char snippet</p>
           </div>
-          <div className="w-11 h-11 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shadow-2xs">
+          <div className={`w-11 h-11 rounded-xl flex items-center justify-center shadow-2xs ${
+            siteSeoMetrics.descCompliance >= 80
+              ? 'bg-emerald-50 text-emerald-600'
+              : siteSeoMetrics.descCompliance >= 50
+              ? 'bg-purple-50 text-purple-600'
+              : 'bg-amber-50 text-amber-600'
+          }`}>
             <CheckCircle2 className="w-5 h-5" />
           </div>
         </div>
@@ -546,16 +665,19 @@ export const FullWebsiteSeoModule: React.FC = () => {
 
             {/* Export CSV Button */}
             <button
-              onClick={() => exportPagesCsv(pages.map(p => ({
-                id: p.id,
-                title: p.title,
-                url: getTargetPageUrl(p, globalSeo.domainUrl),
-                seoTitle: p.seoTitle,
-                description: p.description,
-                seoKeywords: p.seoKeywords,
-                seoScore: p.seoScore || 100,
-                status: (p.status as any) || 'published'
-              })))}
+              onClick={() => exportPagesCsv(pages.map(p => {
+                const audit = siteSeoMetrics.pageAudits.get(p.id);
+                return {
+                  id: p.id,
+                  title: p.title,
+                  url: getTargetPageUrl(p, globalSeo.domainUrl),
+                  seoTitle: p.seoTitle,
+                  description: p.description,
+                  seoKeywords: p.seoKeywords,
+                  seoScore: audit ? audit.score : (p.seoScore || 100),
+                  status: (p.status as any) || 'published'
+                };
+              }))}
               className="px-3.5 py-2 bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs whitespace-nowrap"
             >
               <Download className="w-3.5 h-3.5" />
@@ -570,10 +692,11 @@ export const FullWebsiteSeoModule: React.FC = () => {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-[#f8fafc] border-b border-gray-200 text-gray-500 text-[11px] uppercase font-bold tracking-wider">
-                  <th className="py-3 px-6 w-64">INNER PAGE &amp; URL</th>
+                  <th className="py-3 px-6 w-60">INNER PAGE &amp; URL</th>
                   <th className="py-3 px-6">SEO META TITLE &amp; SNIPPET</th>
-                  <th className="py-3 px-6 w-64">PRIMARY KEYWORDS</th>
-                  <th className="py-3 px-6 text-center w-24">ACTION</th>
+                  <th className="py-3 px-6 w-52">PRIMARY KEYWORDS</th>
+                  <th className="py-3 px-6 text-center w-28">SEO SCORE</th>
+                  <th className="py-3 px-6 text-center w-20">ACTION</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 text-xs">
@@ -652,6 +775,41 @@ export const FullWebsiteSeoModule: React.FC = () => {
                         ) : (
                           <span className="text-[11px] text-gray-400 italic">No keywords</span>
                         )}
+                      </td>
+                      {/* SEO Score Column */}
+                      <td className="py-4 px-6 text-center align-top">
+                        {(() => {
+                          const audit = siteSeoMetrics.pageAudits.get(page.id) || calculateSeoScore(
+                            page.seoTitle || page.title || page.name || '',
+                            page.description || page.metaDescription || '',
+                            page.seoKeywords || page.metaKeywords || '',
+                            { brand: globalSeo.brandName || currentTenant.name }
+                          );
+                          const isExcellent = audit.score >= 90;
+                          const isGood = audit.score >= 70;
+                          return (
+                            <div className="inline-flex flex-col items-center">
+                              <span className={`inline-flex items-center gap-1 font-extrabold text-xs px-2.5 py-0.5 rounded-full border ${
+                                isExcellent
+                                  ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                                  : isGood
+                                  ? 'text-amber-700 bg-amber-50 border-amber-200'
+                                  : 'text-rose-700 bg-rose-50 border-rose-200'
+                              }`}>
+                                {audit.score}%
+                              </span>
+                              <span className={`text-[9px] font-bold mt-1 tracking-wider uppercase ${
+                                isExcellent
+                                  ? 'text-emerald-600'
+                                  : isGood
+                                  ? 'text-amber-600'
+                                  : 'text-rose-600'
+                              }`}>
+                                {audit.grade}
+                              </span>
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td className="py-4 px-6 text-center align-top">
                         <button
