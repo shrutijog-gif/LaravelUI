@@ -389,11 +389,8 @@ export const getDynamicPuckConfig = (): Config<Props> => {
 
   return {
     categories: {
-      'SYSTEM COMPONENTS': {
-        components: ['CodeEditor'],
-      },
       'UI COMPONENTS': {
-        components: ['RichText'],
+        components: ['CodeEditor', 'RichText'],
       },
       '⚡ Module Studio': {
         components: [...studioComponentKeys, 'DynamicStudioModule'],
@@ -494,7 +491,7 @@ export const getDynamicPuckConfig = (): Config<Props> => {
         },
       },
       CodeEditor: {
-        label: 'Code Editer',
+        label: 'Code Editor',
         fields: {
           /* 1. HTML Code Editor */
           codeConfig: {

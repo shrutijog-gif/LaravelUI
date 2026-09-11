@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, MoreHorizontal, Copy, Check, Trash2, Edit3, Files } from 'lucide-react';
+import { Search, MoreHorizontal, Copy, Check, Trash2, Edit3, Files, Sparkles } from 'lucide-react';
 import { WebPage } from '../../../../types/page';
 
 interface PageListProps {
@@ -7,6 +7,7 @@ interface PageListProps {
   onAdd: () => void;
   onActionClick: (page: WebPage) => void;
   onEditDetails?: (page: WebPage) => void;
+  onOpenSEO?: (page: WebPage) => void;
   onDuplicate?: (page: WebPage) => void;
   onDelete?: (pageId: string) => void;
 }
@@ -16,6 +17,7 @@ export const PageList: React.FC<PageListProps> = ({
   onAdd,
   onActionClick,
   onEditDetails,
+  onOpenSEO,
   onDuplicate,
   onDelete,
 }) => {
@@ -45,7 +47,7 @@ export const PageList: React.FC<PageListProps> = ({
           onClick={onAdd}
           className="bg-[#2563eb] hover:bg-blue-700 text-white font-medium text-sm px-5 py-2 rounded shadow-sm transition-colors cursor-pointer"
         >
-          Add Page
+          + Add Page
         </button>
       </div>
 
@@ -103,8 +105,21 @@ export const PageList: React.FC<PageListProps> = ({
                 filteredPages.map(page => {
                   const origin = typeof window !== 'undefined' && window.location.origin ? window.location.origin : 'http://localhost:5173';
                   const slug = (page.slug || page.name).toLowerCase().replace(/\s+/g, '-');
-                  const url = page.type === 'custom' && page.customLink 
-                    ? page.customLink 
+                  const rawCustom = (page.customLink || '').trim();
+                  const isCustom = Boolean(
+                    page.type === 'custom' || (
+                      rawCustom !== '' &&
+                      !rawCustom.startsWith('/') &&
+                      !rawCustom.includes(origin) && 
+                      !rawCustom.includes('localhost') && 
+                      !rawCustom.includes(':5173')
+                    )
+                  );
+                  const formattedCustomUrl = rawCustom && !rawCustom.startsWith('http://') && !rawCustom.startsWith('https://') && !rawCustom.startsWith('/') && (rawCustom.includes('.') || rawCustom.startsWith('www.'))
+                    ? `https://${rawCustom}`
+                    : rawCustom;
+                  const url = isCustom && formattedCustomUrl 
+                    ? formattedCustomUrl 
                     : `${origin}/${slug}`;
 
                   return (
@@ -114,8 +129,16 @@ export const PageList: React.FC<PageListProps> = ({
                       </td>
                       <td className="py-4 px-5">
                         <div 
-                          onClick={() => onActionClick(page)}
+                          onClick={() => {
+                            if (isCustom) {
+                              if (onOpenSEO) onOpenSEO(page);
+                              else onActionClick(page);
+                            } else {
+                              onActionClick(page);
+                            }
+                          }}
                           className="text-gray-800 font-medium mb-1 hover:text-blue-600 cursor-pointer transition-colors"
+                          title={isCustom ? 'Click to configure SEO settings' : 'Click to open Page Builder'}
                         >
                           {page.name}
                         </div>
@@ -124,7 +147,7 @@ export const PageList: React.FC<PageListProps> = ({
                             href={url} 
                             onClick={(e) => {
                               e.preventDefault();
-                              const liveUrl = page.type === 'custom' && page.customLink && page.customLink.startsWith('http') && !page.customLink.includes(window.location.host)
+                              const liveUrl = isCustom && page.customLink && page.customLink.startsWith('http') && !page.customLink.includes(window.location.host)
                                 ? page.customLink
                                 : `${origin}${window.location.pathname}?mode=storefront&page=${slug}`;
                               window.open(liveUrl, '_blank');
@@ -155,10 +178,18 @@ export const PageList: React.FC<PageListProps> = ({
                         <div className="flex items-center gap-3 relative">
                           <button
                             type="button"
-                            onClick={() => onActionClick(page)}
-                            className="text-blue-600 hover:text-blue-800 font-medium whitespace-nowrap transition-colors cursor-pointer"
+                            onClick={() => {
+                              if (isCustom) {
+                                if (onOpenSEO) onOpenSEO(page);
+                                else onActionClick(page);
+                              } else {
+                                onActionClick(page);
+                              }
+                            }}
+                            className="text-blue-600 hover:text-blue-800 font-medium whitespace-nowrap transition-colors cursor-pointer flex items-center gap-1"
+                            title={isCustom ? 'Open SEO for Custom Link' : 'Open Page Builder'}
                           >
-                            {page.type === 'custom' ? 'Custom Link' : 'Page Builder'}
+                            <span>{isCustom ? 'Custom Link' : 'Page Builder'}</span>
                           </button>
 
                           <div className="relative">
@@ -177,49 +208,68 @@ export const PageList: React.FC<PageListProps> = ({
                                   className="fixed inset-0 z-30" 
                                   onClick={() => setActiveMenuPageId(null)} 
                                 />
-                                <div className="absolute right-0 top-full mt-1 w-44 bg-white rounded-xl shadow-xl border border-gray-200 py-1.5 z-40 text-xs animate-in fade-in zoom-in-95 duration-100">
-                                  {/* 1. Duplicate Page */}
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setActiveMenuPageId(null);
-                                      if (onDuplicate) onDuplicate(page);
-                                    }}
-                                    className="w-full px-3.5 py-2 text-left text-gray-700 hover:bg-gray-50 flex items-center gap-2.5 transition-colors cursor-pointer"
-                                  >
-                                    <Files className="w-4 h-4 text-gray-600" />
-                                    <span>Duplicate Page</span>
-                                  </button>
+                                <div className="absolute right-0 top-full mt-1 w-44 bg-white rounded-xl shadow-xl border border-gray-200 py-1.5 z-40 text-xs animate-in fade-in zoom-in-95 duration-100 divide-y divide-gray-100">
+                                  
+                                  <div className="py-0.5">
+                                    {/* 1. Edit */}
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setActiveMenuPageId(null);
+                                        if (onEditDetails) onEditDetails(page);
+                                      }}
+                                      className="w-full px-3.5 py-2 text-left text-gray-700 hover:bg-gray-50 flex items-center gap-2.5 transition-colors cursor-pointer"
+                                    >
+                                      <Edit3 className="w-4 h-4 text-gray-600" />
+                                      <span>Edit</span>
+                                    </button>
 
-                                  {/* 2. Edit details */}
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setActiveMenuPageId(null);
-                                      if (onEditDetails) onEditDetails(page);
-                                    }}
-                                    className="w-full px-3.5 py-2 text-left text-gray-700 hover:bg-gray-50 flex items-center gap-2.5 transition-colors cursor-pointer"
-                                  >
-                                    <Edit3 className="w-4 h-4 text-gray-600" />
-                                    <span>Edit details</span>
-                                  </button>
+                                    {/* 2. SEO */}
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setActiveMenuPageId(null);
+                                        if (onOpenSEO) onOpenSEO(page);
+                                      }}
+                                      className="w-full px-3.5 py-2 text-left text-gray-700 hover:bg-gray-50 flex items-center gap-2.5 transition-colors cursor-pointer"
+                                    >
+                                      <Sparkles className="w-4 h-4 text-gray-600" />
+                                      <span>SEO</span>
+                                    </button>
 
-                                  {/* 3. Delete */}
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setActiveMenuPageId(null);
-                                      if (onDelete) {
-                                        if (confirm(`Are you sure you want to delete "${page.name}"?`)) {
-                                          onDelete(page.id);
+                                    {/* 3. Duplicate */}
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setActiveMenuPageId(null);
+                                        if (onDuplicate) onDuplicate(page);
+                                      }}
+                                      className="w-full px-3.5 py-2 text-left text-gray-700 hover:bg-gray-50 flex items-center gap-2.5 transition-colors cursor-pointer"
+                                    >
+                                      <Files className="w-4 h-4 text-gray-600" />
+                                      <span>Duplicate</span>
+                                    </button>
+                                  </div>
+
+                                  <div className="py-0.5">
+                                    {/* 4. Delete */}
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setActiveMenuPageId(null);
+                                        if (onDelete) {
+                                          if (confirm(`Are you sure you want to delete "${page.name}"?`)) {
+                                            onDelete(page.id);
+                                          }
                                         }
-                                      }
-                                    }}
-                                    className="w-full px-3.5 py-2 text-left text-red-600 hover:bg-red-50 flex items-center gap-2.5 transition-colors cursor-pointer border-t border-gray-100 mt-0.5 pt-2"
-                                  >
-                                    <Trash2 className="w-4 h-4 text-red-500" />
-                                    <span>Delete</span>
-                                  </button>
+                                      }}
+                                      className="w-full px-3.5 py-2 text-left text-red-600 hover:bg-red-50 flex items-center gap-2.5 transition-colors cursor-pointer"
+                                    >
+                                      <Trash2 className="w-4 h-4 text-red-500" />
+                                      <span>Delete</span>
+                                    </button>
+                                  </div>
+
                                 </div>
                               </>
                             )}

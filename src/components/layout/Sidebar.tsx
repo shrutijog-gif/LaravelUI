@@ -127,6 +127,11 @@ export const getCollegeAdminMenuItems = (): MenuItem[] => {
       ],
     },
     {
+      id: 'website-seo',
+      label: 'Website SEO',
+      icon: 'circle',
+    },
+    {
       id: 'academics',
       label: 'Academics',
       icon: 'circle',

@@ -43,8 +43,8 @@ export const Drawer: React.FC<DrawerProps> = ({
           </button>
         </div>
 
-        {/* Scrollable Main Content */}
-        <div className="flex-1 overflow-y-auto min-h-0 relative z-10">
+        {/* Scrollable Main Content with Right Side Scroller */}
+        <div className="flex-1 overflow-y-auto min-h-0 relative z-10 custom-drawer-scrollbar">
           {children}
         </div>
 

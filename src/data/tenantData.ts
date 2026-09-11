@@ -217,3 +217,28 @@ export const setActiveTenantId = (tenantId: string) => {
 export const getAllTenants = (): CollegeTenant[] => {
   return collegeTenantsList;
 };
+
+export const getTenantSeoDefaults = (tenant?: CollegeTenant) => {
+  const t = tenant || getActiveTenant();
+  const origin = typeof window !== 'undefined' && window.location && window.location.origin 
+    ? window.location.origin 
+    : 'http://localhost:5173';
+    
+  return {
+    siteName: t.name,
+    domainUrl: origin,
+    defaultTitle: `${t.name} | ${t.subtitle} Official Portal`,
+    defaultDescription: `Official academic and campus portal of ${t.name}, ${t.subtitle}. Explore verified academic programs, syllabus guidelines, faculty directory, and admissions updates.`,
+    defaultKeywords: `${t.name.toLowerCase()}, ${t.name.toLowerCase()} admissions, ${t.subtitle.toLowerCase()}, academic programs, higher education, college portal`,
+    brandName: t.name,
+    canonicalDomain: origin,
+    ogImageUrl: "https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=800&q=80",
+    twitterHandle: `@${t.name.replace(/[^a-zA-Z0-9]/g, '')}`,
+    robotsIndexing: "index, follow" as const,
+    schemaType: "EducationalOrganization" as const,
+    contactEmail: `principal@${t.id}.edu.in`,
+    contactPhone: "+91 11 2371 8031",
+    addressLocality: t.subtitle,
+    googleVerificationToken: "ytG8KCRaBpMv8sS9T25XvxCoYIAAlII8iiSs3AAHEsc"
+  };
+};

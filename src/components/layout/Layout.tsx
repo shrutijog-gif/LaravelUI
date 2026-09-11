@@ -14,6 +14,7 @@ import { DesignSettings } from '../modules/developer/DesignSettings';
 import { CardBuilderStudio } from '../modules/developer/CardBuilderStudio';
 import { CommitteesAdmin } from '../modules/website/committees/CommitteesAdmin';
 import { DepartmentsAdmin } from '../modules/website/departments/DepartmentsAdmin'; // Clean departments module
+import { FullWebsiteSeoModule } from '../modules/FullWebsiteSeoModule';
 
 interface LayoutProps {
   onToggleViewMode?: () => void;
@@ -106,6 +107,8 @@ export const Layout: React.FC<LayoutProps> = ({ onToggleViewMode }) => {
               <DepartmentsAdmin />
             ) : activeModuleId === 'webpage' ? (
               <PageAdmin />
+            ) : activeModuleId === 'website-seo' ? (
+              <FullWebsiteSeoModule />
             ) : (
               <ModulePlaceholder 
                 moduleId={activeModuleId} 

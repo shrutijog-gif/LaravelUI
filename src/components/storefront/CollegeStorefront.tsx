@@ -25,6 +25,7 @@ import { DynamicModuleBlock } from './blocks/DynamicModuleBlock';
 import { getStoredWebPages, getStoredPagePuckData } from '../../data/mockPageData';
 import { config, getDynamicPuckConfig } from '../../puck.config';
 import { Render } from '@measured/puck';
+import { syncDomHeadSeo } from '../../utils/seoDomInjector';
 
 interface CollegeStorefrontProps {
   onToggleViewMode?: () => void;
@@ -55,6 +56,21 @@ export const CollegeStorefront: React.FC<CollegeStorefrontProps> = ({ onToggleVi
     p.name.toLowerCase().replace(/\s+/g, '-') === activePageSlug ||
     p.id === activePageSlug
   ) : null;
+
+  // Real-time automatic DOM Head SEO Injection for active page
+  useEffect(() => {
+    const origin = typeof window !== 'undefined' && window.location?.origin ? window.location.origin : 'http://localhost:5173';
+    if (activePage) {
+      syncDomHeadSeo(undefined, {
+        seoTitle: activePage.seoTitle || `${activePage.name} | ${tenant.name}`,
+        description: activePage.metaDescription || `Discover official curriculum details, syllabus guidelines, and faculty directory for ${activePage.name} at ${tenant.name}.`,
+        seoKeywords: activePage.metaKeywords || `${activePage.name.toLowerCase()}, ${tenant.name.toLowerCase()}, academic portal, higher education`,
+        url: activePage.customLink || `${origin}/${activePage.slug}.html`
+      });
+    } else {
+      syncDomHeadSeo();
+    }
+  }, [activePage, tenant]);
 
   const dynamicPuckData = activePage ? getStoredPagePuckData(activePage.id, activePage.name) : null;
   const dynamicConfig = getDynamicPuckConfig ? getDynamicPuckConfig() : config;

@@ -177,12 +177,12 @@ export const HtmlCodeEditorField: React.FC<HtmlCodeEditorFieldProps> = ({
 
   return (
     <div className="space-y-2">
-      {/* 1. Top Breadcrumb & Expand Header (Page > Code Editer) */}
+      {/* 1. Top Breadcrumb & Expand Header (Page > Code Editor) */}
       <div className="bg-white px-3 py-2 border border-gray-200 rounded-lg flex items-center justify-between text-xs select-none shadow-2xs">
         <div className="flex items-center gap-1.5 text-xs font-semibold">
           <span className="text-blue-600 hover:underline cursor-pointer">Page</span>
           <span className="text-gray-400 font-normal">›</span>
-          <span className="text-gray-900 font-bold">Code Editer</span>
+          <span className="text-gray-900 font-bold">Code Editor</span>
         </div>
 
         {/* Fullscreen / Expand Button */}

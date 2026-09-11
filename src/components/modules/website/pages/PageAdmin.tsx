@@ -5,10 +5,18 @@ import {
   saveStoredWebPages, 
   updateStoredWebPage, 
   duplicateStoredWebPage, 
-  deleteStoredWebPage 
+  deleteStoredWebPage,
+  extractPageContentText
 } from '../../../../data/mockPageData';
+import { getActiveTenant } from '../../../../data/tenantData';
+import { 
+  formatOptimalSeoTitle, 
+  formatOptimalSeoDescription, 
+  formatOptimalSeoKeywords 
+} from '../../../../services/aiAgentService';
 import { PageList } from './PageList';
 import { PageDrawer } from './PageDrawer';
+import { PageSEODrawer } from './PageSEODrawer';
 import { PuckEditor } from '../../../builder/PuckEditor';
 import { CheckCircle2 } from 'lucide-react';
 
@@ -16,6 +24,11 @@ export const PageAdmin: React.FC = () => {
   const [pages, setPages] = useState<WebPage[]>(() => getStoredWebPages());
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [editingPage, setEditingPage] = useState<WebPage | null>(null);
+  
+  // SEO Drawer state
+  const [isSEODrawerOpen, setIsSEODrawerOpen] = useState(false);
+  const [seoPage, setSeoPage] = useState<WebPage | null>(null);
+
   const [activeBuilderPage, setActiveBuilderPage] = useState<WebPage | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -46,24 +59,86 @@ export const PageAdmin: React.FC = () => {
     setIsDrawerOpen(true);
   };
 
+  const handleOpenSEO = (page: WebPage) => {
+    setSeoPage(page);
+    setIsSEODrawerOpen(true);
+  };
+
+  const handleSaveSEO = (pageId: string, seoData: { seoTitle: string; metaDescription: string; metaKeywords: string }) => {
+    const target = pages.find(p => p.id === pageId);
+    if (!target) return;
+
+    const updated = updateStoredWebPage(pageId, {
+      name: target.name,
+      customLink: target.customLink,
+      seoTitle: seoData.seoTitle,
+      metaDescription: seoData.metaDescription,
+      metaKeywords: seoData.metaKeywords,
+    });
+    setPages(updated);
+    showToast(`SEO settings for "${target.name}" saved successfully!`);
+  };
+
   const handleSavePage = (pageData: any, pageId?: string) => {
+    const origin = typeof window !== 'undefined' && window.location?.origin ? window.location.origin : 'http://localhost:5173';
+    let trimmedCustom = (pageData.customLink || '').trim();
+    if (trimmedCustom && !trimmedCustom.startsWith('http://') && !trimmedCustom.startsWith('https://') && !trimmedCustom.startsWith('/') && (trimmedCustom.includes('.') || trimmedCustom.startsWith('www.'))) {
+      trimmedCustom = `https://${trimmedCustom}`;
+    }
+
+    const isCustom = Boolean(
+      trimmedCustom !== '' && 
+      !trimmedCustom.startsWith('/') && 
+      !trimmedCustom.includes(origin) && 
+      !trimmedCustom.includes('localhost') && 
+      !trimmedCustom.includes(':5173')
+    );
+
+    const tenant = getActiveTenant();
+    const collegeName = tenant?.name || 'Lady Irwin College';
+
+    let resolvedSeoTitle = (pageData.metaTitle || pageData.seoTitle || '').trim();
+    if (!resolvedSeoTitle) {
+      resolvedSeoTitle = formatOptimalSeoTitle(pageData.name, collegeName);
+    }
+
+    let resolvedMetaDesc = (pageData.metaDescription || '').trim();
+    let resolvedMetaKw = (pageData.metaKeywords || '').trim();
+
+    // If custom link has data, generate SEO for this page
+    if (trimmedCustom && (!resolvedMetaDesc || !resolvedMetaKw)) {
+      const customContent = extractPageContentText(pageId || '', pageData.name, trimmedCustom);
+      if (!resolvedMetaDesc) {
+        resolvedMetaDesc = formatOptimalSeoDescription(pageData.name, collegeName, customContent);
+      }
+      if (!resolvedMetaKw) {
+        resolvedMetaKw = formatOptimalSeoKeywords(pageData.name, collegeName, customContent);
+      }
+    }
+
     if (pageId) {
       // Updating existing page
-      const updated = updateStoredWebPage(pageId, pageData);
+      const updated = updateStoredWebPage(pageId, {
+        ...pageData,
+        seoTitle: resolvedSeoTitle,
+        metaDescription: resolvedMetaDesc,
+        metaKeywords: resolvedMetaKw,
+        customLink: isCustom ? trimmedCustom : `${origin}/${pageData.slug || pageData.name.toLowerCase().trim().replace(/\s+/g, '-')}`,
+        type: isCustom ? 'custom' : 'builder'
+      });
       setPages(updated);
       setIsDrawerOpen(false);
       setEditingPage(null);
       showToast(`Page "${pageData.name}" updated successfully!`);
     } else {
       // Adding new page
-      const isCustom = pageData.customLink && pageData.customLink.trim() !== '';
       const newPage: WebPage = {
         name: pageData.name,
-        customLink: pageData.customLink,
+        customLink: isCustom ? trimmedCustom : `${origin}/${pageData.slug || pageData.name.toLowerCase().trim().replace(/\s+/g, '-')}`,
         slug: pageData.slug || pageData.name.toLowerCase().trim().replace(/\s+/g, '-'),
-        seoTitle: pageData.metaTitle || pageData.seoTitle,
-        metaDescription: pageData.metaDescription,
-        metaKeywords: pageData.metaKeywords,
+        seoTitle: resolvedSeoTitle,
+        metaDescription: resolvedMetaDesc,
+        metaKeywords: resolvedMetaKw,
         showHeader: pageData.showHeader ?? true,
         showFooter: pageData.showFooter ?? true,
         showBreadcrumb: pageData.showBreadcrumb ?? true,
@@ -100,6 +175,10 @@ export const PageAdmin: React.FC = () => {
   const handleActionClick = (page: WebPage) => {
     if (page.type === 'builder') {
       setActiveBuilderPage(page);
+    } else {
+      // For Custom Link pages, open SEO Drawer directly!
+      setSeoPage(page);
+      setIsSEODrawerOpen(true);
     }
   };
 
@@ -134,6 +213,7 @@ export const PageAdmin: React.FC = () => {
         onAdd={handleOpenAddDrawer}
         onActionClick={handleActionClick}
         onEditDetails={handleEditDetails}
+        onOpenSEO={handleOpenSEO}
         onDuplicate={handleDuplicatePage}
         onDelete={handleDeletePage}
       />
@@ -146,6 +226,16 @@ export const PageAdmin: React.FC = () => {
           setEditingPage(null);
         }}
         onSave={handleSavePage}
+      />
+
+      <PageSEODrawer
+        isOpen={isSEODrawerOpen}
+        page={seoPage}
+        onClose={() => {
+          setIsSEODrawerOpen(false);
+          setSeoPage(null);
+        }}
+        onSave={handleSaveSEO}
       />
     </div>
   );

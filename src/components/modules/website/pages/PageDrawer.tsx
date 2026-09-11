@@ -1,7 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Drawer } from '../../../common/Drawer';
 import { WebPage } from '../../../../types/page';
-import { Edit3, Check, Globe } from 'lucide-react';
+import { Edit3, Check, Globe, Sparkles, Loader2 } from 'lucide-react';
+import { getActiveTenant } from '../../../../data/tenantData';
+import { extractPageContentText, extractWebpageBodyContentFromEntireUrl } from '../../../../data/mockPageData';
+import { 
+  formatOptimalSeoTitle, 
+  formatOptimalSeoDescription, 
+  formatOptimalSeoKeywords,
+  generateSeoWithGroqAgent
+} from '../../../../services/aiAgentService';
 
 interface PageDrawerProps {
   isOpen: boolean;
@@ -30,25 +38,78 @@ export const PageDrawer: React.FC<PageDrawerProps> = ({
   const [isCustomSlugManually, setIsCustomSlugManually] = useState(false);
   const [isOtherExpanded, setIsOtherExpanded] = useState(false);
 
-  // SEO & Optional fields
+  // SEO fields
   const [metaTitle, setMetaTitle] = useState('');
   const [metaDescription, setMetaDescription] = useState('');
   const [metaKeywords, setMetaKeywords] = useState('');
+  const [isAiGeneratingSeo, setIsAiGeneratingSeo] = useState(false);
+  const [aiGeneratedSuccess, setAiGeneratedSuccess] = useState(false);
+
+  // Automatic AI SEO generator for Custom Link or Page Name
+  const autoGenerateSeoWithAi = async (overrideName?: string, overrideCustomLink?: string) => {
+    const activeName = (overrideName !== undefined ? overrideName : name).trim();
+    const activeCustom = (overrideCustomLink !== undefined ? overrideCustomLink : customLink).trim();
+    if (!activeName && !activeCustom) return;
+
+    const collegeName = getActiveTenant()?.name || 'Lady Irwin College';
+    const targetName = activeName || (activeCustom ? activeCustom.split('/').pop()?.replace(/[-_.]+/g, ' ') || 'Page' : 'Page');
+
+    let customContent = extractPageContentText(page?.id || '', targetName, activeCustom);
+    if (!customContent && activeCustom && activeCustom.startsWith('http')) {
+      customContent = await extractWebpageBodyContentFromEntireUrl(activeCustom, targetName, page?.id);
+    }
+    const hasData = customContent.trim().length > 0;
+
+    if (!hasData) return;
+
+    const baselineTitle = formatOptimalSeoTitle(targetName, collegeName);
+    const baselineDesc = formatOptimalSeoDescription(targetName, collegeName, customContent);
+    const baselineKeywords = formatOptimalSeoKeywords(targetName, collegeName, customContent);
+
+    setMetaTitle(baselineTitle);
+    setMetaDescription(baselineDesc);
+    setMetaKeywords(baselineKeywords);
+
+    setIsAiGeneratingSeo(true);
+    try {
+      const result = await generateSeoWithGroqAgent({
+        pageTitle: targetName,
+        pageContent: customContent,
+        url: activeCustom,
+        currentMetaDesc: baselineDesc,
+        currentKeywords: baselineKeywords,
+      });
+
+      if (result && result.seo) {
+        if (result.seo.title) setMetaTitle(result.seo.title);
+        if (result.seo.description) setMetaDescription(result.seo.description);
+        if (result.seo.keywords) setMetaKeywords(result.seo.keywords);
+        setAiGeneratedSuccess(true);
+        setTimeout(() => setAiGeneratedSuccess(false), 5000);
+      }
+    } catch (err) {
+      console.warn('AI SEO generation fallback active:', err);
+    } finally {
+      setIsAiGeneratingSeo(false);
+    }
+  };
 
   // Set form when drawer opens or page changes
   useEffect(() => {
     if (isOpen) {
+      const collegeName = getActiveTenant()?.name || 'Lady Irwin College';
       const initialName = page?.name || '';
       setName(initialName);
-      setCustomLink(page?.customLink || '');
-      const initialSlug = initialName ? initialName.toLowerCase().replace(/\s+/g, '-') : '';
+      const initialCustomLink = page?.type === 'custom' ? (page?.customLink || '') : '';
+      setCustomLink(initialCustomLink);
+      const initialSlug = page?.slug || (initialName ? initialName.toLowerCase().replace(/\s+/g, '-') : '');
       setSlug(initialSlug);
       setIsEditingSlug(false);
       setIsCustomSlugManually(false);
       setIsOtherExpanded(false);
-      setMetaTitle(initialName ? `${initialName} | Vidya Pratishthan College` : '');
-      setMetaDescription('');
-      setMetaKeywords('');
+      setMetaTitle(page?.seoTitle || (initialName ? `${initialName} | ${collegeName}` : ''));
+      setMetaDescription(page?.metaDescription || '');
+      setMetaKeywords(page?.metaKeywords || '');
     }
   }, [isOpen, page]);
 
@@ -133,7 +194,7 @@ export const PageDrawer: React.FC<PageDrawerProps> = ({
             type="text"
             value={customLink}
             onChange={(e) => setCustomLink(e.target.value)}
-            placeholder=""
+            placeholder="e.g. https://example.com/admissions or novatech.html"
             className="w-full bg-white border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-shadow min-h-[40px]"
           />
         </div>
@@ -201,6 +262,36 @@ export const PageDrawer: React.FC<PageDrawerProps> = ({
 
           {isOtherExpanded && (
             <div className="mt-4 p-4 bg-gray-50/70 border border-gray-200 rounded-xl space-y-4 animate-in fade-in duration-200">
+              <div className="flex items-center justify-between pb-2 border-b border-gray-200">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-blue-600" />
+                  <span className="text-xs font-bold text-gray-800 uppercase tracking-wide">SEO Metadata</span>
+                  {aiGeneratedSuccess && (
+                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 animate-in fade-in">
+                      ✨ AI Generated Automatically
+                    </span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => autoGenerateSeoWithAi()}
+                  disabled={isAiGeneratingSeo}
+                  className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-md text-xs font-semibold shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer"
+                  title="Automatically generate title, description, and keywords with AI"
+                >
+                  {isAiGeneratingSeo ? (
+                    <>
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      <span>Generating...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-3 h-3" />
+                      <span>AI Auto-Generate</span>
+                    </>
+                  )}
+                </button>
+              </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1">
                   Meta Title (SEO)

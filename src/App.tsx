@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Layout } from './components/layout/Layout';
 import CollegeStorefront from './components/storefront/CollegeStorefront';
 import PublicStoreApp from './components/storefront/PublicStoreApp';
+import { syncDomHeadSeo } from './utils/seoDomInjector';
 
 export function App() {
   const isDirectPagePath = () => {
@@ -19,6 +20,14 @@ export function App() {
   const isEcommerceStorefront = window.location.search.includes('view=ecommerce');
 
   useEffect(() => {
+    // Automatically inject active tenant and website SEO into DOM <head>
+    syncDomHeadSeo();
+
+    const handleTenantChange = () => {
+      syncDomHeadSeo();
+    };
+    window.addEventListener('tenant-changed', handleTenantChange);
+
     const handlePopState = () => {
       if (window.location.search.includes('mode=storefront') || window.location.search.includes('page=') || isDirectPagePath()) {
         setViewMode('storefront');
@@ -27,7 +36,10 @@ export function App() {
       }
     };
     window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('tenant-changed', handleTenantChange);
+      window.removeEventListener('popstate', handlePopState);
+    };
   }, []);
 
   const openStorefrontInNewTab = () => {
