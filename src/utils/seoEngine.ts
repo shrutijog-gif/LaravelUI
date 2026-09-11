@@ -25,10 +25,6 @@ export function calculateSeoScore(
     ? keywords.map(k => k.trim()).filter(Boolean)
     : (keywords || '').split(',').map(k => k.trim()).filter(Boolean);
 
-  const hasPageContent = options?.hasPageContent !== undefined
-    ? options.hasPageContent
-    : (kwList.length > 0 && kwList[0] !== 'kw1');
-
   const brandName = options?.brand || getCollegeName();
 
   const passes: SeoAuditCheckItem[] = [];
@@ -40,346 +36,413 @@ export function calculateSeoScore(
   let keywordScore = 0;
 
   // ==========================================
-  // 1. TITLE TAG AUDIT (Google SERP Standard: 45-62 chars / ~500-600px)
+  // 1. TITLE TAG AUDIT (Google SERP Standard: Max 35 Points)
   // ==========================================
-  // A. Title Length
+  // A. Title Length (Max 20 pts)
   if (tLen >= 45 && tLen <= 62) {
-    titleScore += hasPageContent ? 20 : 50;
+    titleScore += 20;
     const item: SeoAuditCheckItem = {
-      label: 'Title Length',
-      desc: `${tLen} characters`,
+      label: 'Title Length Optimal',
+      desc: `${tLen} characters (Optimal 45–62 chars for Google desktop & mobile SERP)`,
       status: 'pass',
-      score: hasPageContent ? 20 : 50,
-      maxScore: hasPageContent ? 20 : 50
+      score: 20,
+      maxScore: 20
     };
     passes.push(item);
     allChecks.push(item);
   } else if ((tLen >= 35 && tLen < 45) || (tLen > 62 && tLen <= 68)) {
-    titleScore += hasPageContent ? 15 : 35;
+    titleScore += 15;
     const item: SeoAuditCheckItem = {
       label: 'Title Length Acceptable',
-      desc: `${tLen} characters`,
+      desc: `${tLen} characters (Acceptable, recommended 45–62 chars to maximize click-through)`,
       status: 'warning',
-      score: hasPageContent ? 15 : 35,
-      maxScore: hasPageContent ? 20 : 50
+      score: 15,
+      maxScore: 20
     };
     deductions.push(item);
     allChecks.push(item);
   } else if (tLen > 68) {
-    titleScore += hasPageContent ? 8 : 20;
+    titleScore += 8;
     const item: SeoAuditCheckItem = {
       label: 'Title Exceeds SERP Limit',
-      desc: `${tLen} characters — Google may truncate with '...' on search results`,
+      desc: `${tLen} characters — Google may truncate search result preview with '...'`,
       status: 'warning',
-      score: hasPageContent ? 8 : 20,
-      maxScore: hasPageContent ? 20 : 50
+      score: 8,
+      maxScore: 20
     };
     deductions.push(item);
     allChecks.push(item);
   } else if (tLen > 0) {
-    titleScore += hasPageContent ? 8 : 20;
+    titleScore += 8;
     const item: SeoAuditCheckItem = {
       label: 'Title Too Short',
       desc: `${tLen} characters — underutilizes Google snippet real estate (45–62 recommended)`,
       status: 'warning',
-      score: hasPageContent ? 8 : 20,
-      maxScore: hasPageContent ? 20 : 50
+      score: 8,
+      maxScore: 20
     };
     deductions.push(item);
     allChecks.push(item);
   } else {
     const item: SeoAuditCheckItem = {
       label: 'Missing SEO Title',
-      desc: 'Title tag cannot be empty (Critical search ranking factor)',
+      desc: 'Title tag cannot be empty (Primary Google ranking factor)',
       status: 'fail',
       score: 0,
-      maxScore: hasPageContent ? 20 : 50
+      maxScore: 20
     };
     deductions.push(item);
     allChecks.push(item);
   }
 
-  // B. Brand / Separator in Title
+  // B. Brand / Authority Suffix (Max 10 pts)
   const hasSeparator = /[|\-–—:•]/.test(t);
-  const brandKeywords = [brandName.toLowerCase(), 'college', 'university', 'institute', 'portal'];
+  const brandKeywords = [brandName.toLowerCase(), 'college', 'university', 'institute', 'portal', 'official'];
   const hasBrand = brandKeywords.some(b => t.toLowerCase().includes(b)) || hasSeparator;
 
   if (tLen > 0 && (hasSeparator || hasBrand)) {
-    titleScore += hasPageContent ? 10 : 30;
+    titleScore += 10;
     const item: SeoAuditCheckItem = {
       label: 'Brand & Authority Suffix Included',
-      desc: 'Title includes brand separator for institutional authority',
+      desc: 'Title includes institutional brand separator for search authority',
       status: 'pass',
-      score: hasPageContent ? 10 : 30,
-      maxScore: hasPageContent ? 10 : 30
+      score: 10,
+      maxScore: 10
     };
     passes.push(item);
     allChecks.push(item);
   } else if (tLen > 0) {
-    titleScore += hasPageContent ? 5 : 15;
+    titleScore += 5;
     const item: SeoAuditCheckItem = {
       label: 'Brand Suffix Recommended',
       desc: `Consider appending '| ${brandName}' for branded search clicks`,
       status: 'warning',
-      score: hasPageContent ? 5 : 15,
-      maxScore: hasPageContent ? 10 : 30
+      score: 5,
+      maxScore: 10
+    };
+    deductions.push(item);
+    allChecks.push(item);
+  } else {
+    const item: SeoAuditCheckItem = {
+      label: 'Brand Suffix Missing',
+      desc: `Add brand suffix '| ${brandName}' for institutional authority`,
+      status: 'fail',
+      score: 0,
+      maxScore: 10
     };
     deductions.push(item);
     allChecks.push(item);
   }
 
-  // C. Title Casing & Quality
-  if (tLen > 0) {
-    titleScore += hasPageContent ? 5 : 20;
+  // C. Title Formatting & Clarity (Max 5 pts)
+  if (tLen > 0 && /[A-Z]/.test(t)) {
+    titleScore += 5;
     const item: SeoAuditCheckItem = {
       label: 'Title Formatting & Clarity',
-      desc: 'Clean title formatting and search readability',
+      desc: 'Clean capitalization, readable structure, and search snippet clarity',
       status: 'pass',
-      score: hasPageContent ? 5 : 20,
-      maxScore: hasPageContent ? 5 : 20
+      score: 5,
+      maxScore: 5
     };
     passes.push(item);
     allChecks.push(item);
-  }
-
-  // ==========================================
-  // 2. META DESCRIPTION AUDIT
-  // ==========================================
-  if (hasPageContent || dLen > 0) {
-    // A. Description Length
-    if (dLen >= 125 && dLen <= 165) {
-      descScore += 25;
-      const item: SeoAuditCheckItem = {
-        label: 'Description Length',
-        desc: `${dLen} characters`,
-        status: 'pass',
-        score: 25,
-        maxScore: 25
-      };
-      passes.push(item);
-      allChecks.push(item);
-    } else if ((dLen >= 100 && dLen < 125) || (dLen > 165 && dLen <= 175)) {
-      descScore += 18;
-      const item: SeoAuditCheckItem = {
-        label: 'Description Length Acceptable',
-        desc: `${dLen} characters`,
-        status: 'warning',
-        score: 18,
-        maxScore: 25
-      };
-      deductions.push(item);
-      allChecks.push(item);
-    } else if (dLen > 175) {
-      descScore += 10;
-      const item: SeoAuditCheckItem = {
-        label: 'Description Exceeds Snippet Limit',
-        desc: `${dLen} characters — search engines will truncate preview with '...'`,
-        status: 'warning',
-        score: 10,
-        maxScore: 25
-      };
-      deductions.push(item);
-      allChecks.push(item);
-    } else if (dLen > 0) {
-      descScore += 10;
-      const item: SeoAuditCheckItem = {
-        label: 'Description Too Short',
-        desc: `${dLen} characters — too brief; search engines may pick random page text instead`,
-        status: 'warning',
-        score: 10,
-        maxScore: 25
-      };
-      deductions.push(item);
-      allChecks.push(item);
-    } else {
-      const item: SeoAuditCheckItem = {
-        label: 'Missing Meta Description',
-        desc: 'Meta description is required to control search snippet preview',
-        status: 'fail',
-        score: 0,
-        maxScore: 25
-      };
-      deductions.push(item);
-      allChecks.push(item);
-    }
-
-    // B. High CTR Action & Intent Verbs
-    const actionRegex = /\b(discover|explore|official|syllabus|admissions|guidelines|curriculum|faculty|portal|details|view|download|department|academic|examination|apply|notice|courses|programs|information|updates|directory|library|contact|accreditation|naac|overview|student|campus|schedule|timetable|legacy|governance|network|spotlight|merchandise|research|innovation|rankings|initiatives|structure|resource|services|alumni|registration|virtual|tour)\b/i;
-    const hasActionVerbs = actionRegex.test(d);
-
-    if (dLen > 0 && hasActionVerbs) {
-      descScore += 10;
-      const item: SeoAuditCheckItem = {
-        label: 'High CTR Action & Intent Verbs',
-        desc: 'Contains compelling search intent and academic action keywords',
-        status: 'pass',
-        score: 10,
-        maxScore: 10
-      };
-      passes.push(item);
-      allChecks.push(item);
-    } else if (dLen > 0) {
-      descScore += 5;
-      const item: SeoAuditCheckItem = {
-        label: 'Action Intent Recommended',
-        desc: 'Add active verbs (e.g. Discover, Explore, Official, Syllabus) to boost click-through rate',
-        status: 'warning',
-        score: 5,
-        maxScore: 10
-      };
-      deductions.push(item);
-      allChecks.push(item);
-    }
-
-    // C. Punctuation & Grammar Check
-    const endsWithPunctuation = /[.!?]$/.test(d);
-    if (dLen > 0 && endsWithPunctuation) {
-      descScore += 5;
-      const item: SeoAuditCheckItem = {
-        label: 'Sentence Structure & Punctuation',
-        desc: 'Proper terminal punctuation for clear snippet display',
-        status: 'pass',
-        score: 5,
-        maxScore: 5
-      };
-      passes.push(item);
-      allChecks.push(item);
-    } else if (dLen > 0) {
-      descScore += 2;
-    }
+  } else if (tLen > 0) {
+    titleScore += 2;
+    const item: SeoAuditCheckItem = {
+      label: 'Title Capitalization Recommended',
+      desc: 'Use Title Case capitalization for higher search click-through rate',
+      status: 'warning',
+      score: 2,
+      maxScore: 5
+    };
+    deductions.push(item);
+    allChecks.push(item);
   } else {
     const item: SeoAuditCheckItem = {
-      label: 'Meta Description: Not Generated',
-      desc: 'No page content or data found. Description is not generated because data is not in this page.',
-      status: 'info',
+      label: 'Title Formatting',
+      desc: 'Title tag required',
+      status: 'fail',
       score: 0,
-      maxScore: 0
+      maxScore: 5
     };
+    deductions.push(item);
     allChecks.push(item);
   }
 
   // ==========================================
-  // 3. KEYWORDS & RELEVANCE AUDIT
+  // 2. META DESCRIPTION AUDIT (Google SERP Standard: Max 40 Points)
   // ==========================================
-  if (hasPageContent || kwList.length > 0) {
-    const kwCount = kwList.length;
-
-    // A. Keyword Volume (Target: 4-10 keywords)
-    if (kwCount >= 4 && kwCount <= 10) {
-      keywordScore += 12;
-      const item: SeoAuditCheckItem = {
-        label: 'Target Keyword Volume',
-        desc: `${kwCount} verified search keyphrases targeted`,
-        status: 'pass',
-        score: 12,
-        maxScore: 12
-      };
-      passes.push(item);
-      allChecks.push(item);
-    } else if ((kwCount >= 2 && kwCount < 4) || (kwCount > 10 && kwCount <= 14)) {
-      keywordScore += 8;
-      const item: SeoAuditCheckItem = {
-        label: 'Keyword Volume Acceptable',
-        desc: `${kwCount} keywords specified`,
-        status: 'warning',
-        score: 8,
-        maxScore: 12
-      };
-      deductions.push(item);
-      allChecks.push(item);
-    } else if (kwCount === 1) {
-      keywordScore += 4;
-      const item: SeoAuditCheckItem = {
-        label: 'Low Keyword Count',
-        desc: 'Only 1 keyword defined (4–10 keyphrases recommended)',
-        status: 'warning',
-        score: 4,
-        maxScore: 12
-      };
-      deductions.push(item);
-      allChecks.push(item);
-    } else if (kwCount > 14) {
-      keywordScore += 4;
-      const item: SeoAuditCheckItem = {
-        label: 'High Keyword Count',
-        desc: `${kwCount} keywords — risk of search intent dilution`,
-        status: 'warning',
-        score: 4,
-        maxScore: 12
-      };
-      deductions.push(item);
-      allChecks.push(item);
-    } else {
-      const item: SeoAuditCheckItem = {
-        label: 'Missing Target Keywords',
-        desc: 'No keywords defined for content indexation',
-        status: 'fail',
-        score: 0,
-        maxScore: 12
-      };
-      deductions.push(item);
-      allChecks.push(item);
-    }
-
-    // B. Keyword in Title
-    const titleLower = t.toLowerCase();
-    const hasKeywordInTitle = kwList.some(k => k.length > 2 && (titleLower.includes(k.toLowerCase()) || k.toLowerCase().includes(titleLower)));
-
-    if (hasKeywordInTitle || (kwCount > 0 && tLen > 30)) {
-      keywordScore += 8;
-      const item: SeoAuditCheckItem = {
-        label: 'Primary Keyword in Title',
-        desc: 'Target keyword alignment with page title',
-        status: 'pass',
-        score: 8,
-        maxScore: 8
-      };
-      passes.push(item);
-      allChecks.push(item);
-    } else if (kwCount > 0) {
-      keywordScore += 3;
-      const item: SeoAuditCheckItem = {
-        label: 'Keyword Alignment in Title',
-        desc: 'Consider including primary target keyword in Title',
-        status: 'warning',
-        score: 3,
-        maxScore: 8
-      };
-      deductions.push(item);
-      allChecks.push(item);
-    }
-
-    // C. Keyword in Description
-    const descLower = d.toLowerCase();
-    const hasKeywordInDesc = kwList.some(k => k.length > 2 && (descLower.includes(k.toLowerCase()) || k.toLowerCase().includes(descLower)));
-
-    if (hasKeywordInDesc || (kwCount > 0 && dLen > 80)) {
-      keywordScore += 5;
-      const item: SeoAuditCheckItem = {
-        label: 'Primary Keyword in Description',
-        desc: 'Target keyword integrated into meta description',
-        status: 'pass',
-        score: 5,
-        maxScore: 5
-      };
-      passes.push(item);
-      allChecks.push(item);
-    }
+  // A. Description Length (Max 25 pts)
+  if (dLen >= 125 && dLen <= 165) {
+    descScore += 25;
+    const item: SeoAuditCheckItem = {
+      label: 'Description Length Optimal',
+      desc: `${dLen} characters (Optimal 125–165 chars for Google snippet)`,
+      status: 'pass',
+      score: 25,
+      maxScore: 25
+    };
+    passes.push(item);
+    allChecks.push(item);
+  } else if ((dLen >= 100 && dLen < 125) || (dLen > 165 && dLen <= 175)) {
+    descScore += 18;
+    const item: SeoAuditCheckItem = {
+      label: 'Description Length Acceptable',
+      desc: `${dLen} characters (Acceptable, 125–165 recommended)`,
+      status: 'warning',
+      score: 18,
+      maxScore: 25
+    };
+    deductions.push(item);
+    allChecks.push(item);
+  } else if (dLen > 175) {
+    descScore += 10;
+    const item: SeoAuditCheckItem = {
+      label: 'Description Exceeds Snippet Limit',
+      desc: `${dLen} characters — search engines will truncate preview with '...'`,
+      status: 'warning',
+      score: 10,
+      maxScore: 25
+    };
+    deductions.push(item);
+    allChecks.push(item);
+  } else if (dLen > 0) {
+    descScore += 10;
+    const item: SeoAuditCheckItem = {
+      label: 'Description Too Short',
+      desc: `${dLen} characters — too brief; search engines may pick random page text instead`,
+      status: 'warning',
+      score: 10,
+      maxScore: 25
+    };
+    deductions.push(item);
+    allChecks.push(item);
   } else {
     const item: SeoAuditCheckItem = {
-      label: 'Target Keywords: Not Generated',
-      desc: 'No page content or data found. Keywords are not generated because data is not in this page.',
-      status: 'info',
+      label: 'Missing Meta Description',
+      desc: 'Meta description is required to control search snippet preview on Google',
+      status: 'fail',
       score: 0,
-      maxScore: 0
+      maxScore: 25
     };
+    deductions.push(item);
     allChecks.push(item);
   }
 
-  // Calculate final score
-  const totalScore = !hasPageContent && dLen === 0 && kwList.length === 0
-    ? Math.max(0, Math.min(100, Math.round(titleScore)))
-    : Math.max(0, Math.min(100, Math.round(titleScore + descScore + keywordScore)));
+  // B. High CTR Action & Intent Verbs (Max 10 pts)
+  const actionRegex = /\b(discover|explore|official|syllabus|admissions|guidelines|curriculum|faculty|portal|details|view|download|department|academic|examination|apply|notice|courses|programs|information|updates|directory|library|contact|accreditation|naac|overview|student|campus|schedule|timetable|legacy|governance|network|spotlight|merchandise|research|innovation|rankings|initiatives|structure|resource|services|alumni|registration|virtual|tour)\b/i;
+  const hasActionVerbs = actionRegex.test(d);
+
+  if (dLen > 0 && hasActionVerbs) {
+    descScore += 10;
+    const item: SeoAuditCheckItem = {
+      label: 'High CTR Action & Intent Verbs',
+      desc: 'Contains compelling search intent and academic action keywords',
+      status: 'pass',
+      score: 10,
+      maxScore: 10
+    };
+    passes.push(item);
+    allChecks.push(item);
+  } else if (dLen > 0) {
+    descScore += 5;
+    const item: SeoAuditCheckItem = {
+      label: 'Action Intent Recommended',
+      desc: 'Add active verbs (e.g. Discover, Explore, Official, Syllabus) to boost click-through rate',
+      status: 'warning',
+      score: 5,
+      maxScore: 10
+    };
+    deductions.push(item);
+    allChecks.push(item);
+  } else {
+    const item: SeoAuditCheckItem = {
+      label: 'Action & Intent Verbs Missing',
+      desc: 'Include high-intent verbs to motivate user search clicks',
+      status: 'fail',
+      score: 0,
+      maxScore: 10
+    };
+    deductions.push(item);
+    allChecks.push(item);
+  }
+
+  // C. Punctuation & Grammar Check (Max 5 pts)
+  const endsWithPunctuation = /[.!?]$/.test(d);
+  if (dLen > 0 && endsWithPunctuation) {
+    descScore += 5;
+    const item: SeoAuditCheckItem = {
+      label: 'Sentence Structure & Punctuation',
+      desc: 'Proper terminal punctuation for clean Google snippet display',
+      status: 'pass',
+      score: 5,
+      maxScore: 5
+    };
+    passes.push(item);
+    allChecks.push(item);
+  } else if (dLen > 0) {
+    descScore += 2;
+    const item: SeoAuditCheckItem = {
+      label: 'Terminal Punctuation Recommended',
+      desc: 'End meta description with a period (.) for clean snippet boundary',
+      status: 'warning',
+      score: 2,
+      maxScore: 5
+    };
+    deductions.push(item);
+    allChecks.push(item);
+  } else {
+    const item: SeoAuditCheckItem = {
+      label: 'Sentence Punctuation Missing',
+      desc: 'Description required',
+      status: 'fail',
+      score: 0,
+      maxScore: 5
+    };
+    deductions.push(item);
+    allChecks.push(item);
+  }
+
+  // ==========================================
+  // 3. KEYWORDS & RELEVANCE AUDIT (Google SERP Standard: Max 25 Points)
+  // ==========================================
+  const kwCount = kwList.length;
+
+  // A. Keyword Volume (Max 12 pts, Target: 4-10 keywords)
+  if (kwCount >= 4 && kwCount <= 10) {
+    keywordScore += 12;
+    const item: SeoAuditCheckItem = {
+      label: 'Target Keyword Volume Optimal',
+      desc: `${kwCount} verified search keyphrases targeted (4–10 recommended)`,
+      status: 'pass',
+      score: 12,
+      maxScore: 12
+    };
+    passes.push(item);
+    allChecks.push(item);
+  } else if ((kwCount >= 2 && kwCount < 4) || (kwCount > 10 && kwCount <= 14)) {
+    keywordScore += 8;
+    const item: SeoAuditCheckItem = {
+      label: 'Keyword Volume Acceptable',
+      desc: `${kwCount} keywords specified (4–10 recommended for balanced topic indexation)`,
+      status: 'warning',
+      score: 8,
+      maxScore: 12
+    };
+    deductions.push(item);
+    allChecks.push(item);
+  } else if (kwCount === 1) {
+    keywordScore += 4;
+    const item: SeoAuditCheckItem = {
+      label: 'Low Keyword Count',
+      desc: 'Only 1 keyword defined (4–10 keyphrases recommended)',
+      status: 'warning',
+      score: 4,
+      maxScore: 12
+    };
+    deductions.push(item);
+    allChecks.push(item);
+  } else if (kwCount > 14) {
+    keywordScore += 4;
+    const item: SeoAuditCheckItem = {
+      label: 'High Keyword Count',
+      desc: `${kwCount} keywords — risk of search intent dilution`,
+      status: 'warning',
+      score: 4,
+      maxScore: 12
+    };
+    deductions.push(item);
+    allChecks.push(item);
+  } else {
+    const item: SeoAuditCheckItem = {
+      label: 'Missing Target Keywords',
+      desc: 'No keywords defined for content indexation and search relevance',
+      status: 'fail',
+      score: 0,
+      maxScore: 12
+    };
+    deductions.push(item);
+    allChecks.push(item);
+  }
+
+  // B. Primary Keyword in Title (Max 8 pts)
+  const titleLower = t.toLowerCase();
+  const hasKeywordInTitle = kwList.some(k => k.length > 2 && (titleLower.includes(k.toLowerCase()) || k.toLowerCase().includes(titleLower)));
+
+  if (hasKeywordInTitle || (kwCount > 0 && tLen > 30)) {
+    keywordScore += 8;
+    const item: SeoAuditCheckItem = {
+      label: 'Primary Keyword in Title',
+      desc: 'Target keyword alignment with page title',
+      status: 'pass',
+      score: 8,
+      maxScore: 8
+    };
+    passes.push(item);
+    allChecks.push(item);
+  } else if (kwCount > 0) {
+    keywordScore += 3;
+    const item: SeoAuditCheckItem = {
+      label: 'Keyword Alignment in Title',
+      desc: 'Consider including primary target keyword in Title for search relevance',
+      status: 'warning',
+      score: 3,
+      maxScore: 8
+    };
+    deductions.push(item);
+    allChecks.push(item);
+  } else {
+    const item: SeoAuditCheckItem = {
+      label: 'Primary Keyword in Title Missing',
+      desc: 'Align focus search keyword in Title tag',
+      status: 'fail',
+      score: 0,
+      maxScore: 8
+    };
+    deductions.push(item);
+    allChecks.push(item);
+  }
+
+  // C. Primary Keyword in Description (Max 5 pts)
+  const descLower = d.toLowerCase();
+  const hasKeywordInDesc = kwList.some(k => k.length > 2 && (descLower.includes(k.toLowerCase()) || k.toLowerCase().includes(descLower)));
+
+  if (hasKeywordInDesc || (kwCount > 0 && dLen > 80)) {
+    keywordScore += 5;
+    const item: SeoAuditCheckItem = {
+      label: 'Primary Keyword in Description',
+      desc: 'Target keyword integrated into meta description snippet',
+      status: 'pass',
+      score: 5,
+      maxScore: 5
+    };
+    passes.push(item);
+    allChecks.push(item);
+  } else if (kwCount > 0) {
+    keywordScore += 2;
+    const item: SeoAuditCheckItem = {
+      label: 'Keyword Integration in Description',
+      desc: 'Include primary keyword in meta description text',
+      status: 'warning',
+      score: 2,
+      maxScore: 5
+    };
+    deductions.push(item);
+    allChecks.push(item);
+  } else {
+    const item: SeoAuditCheckItem = {
+      label: 'Primary Keyword in Description Missing',
+      desc: 'Integrate target keyword into description',
+      status: 'fail',
+      score: 0,
+      maxScore: 5
+    };
+    deductions.push(item);
+    allChecks.push(item);
+  }
+
+  // Calculate final score: exactly Title (35) + Description (40) + Keywords (25) = 100 max
+  const totalScore = Math.max(0, Math.min(100, Math.round(titleScore + descScore + keywordScore)));
 
   let color = '#10b981';
   let grade: 'EXCELLENT' | 'GOOD' | 'CRITICAL' = 'EXCELLENT';
