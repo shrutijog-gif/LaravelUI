@@ -23,6 +23,9 @@ export interface CardPresetViewProps {
     [key: string]: any;
   };
   viewMode?: 'blueprint' | 'sample';
+  isMappingMode?: boolean;
+  wizardStep?: 1 | 2 | 3;
+  availableFields?: Array<{ name: string; label: string }>;
   className?: string;
   onClick?: () => void;
   onDropToSlot?: (slotName: string, fieldName: string) => void;
@@ -83,6 +86,9 @@ export const CardPresetView: React.FC<CardPresetViewProps> = ({
     pdf_url: '#',
   },
   viewMode = 'blueprint',
+  isMappingMode = false,
+  wizardStep,
+  availableFields,
   className = '',
   onClick,
   onDropToSlot,
@@ -177,33 +183,36 @@ export const CardPresetView: React.FC<CardPresetViewProps> = ({
       ? { background: `linear-gradient(135deg, ${color} 0%, ${color2} 100%)`, color: iconCol }
       : { backgroundColor: (preset.mediaSlot?.bgColor && preset.mediaSlot.bgColor !== '#2563eb') ? preset.mediaSlot.bgColor : color, color: iconCol };
 
+    let mediaEl: React.ReactNode = null;
+
     if (type === 'image') {
       const imgUrl = preset.mediaSlot?.imageUrl || (sampleData as any)?.imageUrl || (sampleData as any)?.image || (sampleData as any)?.photo;
       if (imgUrl) {
-        return (
+        mediaEl = (
           <img 
             src={imgUrl} 
             alt="Media Image" 
             className={`${sizeClass} ${shapeClass} object-cover shadow-xs border border-gray-200 shrink-0`}
           />
         );
+      } else {
+        mediaEl = (
+          <div 
+            style={boxBgStyle}
+            className={`${sizeClass} ${shapeClass} shadow-xs transition-all border border-black/5`}
+          />
+        );
       }
-      return (
-        <div 
-          style={boxBgStyle}
-          className={`${sizeClass} ${shapeClass} shadow-xs transition-all border border-black/5`}
-        />
-      );
-    }
-
-    if (type === 'initials' || type === 'logo') {
+    } else if (type === 'initials' || type === 'logo') {
       const maxLen = preset.mediaSlot?.initialsLength || 2;
       const titleVal = sampleData?.title || sampleData?.recipient || 'Academic Bulletin Center';
       const words = titleVal.trim().split(/[\s.\-_]+/);
       const computedInitials = words.map((w: string) => w[0]).join('').substring(0, maxLen).toUpperCase();
-      const text = (sampleData?.logoText || computedInitials || 'ABC').substring(0, maxLen).toUpperCase();
+      const text = isStep1Gallery 
+        ? 'LI'
+        : (sampleData?.logoText || computedInitials || 'ABC').substring(0, maxLen).toUpperCase();
 
-      return (
+      mediaEl = (
         <div 
           style={boxBgStyle}
           className={`${sizeClass} ${shapeClass} flex items-center justify-center font-bold shadow-xs transition-all tracking-wider font-mono`}
@@ -211,28 +220,44 @@ export const CardPresetView: React.FC<CardPresetViewProps> = ({
           <span>{text}</span>
         </div>
       );
+    } else {
+      // Default: type === 'icon'
+      const iconMap: Record<string, any> = {
+        Calendar, FileText, Award, Trophy, ShieldCheck, BookOpen, Globe, Layers,
+        User, Star, Briefcase, Heart, Download, Tag, Bookmark, Zap, Compass, Target,
+        Clock, Bell, MapPin, Hash, Mail, Phone, Lock, Settings,
+        Folder, File, Link, Share2, Printer, Info, HelpCircle, AlertCircle, CheckCircle2,
+        Cloud, Database, Server, Code, Terminal, Activity, BarChart2, PieChart, TrendingUp,
+        Feather, PenTool, ExternalLink, GraduationCap, Flame, Shield, Image
+      };
+
+      const IconComponent = iconMap[iconName] || Calendar;
+
+      mediaEl = (
+        <div 
+          style={boxBgStyle}
+          className={`${sizeClass} ${shapeClass} flex items-center justify-center font-bold shadow-xs transition-all`}
+        >
+          <IconComponent className={iconSizeClass} />
+        </div>
+      );
     }
 
-    // Default: type === 'icon'
-    const iconMap: Record<string, any> = {
-      Calendar, FileText, Award, Trophy, ShieldCheck, BookOpen, Globe, Layers,
-      User, Star, Briefcase, Heart, Download, Tag, Bookmark, Zap, Compass, Target,
-      Clock, Bell, MapPin, Hash, Mail, Phone, Lock, Settings,
-      Folder, File, Link, Share2, Printer, Info, HelpCircle, AlertCircle, CheckCircle2,
-      Cloud, Database, Server, Code, Terminal, Activity, BarChart2, PieChart, TrendingUp,
-      Feather, PenTool, ExternalLink, GraduationCap, Flame, Shield, Image
-    };
+    if (wizardStep === 2) {
+      // Media/Logo box is NOT a droppable field-mapping slot.
+      // Its content (initials from title, icon, image, count) is configured
+      // in Step 3 style controls, so we render it read-only with a lock badge.
+      return (
+        <div className="flex items-center gap-1.5">
+          {mediaEl}
+          <span className="text-[11px] text-gray-300 cursor-help" title="Not a droppable area">
+            🔒
+          </span>
+        </div>
+      );
+    }
 
-    const IconComponent = iconMap[iconName] || Calendar;
-
-    return (
-      <div 
-        style={boxBgStyle}
-        className={`${sizeClass} ${shapeClass} flex items-center justify-center font-bold shadow-xs transition-all`}
-      >
-        <IconComponent className={iconSizeClass} />
-      </div>
-    );
+    return mediaEl;
   };
 
   const getDetailLabelText = (defaultLabel: string) => {
@@ -242,47 +267,85 @@ export const CardPresetView: React.FC<CardPresetViewProps> = ({
     return defaultLabel;
   };
 
-  const getVarDisplay = (fieldVar: string | undefined, fallbackSample: string) => {
+  const effectiveFields = (availableFields && availableFields.length > 0)
+    ? availableFields
+    : [
+        { name: 'title', label: 'Main Title / Schedule' },
+        { name: 'year', label: 'Academic Year / Status' },
+        { name: 'recipient', label: 'Program / Branch / Recipient' },
+        { name: 'branch', label: 'Program / Branch' },
+        { name: 'semester', label: 'Semester' },
+        { name: 'section', label: 'Section' },
+        { name: 'pdf_url', label: 'File / Document Link' },
+      ];
+
+  const isStep1Gallery = wizardStep === 1;
+
+  const getVarDisplay = (fieldVar: string | undefined, fallbackSample: string, slotLabel?: string) => {
+    if (isStep1Gallery) {
+      return fallbackSample;
+    }
     if (isBlueprint) {
       if (fieldVar && fieldVar !== 'recipient' && fieldVar !== 'year' && fieldVar !== 'title') {
         return `{${fieldVar}}`;
       }
-      return `{field_value}`;
+      return slotLabel ? `[ ${slotLabel} ]` : `[ Field Value ]`;
     }
     if (fieldVar && sampleData && (sampleData as any)[fieldVar]) {
       return (sampleData as any)[fieldVar];
     }
+    if (fieldVar) {
+      const found = effectiveFields.find(f => f.name === fieldVar);
+      if (found) return found.label;
+      return fieldVar.charAt(0).toUpperCase() + fieldVar.slice(1);
+    }
     return fallbackSample;
   };
 
-  const rawBadgeVal = getVarDisplay(preset.badgeSlot?.fieldVar, sampleData?.year || '2024-25');
-  const badgeVal = preset.badgeSlot?.displayMode === 'label_and_value'
-    ? (isBlueprint ? `[ ${preset.badgeSlot?.fieldVar || 'Year'} ]: ${rawBadgeVal}` : `Year: ${rawBadgeVal}`)
+  const rawBadgeVal = isStep1Gallery
+    ? 'Lorem ipsum'
+    : getVarDisplay(preset.badgeSlot?.fieldVar, sampleData?.year || '2026-2027', 'Year / Badge');
+  const badgeVal = preset.badgeSlot?.displayMode === 'label_and_value' && !isStep1Gallery
+    ? `Year: ${rawBadgeVal}`
     : rawBadgeVal;
 
-  const titleVal = getVarDisplay(preset.titleSlot?.fieldVar, sampleData?.title || 'B.Tech First Year (Sem 1)');
-  const rawSubVal = getVarDisplay(preset.subtitleSlot?.fieldVar, sampleData?.recipient || 'Computer Science, IT');
+  const titleVal = isStep1Gallery
+    ? 'Lorem ipsum dolor sit amet'
+    : getVarDisplay(preset.titleSlot?.fieldVar, sampleData?.title || 'B.Sc Home Science & Food Technology Schedule', 'Main Title');
+  const rawSubVal = isStep1Gallery
+    ? 'Consectetur adipiscing elit, sed do eiusmod'
+    : getVarDisplay(preset.subtitleSlot?.fieldVar, sampleData?.recipient || 'Food Technology • Semester 1', 'Branch & Semester');
   const subMode = preset.subtitleSlot?.displayMode || preset.detailLineMode || 'value_only';
-  const formattedSubVal = subMode === 'label_and_value'
-    ? (isBlueprint ? `[ Field Label ]: ${rawSubVal}` : `Branch: ${rawSubVal}`)
+  const formattedSubVal = subMode === 'label_and_value' && !isStep1Gallery
+    ? `Branch: ${rawSubVal}`
     : rawSubVal;
   const subVal = formattedSubVal;
-  const actionLabel = preset.footerRightSlot?.label || (isBlueprint ? '[ Action Link ]' : 'View Document');
+  const actionLabel = isStep1Gallery
+    ? 'Lorem ipsum'
+    : (preset.footerRightSlot?.label || (isBlueprint ? 'Download PDF ↗' : 'View Document'));
 
   const hasFieldEntries = Boolean(sampleData?.fieldEntries && sampleData.fieldEntries.length > 0);
 
   const renderSubtitleContent = () => {
+    if (isStep1Gallery) {
+      return (
+        <div className="text-xs text-gray-500 font-normal leading-relaxed">
+          <p>Consectetur adipiscing elit, sed do eiusmod tempor</p>
+        </div>
+      );
+    }
+
     if (isBlueprint) {
       if (subMode === 'label_and_value') {
         return (
           <div className="text-xs text-gray-600 font-medium space-y-0.5">
-            <p><span className="text-gray-900 font-bold">[ Field Label ]:</span> &#123;field_value&#125;</p>
+            <p><span className="text-gray-900 font-bold">Branch:</span> [ Program / Branch • Sem ]</p>
           </div>
         );
       }
       return (
         <div className="text-xs text-gray-600 font-medium space-y-0.5">
-          <p>&#123;field_value&#125;</p>
+          <p>[ Program / Branch • Semester ]</p>
         </div>
       );
     }
@@ -310,6 +373,275 @@ export const CardPresetView: React.FC<CardPresetViewProps> = ({
       <div className="text-xs text-gray-600 font-medium leading-tight space-y-0.5">
         <p>{formattedSubVal}</p>
       </div>
+    );
+  };
+
+  const getFieldLabel = (fieldName?: string) => {
+    if (!fieldName) return '';
+    const found = effectiveFields.find(f => f.name === fieldName);
+    return found ? found.label : (fieldName.charAt(0).toUpperCase() + fieldName.slice(1));
+  };
+
+  /* =========================================================================
+     IN-PLACE CARD SLOTS (Authentic cards for Steps 1 & 3, Dashed droppable slots for Step 2)
+     ========================================================================= */
+  const renderBadgeSlot = (isDark = false) => {
+    const isEnabled = preset.badgeSlot?.enabled !== false;
+
+    // Steps 1 & 3 or Clean Preview: Final authentic badge pill
+    if (!isMappingMode && wizardStep !== 2) {
+      if (!isEnabled) return null;
+      return (
+        <span 
+          style={{ 
+            backgroundColor: isDark ? 'rgba(255,255,255,0.2)' : (preset.badgeSlot?.bgColor || '#eff6ff'), 
+            color: isDark ? '#ffffff' : (preset.badgeSlot?.textColor || color) 
+          }}
+          className={`font-bold px-3 py-1 rounded-lg text-xs inline-block ${
+            isDark ? 'backdrop-blur-md border border-white/30 text-white' : 'border border-current/10 shadow-2xs'
+          }`}
+        >
+          {badgeVal}
+        </span>
+      );
+    }
+
+    // Step 2 (Decide Fields): Dashed droppable Slot 2 Box
+    const fieldVar = preset.badgeSlot?.fieldVar;
+    const isMapped = Boolean(fieldVar && fieldVar !== '' && isEnabled);
+    const mappedLabel = getFieldLabel(fieldVar);
+    const sampleValue = isMapped && sampleData ? (sampleData as any)[fieldVar] : '';
+    const isOver = dragOverSlot === 'badgeSlot';
+
+    return (
+      <div 
+        onDragOver={(e) => handleDragOver(e, 'badgeSlot')}
+        onDragLeave={() => handleDragLeave('badgeSlot')}
+        onDrop={(e) => handleDrop(e, 'badgeSlot')}
+        onClick={(e) => e.stopPropagation()}
+        className={`px-3 py-1.5 rounded-xl border-2 border-dashed transition-all flex items-center gap-2 cursor-pointer ${
+          isOver
+            ? 'border-blue-600 bg-blue-100 ring-4 ring-blue-500/30 scale-105 shadow-md'
+            : activeDragField
+              ? 'border-amber-400 bg-amber-50/70 animate-pulse'
+              : isMapped
+                ? 'border-blue-400 bg-blue-50/40 hover:border-blue-500 shadow-2xs'
+                : 'border-gray-300 bg-gray-50/60 hover:border-gray-400'
+        }`}
+        title="Slot 2: Drag field from right and drop here"
+      >
+        <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded tracking-tight uppercase shrink-0 ${
+          isMapped ? 'text-blue-700 bg-blue-200/80' : 'text-gray-500 bg-gray-200'
+        }`}>
+          Slot 2:
+        </span>
+        {isMapped ? (
+          <div className="flex items-center gap-1.5">
+            <span className="font-bold text-xs text-blue-950">
+              {sampleValue || mappedLabel}
+            </span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDropToSlot && onDropToSlot('badgeSlot', '');
+              }}
+              title="Clear field"
+              className="w-4 h-4 rounded-full hover:bg-red-100 text-gray-400 hover:text-red-600 flex items-center justify-center text-[11px] font-bold transition-colors cursor-pointer"
+            >
+              ✕
+            </button>
+          </div>
+        ) : (
+          <span className="font-semibold text-xs text-gray-400 italic">
+            Drop field
+          </span>
+        )}
+      </div>
+    );
+  };
+
+  const renderTitleSlot = (isDark = false) => {
+    const isEnabled = preset.titleSlot?.enabled !== false;
+
+    // Steps 1 & 3 or Clean Preview: Final authentic title
+    if (!isMappingMode && wizardStep !== 2) {
+      if (!isEnabled) return null;
+      return (
+        <h3 style={{ color: isDark ? '#ffffff' : color }} className="font-bold text-base tracking-tight leading-tight">
+          {titleVal}
+        </h3>
+      );
+    }
+
+    // Step 2 (Decide Fields): Dashed droppable Slot 3 Box (Title)
+    const fieldVar = preset.titleSlot?.fieldVar;
+    const isMapped = Boolean(fieldVar && fieldVar !== '');
+    const mappedLabel = getFieldLabel(fieldVar);
+    const sampleValue = isMapped && sampleData ? (sampleData as any)[fieldVar] : '';
+    const isOver = dragOverSlot === 'titleSlot';
+
+    return (
+      <div 
+        onDragOver={(e) => handleDragOver(e, 'titleSlot')}
+        onDragLeave={() => handleDragLeave('titleSlot')}
+        onDrop={(e) => handleDrop(e, 'titleSlot')}
+        onClick={(e) => e.stopPropagation()}
+        className={`w-full px-3 py-2.5 rounded-xl border-2 border-dashed transition-all flex items-center justify-between gap-2 cursor-pointer ${
+          isOver
+            ? 'border-blue-600 bg-blue-100 ring-4 ring-blue-500/30 scale-[1.02] shadow-md'
+            : activeDragField
+              ? 'border-amber-400 bg-amber-50/70 animate-pulse'
+              : isMapped
+                ? 'border-blue-400 bg-blue-50/40 hover:border-blue-500 shadow-2xs'
+                : 'border-gray-300 bg-gray-50/60 hover:border-gray-400'
+        }`}
+        title="Slot 3: Drag Title field from right and drop here"
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded tracking-tight uppercase shrink-0 ${
+            isMapped ? 'text-blue-700 bg-blue-200/80' : 'text-gray-500 bg-gray-200'
+          }`}>
+            Slot 3:
+          </span>
+          {isMapped ? (
+            <div className="min-w-0">
+              <span className="text-[10px] font-bold text-blue-600 uppercase block leading-none">
+                [{mappedLabel}]
+              </span>
+              <span className="font-extrabold text-sm text-blue-950 truncate block mt-0.5">
+                {sampleValue || mappedLabel}
+              </span>
+            </div>
+          ) : (
+            <span className="font-semibold text-xs text-gray-400 italic truncate">
+              Drop field
+            </span>
+          )}
+        </div>
+        {isMapped && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDropToSlot && onDropToSlot('titleSlot', '');
+            }}
+            title="Clear field"
+            className="w-5 h-5 rounded-full hover:bg-red-100 text-gray-400 hover:text-red-600 flex items-center justify-center text-xs font-bold transition-colors cursor-pointer shrink-0"
+          >
+            ✕
+          </button>
+        )}
+      </div>
+    );
+  };
+
+  const renderSubtitleSlot = (isDark = false) => {
+    const isEnabled = preset.subtitleSlot?.enabled !== false;
+
+    // Steps 1 & 3 or Clean Preview: Final authentic subtitle
+    if (!isMappingMode && wizardStep !== 2) {
+      if (!isEnabled || (!subVal && !hasFieldEntries)) return null;
+      if (isDark) {
+        return <p className="text-xs text-white/90 font-medium leading-tight">{subVal}</p>;
+      }
+      return renderSubtitleContent();
+    }
+
+    // Step 2 (Decide Fields): Dashed droppable Slot 4 Box (Subtitle / Details)
+    const fieldVar = preset.subtitleSlot?.fieldVar;
+    const isMapped = Boolean(fieldVar && fieldVar !== '' && isEnabled);
+    const mappedLabel = getFieldLabel(fieldVar);
+    const sampleValue = isMapped && sampleData ? (sampleData as any)[fieldVar] : '';
+    const isOver = dragOverSlot === 'subtitleSlot';
+
+    return (
+      <div 
+        onDragOver={(e) => handleDragOver(e, 'subtitleSlot')}
+        onDragLeave={() => handleDragLeave('subtitleSlot')}
+        onDrop={(e) => handleDrop(e, 'subtitleSlot')}
+        onClick={(e) => e.stopPropagation()}
+        className={`w-full px-3 py-2 rounded-xl border-2 border-dashed transition-all flex items-center justify-between gap-2 cursor-pointer ${
+          isOver
+            ? 'border-blue-600 bg-blue-100 ring-4 ring-blue-500/30 scale-[1.02] shadow-md'
+            : activeDragField
+              ? 'border-amber-400 bg-amber-50/70 animate-pulse'
+              : isMapped
+                ? 'border-blue-400 bg-blue-50/40 hover:border-blue-500 shadow-2xs'
+                : 'border-gray-300 bg-gray-50/60 hover:border-gray-400'
+        }`}
+        title="Slot 4: Drag Subtitle field from right and drop here"
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded tracking-tight uppercase shrink-0 ${
+            isMapped ? 'text-blue-700 bg-blue-200/80' : 'text-gray-500 bg-gray-200'
+          }`}>
+            Slot 4:
+          </span>
+          {isMapped ? (
+            <div className="min-w-0">
+              <span className="text-[10px] font-bold text-blue-600 uppercase block leading-none">
+                [{mappedLabel}]
+              </span>
+              <span className="font-semibold text-xs text-blue-900 truncate block mt-0.5">
+                {sampleValue || mappedLabel}
+              </span>
+            </div>
+          ) : (
+            <span className="font-semibold text-xs text-gray-400 italic truncate">
+              Drop field
+            </span>
+          )}
+        </div>
+        {isMapped && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDropToSlot && onDropToSlot('subtitleSlot', '');
+            }}
+            title="Clear field"
+            className="w-5 h-5 rounded-full hover:bg-red-100 text-gray-400 hover:text-red-600 flex items-center justify-center text-xs font-bold transition-colors cursor-pointer shrink-0"
+          >
+            ✕
+          </button>
+        )}
+      </div>
+    );
+  };
+
+  const renderFooterRightSlot = (isButton = false) => {
+    const isEnabled = preset.footerRightSlot?.enabled !== false;
+
+    // Steps 1 & 3 or Clean Preview: Final authentic action button or link
+    if (!isMappingMode && wizardStep !== 2) {
+      if (!isEnabled) return null;
+      if (isButton) {
+        return (
+          <button 
+            type="button"
+            className="px-4 py-2 bg-[#0f172a] hover:bg-[#1e293b] text-white font-bold text-xs rounded-xl inline-flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+          >
+            {actionLabel} <ArrowUpRight className="w-3.5 h-3.5" />
+          </button>
+        );
+      }
+      return (
+        <span style={{ color }} className="font-bold text-xs inline-flex items-center gap-1 hover:underline cursor-pointer">
+          {actionLabel} <ArrowUpRight className="w-3.5 h-3.5" />
+        </span>
+      );
+    }
+
+    // Step 2 (Decide Fields): Locked — action link URL is auto-resolved,
+    // label text is configurable in Step 3 style controls.
+    return (
+      <span style={{ color }} className="font-bold text-xs inline-flex items-center gap-1">
+        {preset.footerRightSlot?.label || 'View Document'} <ArrowUpRight className="w-3.5 h-3.5" />
+        <span className="text-[11px] text-gray-300 cursor-help" title="Not a droppable area">
+          🔒
+        </span>
+      </span>
     );
   };
 
@@ -352,10 +684,18 @@ export const CardPresetView: React.FC<CardPresetViewProps> = ({
   };
 
   const activeShadow = preset.shadowSize || (preset as any).shadow || 'none';
-  const cardBaseStyle = `bg-white border border-slate-200/80 ${getBorderRadiusClass(preset.borderRadius)} ${getShadowClass(activeShadow)} ${getHoverEffectClass(preset.hoverEffect)} overflow-hidden cursor-pointer relative transition-all ${className}`;
+  const hasCustomBorder = className.includes('border-0') || className.includes('border-none');
+  const hasCustomRadius = className.includes('rounded-none');
+  const hasCustomShadow = className.includes('shadow-none');
+
+  const borderClass = hasCustomBorder ? '' : 'border border-slate-200/80';
+  const radiusClass = hasCustomRadius ? '' : getBorderRadiusClass(preset.borderRadius);
+  const shadowClass = hasCustomShadow ? '' : getShadowClass(activeShadow);
+
+  const cardBaseStyle = `bg-white ${borderClass} ${radiusClass} ${shadowClass} ${getHoverEffectClass(preset.hoverEffect)} overflow-hidden cursor-pointer relative transition-all ${className}`;
 
   /* =========================================================================
-     STYLE 1: OFFICIAL DOCUMENT / AFFILIATION CARD (Screenshot 1)
+     STYLE 1: OFFICIAL DOCUMENT / AFFILIATION CARD
      ========================================================================= */
   if (styleType === 'official') {
     return (
@@ -365,7 +705,7 @@ export const CardPresetView: React.FC<CardPresetViewProps> = ({
         style={getAccentStyle()}
       >
         <div className="p-5 space-y-4">
-          <div className="flex items-start justify-between">
+          <div className="flex items-start justify-between gap-2">
             {/* Blue Icon Box */}
             {preset.mediaSlot?.enabled !== false && (
               <div 
@@ -379,80 +719,60 @@ export const CardPresetView: React.FC<CardPresetViewProps> = ({
               </div>
             )}
 
-            {/* Top Right Year Pill */}
-            {preset.badgeSlot?.enabled !== false && (
-              <div 
-                className={getSlotHighlightClass('badgeSlot')}
-                onDragOver={(e) => handleDragOver(e, 'badgeSlot')}
-                onDragLeave={() => handleDragLeave('badgeSlot')}
-                onDrop={(e) => handleDrop(e, 'badgeSlot')}
-                onClick={(e) => { if (onSelectSlot) { e.stopPropagation(); onSelectSlot('badgeSlot'); } }}
-              >
-                <span 
-                  style={{ 
-                    backgroundColor: preset.badgeSlot?.bgColor || '#eff6ff', 
-                    color: preset.badgeSlot?.textColor || color 
-                  }}
-                  className="font-bold px-3 py-1 rounded-lg text-xs border border-current/10 inline-block shadow-2xs"
-                >
-                  {badgeVal}
-                </span>
-              </div>
-            )}
+            {/* Top Right Badge Pill / Mapping */}
+            <div 
+              className={getSlotHighlightClass('badgeSlot')}
+              onDragOver={(e) => handleDragOver(e, 'badgeSlot')}
+              onDragLeave={() => handleDragLeave('badgeSlot')}
+              onDrop={(e) => handleDrop(e, 'badgeSlot')}
+              onClick={(e) => { if (onSelectSlot) { e.stopPropagation(); onSelectSlot('badgeSlot'); } }}
+            >
+              {renderBadgeSlot(false)}
+            </div>
           </div>
 
           {/* Title & Subtitle */}
-          <div className="space-y-0.5">
-            {preset.titleSlot?.enabled !== false && (
-              <div 
-                className={getSlotHighlightClass('titleSlot')}
-                onDragOver={(e) => handleDragOver(e, 'titleSlot')}
-                onDragLeave={() => handleDragLeave('titleSlot')}
-                onDrop={(e) => handleDrop(e, 'titleSlot')}
-                onClick={(e) => { if (onSelectSlot) { e.stopPropagation(); onSelectSlot('titleSlot'); } }}
-              >
-                <h3 style={{ color }} className="font-bold text-base tracking-tight leading-tight">
-                  {titleVal}
-                </h3>
-              </div>
-            )}
+          <div className="space-y-2">
+            <div 
+              className={getSlotHighlightClass('titleSlot')}
+              onDragOver={(e) => handleDragOver(e, 'titleSlot')}
+              onDragLeave={() => handleDragLeave('titleSlot')}
+              onDrop={(e) => handleDrop(e, 'titleSlot')}
+              onClick={(e) => { if (onSelectSlot) { e.stopPropagation(); onSelectSlot('titleSlot'); } }}
+            >
+              {renderTitleSlot(false)}
+            </div>
 
-            {preset.subtitleSlot?.enabled !== false && (subVal || hasFieldEntries) && (
-              <div 
-                className={getSlotHighlightClass('subtitleSlot')}
-                onDragOver={(e) => handleDragOver(e, 'subtitleSlot')}
-                onDragLeave={() => handleDragLeave('subtitleSlot')}
-                onDrop={(e) => handleDrop(e, 'subtitleSlot')}
-                onClick={(e) => { if (onSelectSlot) { e.stopPropagation(); onSelectSlot('subtitleSlot'); } }}
-              >
-                {renderSubtitleContent()}
-              </div>
-            )}
+            <div 
+              className={getSlotHighlightClass('subtitleSlot')}
+              onDragOver={(e) => handleDragOver(e, 'subtitleSlot')}
+              onDragLeave={() => handleDragLeave('subtitleSlot')}
+              onDrop={(e) => handleDrop(e, 'subtitleSlot')}
+              onClick={(e) => { if (onSelectSlot) { e.stopPropagation(); onSelectSlot('subtitleSlot'); } }}
+            >
+              {renderSubtitleSlot(false)}
+            </div>
           </div>
         </div>
 
         {/* Gray Footer Container */}
-        {preset.footerRightSlot?.enabled !== false && (
-          <div className={`px-5 py-3 bg-gray-50/70 ${preset.showDivider !== false ? 'border-t border-gray-100' : ''} flex justify-end items-center`}>
-            <div 
-              className={getSlotHighlightClass('footerRightSlot')}
-              onDragOver={(e) => handleDragOver(e, 'footerRightSlot')}
-              onDragLeave={() => handleDragLeave('footerRightSlot')}
-              onDrop={(e) => handleDrop(e, 'footerRightSlot')}
-              onClick={(e) => { if (onSelectSlot) { e.stopPropagation(); onSelectSlot('footerRightSlot'); } }}
-            >
-              <span style={{ color }} className="font-bold text-xs inline-flex items-center gap-1 hover:underline cursor-pointer">
-                {actionLabel} <ArrowUpRight className="w-3.5 h-3.5" />
-              </span>
-            </div>
+        <div className={`px-5 py-3 bg-gray-50/70 ${preset.showDivider !== false ? 'border-t border-gray-100' : ''} flex justify-end items-center`}>
+          <div 
+            className={`w-full flex justify-end ${getSlotHighlightClass('footerRightSlot')}`}
+            onDragOver={(e) => handleDragOver(e, 'footerRightSlot')}
+            onDragLeave={() => handleDragLeave('footerRightSlot')}
+            onDrop={(e) => handleDrop(e, 'footerRightSlot')}
+            onClick={(e) => { if (onSelectSlot) { e.stopPropagation(); onSelectSlot('footerRightSlot'); } }}
+          >
+            {renderFooterRightSlot(false)}
           </div>
-        )}
+        </div>
       </div>
     );
   }
 
   /* =========================================================================
-     STYLE 2: COMPACT MINIMAL CARD (Matching Natural Proportions)
+     STYLE 2: COMPACT MINIMAL CARD
      ========================================================================= */
   if (styleType === 'minimal') {
     return (
@@ -462,7 +782,7 @@ export const CardPresetView: React.FC<CardPresetViewProps> = ({
         style={getAccentStyle()}
       >
         <div className="p-5 space-y-4">
-          <div className="flex items-start justify-between">
+          <div className="flex items-start justify-between gap-2">
             {preset.mediaSlot?.enabled !== false && (
               <div 
                 className={getSlotHighlightClass('mediaSlot')}
@@ -482,62 +802,44 @@ export const CardPresetView: React.FC<CardPresetViewProps> = ({
               onDrop={(e) => handleDrop(e, 'badgeSlot')}
               onClick={(e) => { if (onSelectSlot) { e.stopPropagation(); onSelectSlot('badgeSlot'); } }}
             >
-              <span 
-                style={{ 
-                  backgroundColor: preset.badgeSlot?.bgColor || '#eff6ff', 
-                  color: preset.badgeSlot?.textColor || color 
-                }}
-                className="font-bold px-3 py-1 rounded-lg text-xs border border-current/10 inline-block shadow-2xs"
-              >
-                {badgeVal}
-              </span>
+              {renderBadgeSlot(false)}
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            {preset.titleSlot?.enabled !== false && titleVal && (
-              <div 
-                className={getSlotHighlightClass('titleSlot')}
-                onDragOver={(e) => handleDragOver(e, 'titleSlot')}
-                onDragLeave={() => handleDragLeave('titleSlot')}
-                onDrop={(e) => handleDrop(e, 'titleSlot')}
-                onClick={(e) => { if (onSelectSlot) { e.stopPropagation(); onSelectSlot('titleSlot'); } }}
-              >
-                <h3 style={{ color }} className="font-bold text-base tracking-tight leading-tight">
-                  {titleVal}
-                </h3>
-              </div>
-            )}
+          <div className="space-y-2">
+            <div 
+              className={getSlotHighlightClass('titleSlot')}
+              onDragOver={(e) => handleDragOver(e, 'titleSlot')}
+              onDragLeave={() => handleDragLeave('titleSlot')}
+              onDrop={(e) => handleDrop(e, 'titleSlot')}
+              onClick={(e) => { if (onSelectSlot) { e.stopPropagation(); onSelectSlot('titleSlot'); } }}
+            >
+              {renderTitleSlot(false)}
+            </div>
 
-            {preset.subtitleSlot?.enabled !== false && (subVal || hasFieldEntries) && (
-              <div 
-                className={getSlotHighlightClass('subtitleSlot')}
-                onDragOver={(e) => handleDragOver(e, 'subtitleSlot')}
-                onDragLeave={() => handleDragLeave('subtitleSlot')}
-                onDrop={(e) => handleDrop(e, 'subtitleSlot')}
-                onClick={(e) => { if (onSelectSlot) { e.stopPropagation(); onSelectSlot('subtitleSlot'); } }}
-              >
-                {renderSubtitleContent()}
-              </div>
-            )}
+            <div 
+              className={getSlotHighlightClass('subtitleSlot')}
+              onDragOver={(e) => handleDragOver(e, 'subtitleSlot')}
+              onDragLeave={() => handleDragLeave('subtitleSlot')}
+              onDrop={(e) => handleDrop(e, 'subtitleSlot')}
+              onClick={(e) => { if (onSelectSlot) { e.stopPropagation(); onSelectSlot('subtitleSlot'); } }}
+            >
+              {renderSubtitleSlot(false)}
+            </div>
           </div>
 
-          <div className="border-t border-gray-100 pt-3 flex items-center justify-between">
-            {preset.footerRightSlot?.enabled !== false ? (
-              <div 
-                className={getSlotHighlightClass('footerRightSlot')}
-                onDragOver={(e) => handleDragOver(e, 'footerRightSlot')}
-                onDragLeave={() => handleDragLeave('footerRightSlot')}
-                onDrop={(e) => handleDrop(e, 'footerRightSlot')}
-                onClick={(e) => { if (onSelectSlot) { e.stopPropagation(); onSelectSlot('footerRightSlot'); } }}
-              >
-                <span style={{ color }} className="font-bold text-xs inline-flex items-center gap-1 hover:underline cursor-pointer">
-                  {actionLabel} <ArrowUpRight className="w-3.5 h-3.5" />
-                </span>
-              </div>
-            ) : <div />}
+          <div className="border-t border-gray-100 pt-3 flex items-center justify-between gap-2">
+            <div 
+              className={`flex-1 ${getSlotHighlightClass('footerRightSlot')}`}
+              onDragOver={(e) => handleDragOver(e, 'footerRightSlot')}
+              onDragLeave={() => handleDragLeave('footerRightSlot')}
+              onDrop={(e) => handleDrop(e, 'footerRightSlot')}
+              onClick={(e) => { if (onSelectSlot) { e.stopPropagation(); onSelectSlot('footerRightSlot'); } }}
+            >
+              {renderFooterRightSlot(false)}
+            </div>
 
-            <div className="w-7 h-7 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-200/60 shadow-2xs">
+            <div className="w-7 h-7 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-200/60 shadow-2xs shrink-0">
               <Bookmark className="w-3.5 h-3.5" />
             </div>
           </div>
@@ -547,7 +849,7 @@ export const CardPresetView: React.FC<CardPresetViewProps> = ({
   }
 
   /* =========================================================================
-     STYLE 3: MODERN GRADIENT BANNER (Screenshot 3)
+     STYLE 3: MODERN GRADIENT BANNER
      ========================================================================= */
   if (styleType === 'gradient-banner') {
     return (
@@ -559,9 +861,9 @@ export const CardPresetView: React.FC<CardPresetViewProps> = ({
         {/* Top Gradient Banner Block */}
         <div 
           style={{ background: `linear-gradient(135deg, ${color} 0%, ${preset.gradientColor || color} 100%)` }}
-          className="p-4 sm:p-5 text-white space-y-2"
+          className="p-4 sm:p-5 text-white space-y-3"
         >
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             {preset.mediaSlot?.enabled !== false && (
               <div 
                 className={getSlotHighlightClass('mediaSlot')}
@@ -581,161 +883,128 @@ export const CardPresetView: React.FC<CardPresetViewProps> = ({
               onDrop={(e) => handleDrop(e, 'badgeSlot')}
               onClick={(e) => { if (onSelectSlot) { e.stopPropagation(); onSelectSlot('badgeSlot'); } }}
             >
-              <span className="bg-white/20 backdrop-blur-md text-white font-bold px-2.5 py-0.5 rounded-full text-xs border border-white/30">
-                {badgeVal}
-              </span>
+              {renderBadgeSlot(true)}
             </div>
           </div>
 
           {/* Title & Subtitle Wrapper */}
-          <div className="space-y-0.5">
-            {preset.titleSlot?.enabled !== false && titleVal && (
-              <div 
-                className={getSlotHighlightClass('titleSlot')}
-                onDragOver={(e) => handleDragOver(e, 'titleSlot')}
-                onDragLeave={() => handleDragLeave('titleSlot')}
-                onDrop={(e) => handleDrop(e, 'titleSlot')}
-                onClick={(e) => { if (onSelectSlot) { e.stopPropagation(); onSelectSlot('titleSlot'); } }}
-              >
-                <h3 className="font-bold text-base tracking-tight leading-tight text-white">
-                  {titleVal}
-                </h3>
-              </div>
-            )}
+          <div className="space-y-2">
+            <div 
+              className={getSlotHighlightClass('titleSlot')}
+              onDragOver={(e) => handleDragOver(e, 'titleSlot')}
+              onDragLeave={() => handleDragLeave('titleSlot')}
+              onDrop={(e) => handleDrop(e, 'titleSlot')}
+              onClick={(e) => { if (onSelectSlot) { e.stopPropagation(); onSelectSlot('titleSlot'); } }}
+            >
+              {renderTitleSlot(true)}
+            </div>
 
-            {preset.subtitleSlot?.enabled !== false && subVal && (
-              <div 
-                className={getSlotHighlightClass('subtitleSlot')}
-                onDragOver={(e) => handleDragOver(e, 'subtitleSlot')}
-                onDragLeave={() => handleDragLeave('subtitleSlot')}
-                onDrop={(e) => handleDrop(e, 'subtitleSlot')}
-                onClick={(e) => { if (onSelectSlot) { e.stopPropagation(); onSelectSlot('subtitleSlot'); } }}
-              >
-                <p className="text-xs text-white/90 font-medium leading-tight">
-                  {subVal}
-                </p>
-              </div>
-            )}
+            <div 
+              className={getSlotHighlightClass('subtitleSlot')}
+              onDragOver={(e) => handleDragOver(e, 'subtitleSlot')}
+              onDragLeave={() => handleDragLeave('subtitleSlot')}
+              onDrop={(e) => handleDrop(e, 'subtitleSlot')}
+              onClick={(e) => { if (onSelectSlot) { e.stopPropagation(); onSelectSlot('subtitleSlot'); } }}
+            >
+              {renderSubtitleSlot(true)}
+            </div>
           </div>
         </div>
 
         {/* Bottom White Body */}
         <div className="p-4 sm:p-5 bg-white space-y-4 flex-1 flex flex-col justify-between">
-          {preset.subtitleSlot?.enabled !== false && (subVal || hasFieldEntries) && (
-            <div className="pt-1">
-              {renderSubtitleContent()}
+          <div className="flex justify-end pt-1">
+            <div 
+              className={`w-full flex justify-end ${getSlotHighlightClass('footerRightSlot')}`}
+              onDragOver={(e) => handleDragOver(e, 'footerRightSlot')}
+              onDragLeave={() => handleDragLeave('footerRightSlot')}
+              onDrop={(e) => handleDrop(e, 'footerRightSlot')}
+              onClick={(e) => { if (onSelectSlot) { e.stopPropagation(); onSelectSlot('footerRightSlot'); } }}
+            >
+              {renderFooterRightSlot(true)}
             </div>
-          )}
-
-          {preset.footerRightSlot?.enabled !== false && (
-            <div className="flex justify-end pt-1">
-              <div 
-                className={getSlotHighlightClass('footerRightSlot')}
-                onDragOver={(e) => handleDragOver(e, 'footerRightSlot')}
-                onDragLeave={() => handleDragLeave('footerRightSlot')}
-                onDrop={(e) => handleDrop(e, 'footerRightSlot')}
-                onClick={(e) => { if (onSelectSlot) { e.stopPropagation(); onSelectSlot('footerRightSlot'); } }}
-              >
-                <button 
-                  className="px-4 py-2 bg-[#0f172a] hover:bg-[#1e293b] text-white font-bold text-xs rounded-xl inline-flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
-                >
-                  {actionLabel} <ArrowUpRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
-          )}
+          </div>
         </div>
       </div>
     );
   }
 
   /* =========================================================================
-     STYLE 4: DUAL-PANE SPLIT CARD (Screenshot 4)
+     STYLE 4: DUAL-PANE SPLIT CARD
      ========================================================================= */
   if (styleType === 'split-card') {
     return (
       <div 
         onClick={onClick}
-        className={`${cardBaseStyle} flex flex-col sm:flex-row`}
-        style={getAccentStyle()}
+        className={`${cardBaseStyle} flex flex-col justify-between h-full`}
+        style={{ 
+          ...getAccentStyle(), 
+          borderLeftColor: color, 
+          borderLeftWidth: '5px',
+          borderLeftStyle: 'solid'
+        }}
       >
-        {/* Left Gradient Accent Block */}
-        <div 
-          style={{ background: `linear-gradient(180deg, ${color} 0%, ${preset.gradientColor || color} 100%)` }}
-          className="p-4 sm:w-28 flex sm:flex-col justify-between items-center sm:items-start text-white shrink-0"
-        >
-          {preset.mediaSlot?.enabled !== false && (
+        <div className="p-4 sm:p-5 space-y-3 flex-1 flex flex-col justify-between">
+          <div className="flex items-start justify-between gap-2">
+            {preset.mediaSlot?.enabled !== false && (
+              <div 
+                className={getSlotHighlightClass('mediaSlot')}
+                onDragOver={(e) => handleDragOver(e, 'mediaSlot')}
+                onDragLeave={() => handleDragLeave('mediaSlot')}
+                onDrop={(e) => handleDrop(e, 'mediaSlot')}
+                onClick={(e) => { if (onSelectSlot) { e.stopPropagation(); onSelectSlot('mediaSlot'); } }}
+              >
+                {renderMediaContent()}
+              </div>
+            )}
+
             <div 
-              className={getSlotHighlightClass('mediaSlot')}
-              onDragOver={(e) => handleDragOver(e, 'mediaSlot')}
-              onDragLeave={() => handleDragLeave('mediaSlot')}
-              onDrop={(e) => handleDrop(e, 'mediaSlot')}
-              onClick={(e) => { if (onSelectSlot) { e.stopPropagation(); onSelectSlot('mediaSlot'); } }}
+              className={getSlotHighlightClass('badgeSlot')}
+              onDragOver={(e) => handleDragOver(e, 'badgeSlot')}
+              onDragLeave={() => handleDragLeave('badgeSlot')}
+              onDrop={(e) => handleDrop(e, 'badgeSlot')}
+              onClick={(e) => { if (onSelectSlot) { e.stopPropagation(); onSelectSlot('badgeSlot'); } }}
             >
-              {renderMediaContent()}
+              {renderBadgeSlot(false)}
             </div>
-          )}
+          </div>
 
-          <div 
-            className={getSlotHighlightClass('badgeSlot')}
-            onDragOver={(e) => handleDragOver(e, 'badgeSlot')}
-            onDragLeave={() => handleDragLeave('badgeSlot')}
-            onDrop={(e) => handleDrop(e, 'badgeSlot')}
-            onClick={(e) => { if (onSelectSlot) { e.stopPropagation(); onSelectSlot('badgeSlot'); } }}
-          >
-            <span className="bg-white/20 backdrop-blur-md text-white font-bold px-2 py-0.5 rounded-md text-[11px] border border-white/30 inline-block">
-              {badgeVal}
+          <div className="space-y-1.5 my-auto">
+            <div 
+              className={getSlotHighlightClass('titleSlot')}
+              onDragOver={(e) => handleDragOver(e, 'titleSlot')}
+              onDragLeave={() => handleDragLeave('titleSlot')}
+              onDrop={(e) => handleDrop(e, 'titleSlot')}
+              onClick={(e) => { if (onSelectSlot) { e.stopPropagation(); onSelectSlot('titleSlot'); } }}
+            >
+              {renderTitleSlot(false)}
+            </div>
+
+            <div 
+              className={getSlotHighlightClass('subtitleSlot')}
+              onDragOver={(e) => handleDragOver(e, 'subtitleSlot')}
+              onDragLeave={() => handleDragLeave('subtitleSlot')}
+              onDrop={(e) => handleDrop(e, 'subtitleSlot')}
+              onClick={(e) => { if (onSelectSlot) { e.stopPropagation(); onSelectSlot('subtitleSlot'); } }}
+            >
+              {renderSubtitleSlot(false)}
+            </div>
+          </div>
+
+          <div className="pt-2.5 border-t border-gray-100 flex items-center justify-between">
+            <span className="text-[11px] font-medium text-gray-400">
+              Official Document
             </span>
-          </div>
-        </div>
-
-        {/* Right Content Pane */}
-        <div className="p-4 sm:p-5 flex-1 bg-white space-y-3 flex flex-col justify-between min-w-0">
-          <div className="space-y-1">
-            {preset.titleSlot?.enabled !== false && titleVal && (
-              <div 
-                className={getSlotHighlightClass('titleSlot')}
-                onDragOver={(e) => handleDragOver(e, 'titleSlot')}
-                onDragLeave={() => handleDragLeave('titleSlot')}
-                onDrop={(e) => handleDrop(e, 'titleSlot')}
-                onClick={(e) => { if (onSelectSlot) { e.stopPropagation(); onSelectSlot('titleSlot'); } }}
-              >
-                <h3 style={{ color }} className="font-bold text-base tracking-tight leading-snug">
-                  {titleVal}
-                </h3>
-              </div>
-            )}
-
-            {preset.subtitleSlot?.enabled !== false && (subVal || hasFieldEntries) && (
-              <div 
-                className={getSlotHighlightClass('subtitleSlot')}
-                onDragOver={(e) => handleDragOver(e, 'subtitleSlot')}
-                onDragLeave={() => handleDragLeave('subtitleSlot')}
-                onDrop={(e) => handleDrop(e, 'subtitleSlot')}
-                onClick={(e) => { if (onSelectSlot) { e.stopPropagation(); onSelectSlot('subtitleSlot'); } }}
-              >
-                {renderSubtitleContent()}
-              </div>
-            )}
-          </div>
-
-          {preset.footerRightSlot?.enabled !== false && (
-            <div className="flex justify-end pt-3.5">
-              <div 
-                className={getSlotHighlightClass('footerRightSlot')}
-                onDragOver={(e) => handleDragOver(e, 'footerRightSlot')}
-                onDragLeave={() => handleDragLeave('footerRightSlot')}
-                onDrop={(e) => handleDrop(e, 'footerRightSlot')}
-                onClick={(e) => { if (onSelectSlot) { e.stopPropagation(); onSelectSlot('footerRightSlot'); } }}
-              >
-                <button 
-                  className="px-4 py-2 bg-[#0f172a] hover:bg-[#1e293b] text-white font-bold text-xs rounded-xl inline-flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
-                >
-                  {actionLabel} <ArrowUpRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
+            <div 
+              className={getSlotHighlightClass('footerRightSlot')}
+              onDragOver={(e) => handleDragOver(e, 'footerRightSlot')}
+              onDragLeave={() => handleDragLeave('footerRightSlot')}
+              onDrop={(e) => handleDrop(e, 'footerRightSlot')}
+              onClick={(e) => { if (onSelectSlot) { e.stopPropagation(); onSelectSlot('footerRightSlot'); } }}
+            >
+              {renderFooterRightSlot(false)}
             </div>
-          )}
+          </div>
         </div>
       </div>
     );
@@ -744,6 +1013,16 @@ export const CardPresetView: React.FC<CardPresetViewProps> = ({
   /* =========================================================================
      CUSTOM FALLBACK LAYOUT
      ========================================================================= */
+  if (preset.htmlTemplate && (preset.isCustom || styleType === 'custom')) {
+    return (
+      <div 
+        onClick={onClick}
+        className={`w-full ${className}`}
+        dangerouslySetInnerHTML={{ __html: preset.htmlTemplate }}
+      />
+    );
+  }
+
   return (
     <div 
       onClick={onClick}
@@ -751,27 +1030,20 @@ export const CardPresetView: React.FC<CardPresetViewProps> = ({
     >
       <div className="p-5 space-y-4">
         {/* Top Badge Slot */}
-        {preset.badgeSlot?.enabled && (
-          <div 
-            className={`flex items-center justify-between p-1 ${getSlotHighlightClass('badgeSlot')}`}
-            onDragOver={(e) => handleDragOver(e, 'badgeSlot')}
-            onDragLeave={() => handleDragLeave('badgeSlot')}
-            onDrop={(e) => handleDrop(e, 'badgeSlot')}
-            onClick={(e) => { if (onSelectSlot) { e.stopPropagation(); onSelectSlot('badgeSlot'); } }}
-          >
-            <span 
-              style={{ backgroundColor: preset.badgeSlot.bgColor || '#eff6ff', color: preset.badgeSlot.textColor || '#1d4ed8' }}
-              className="text-[11px] font-bold px-2.5 py-0.5 rounded-full border border-blue-200/60 inline-flex items-center gap-1"
-            >
-              <Calendar className="w-3 h-3" /> {getVarDisplay(preset.badgeSlot.fieldVar, 'Sample Badge')}
-            </span>
-          </div>
-        )}
+        <div 
+          className={getSlotHighlightClass('badgeSlot')}
+          onDragOver={(e) => handleDragOver(e, 'badgeSlot')}
+          onDragLeave={() => handleDragLeave('badgeSlot')}
+          onDrop={(e) => handleDrop(e, 'badgeSlot')}
+          onClick={(e) => { if (onSelectSlot) { e.stopPropagation(); onSelectSlot('badgeSlot'); } }}
+        >
+          {renderBadgeSlot(false)}
+        </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-start gap-4">
           {preset.mediaSlot?.enabled !== false && (
             <div 
-              className={`p-0.5 ${getSlotHighlightClass('mediaSlot')}`}
+              className={`p-0.5 shrink-0 ${getSlotHighlightClass('mediaSlot')}`}
               onDragOver={(e) => handleDragOver(e, 'mediaSlot')}
               onDragLeave={() => handleDragLeave('mediaSlot')}
               onDrop={(e) => handleDrop(e, 'mediaSlot')}
@@ -781,32 +1053,26 @@ export const CardPresetView: React.FC<CardPresetViewProps> = ({
             </div>
           )}
 
-          <div className="flex-1 min-w-0 space-y-1">
+          <div className="flex-1 min-w-0 space-y-2">
             <div
-              className={`p-1 ${getSlotHighlightClass('titleSlot')}`}
+              className={getSlotHighlightClass('titleSlot')}
               onDragOver={(e) => handleDragOver(e, 'titleSlot')}
               onDragLeave={() => handleDragLeave('titleSlot')}
               onDrop={(e) => handleDrop(e, 'titleSlot')}
               onClick={(e) => { if (onSelectSlot) { e.stopPropagation(); onSelectSlot('titleSlot'); } }}
             >
-              <h4 style={{ color }} className="font-bold tracking-tight leading-snug text-sm">
-                {getVarDisplay(preset.titleSlot?.fieldVar, 'Sample Title Slot')}
-              </h4>
+              {renderTitleSlot(false)}
             </div>
 
-            {preset.subtitleSlot?.enabled && (
-              <div
-                className={`p-1 ${getSlotHighlightClass('subtitleSlot')}`}
-                onDragOver={(e) => handleDragOver(e, 'subtitleSlot')}
-                onDragLeave={() => handleDragLeave('subtitleSlot')}
-                onDrop={(e) => handleDrop(e, 'subtitleSlot')}
-                onClick={(e) => { if (onSelectSlot) { e.stopPropagation(); onSelectSlot('subtitleSlot'); } }}
-              >
-                <p className="text-xs text-gray-500 line-clamp-1">
-                  {getVarDisplay(preset.subtitleSlot.fieldVar, 'Sample Subtitle Slot')}
-                </p>
-              </div>
-            )}
+            <div
+              className={getSlotHighlightClass('subtitleSlot')}
+              onDragOver={(e) => handleDragOver(e, 'subtitleSlot')}
+              onDragLeave={() => handleDragLeave('subtitleSlot')}
+              onDrop={(e) => handleDrop(e, 'subtitleSlot')}
+              onClick={(e) => { if (onSelectSlot) { e.stopPropagation(); onSelectSlot('subtitleSlot'); } }}
+            >
+              {renderSubtitleSlot(false)}
+            </div>
           </div>
         </div>
 
@@ -826,23 +1092,16 @@ export const CardPresetView: React.FC<CardPresetViewProps> = ({
               </span>
             </div>
           )}
-          {preset.footerRightSlot?.enabled && (
-            <div
-              className={`p-1 ml-auto ${getSlotHighlightClass('footerRightSlot')}`}
-              onDragOver={(e) => handleDragOver(e, 'footerRightSlot')}
-              onDragLeave={() => handleDragLeave('footerRightSlot')}
-              onDrop={(e) => handleDrop(e, 'footerRightSlot')}
-              onClick={(e) => { if (onSelectSlot) { e.stopPropagation(); onSelectSlot('footerRightSlot'); } }}
-            >
-              <span 
-                style={{ color }} 
-                className="font-bold flex items-center gap-1 cursor-pointer hover:underline"
-              >
-                {preset.footerRightSlot.label || getVarDisplay(preset.footerRightSlot.fieldVar, 'Action Link')}
-                {preset.footerRightSlot.showArrow && <ArrowUpRight className="w-3.5 h-3.5" />}
-              </span>
-            </div>
-          )}
+
+          <div
+            className={`ml-auto ${getSlotHighlightClass('footerRightSlot')}`}
+            onDragOver={(e) => handleDragOver(e, 'footerRightSlot')}
+            onDragLeave={() => handleDragLeave('footerRightSlot')}
+            onDrop={(e) => handleDrop(e, 'footerRightSlot')}
+            onClick={(e) => { if (onSelectSlot) { e.stopPropagation(); onSelectSlot('footerRightSlot'); } }}
+          >
+            {renderFooterRightSlot(false)}
+          </div>
         </div>
       </div>
     </div>

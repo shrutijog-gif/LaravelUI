@@ -11,6 +11,8 @@ import {
   Copy,
   Trash2,
   ArrowRight,
+  ArrowLeft,
+  ChevronRight,
   Upload,
   Image,
   Calendar,
@@ -78,9 +80,39 @@ import {
   duplicateCardPreset,
   resetAllCardPresets,
   MODULE_SCHEMAS,
-  ModuleSchema
+  ModuleSchema,
+  INITIAL_CARD_PRESETS,
+  DEFAULT_CARD_HTML_TEMPLATES,
+  extractDynamicSlots
 } from '../../../utils/cardPresets';
 import { getStoredStudioTemplates } from '../../../data/mockStudioData';
+
+const BASE_STYLE_OPTIONS = [
+  {
+    id: 'style-1',
+    name: 'Official Standard',
+    desc: 'Classic academic card with top badge, initials logo & action link.',
+    icon: '🏛️',
+  },
+  {
+    id: 'style-2',
+    name: 'Minimal Modern',
+    desc: 'Clean borders, top rounded year pill & direct inline link.',
+    icon: '✨',
+  },
+  {
+    id: 'style-3',
+    name: 'Vibrant Gradient',
+    desc: 'Gradient header banner with dark high-contrast action button.',
+    icon: '🎨',
+  },
+  {
+    id: 'style-4',
+    name: 'Left Accent',
+    desc: 'Thick color accent stripe with full-width typography & metadata bar.',
+    icon: '⚡',
+  },
+];
 
 export const CardBuilderStudio: React.FC = () => {
   const [presets, setPresets] = useState<CardSlotConfig[]>([]);
@@ -88,18 +120,24 @@ export const CardBuilderStudio: React.FC = () => {
   const [editingPreset, setEditingPreset] = useState<CardSlotConfig | null>(null);
   const [isIconPickerOpen, setIsIconPickerOpen] = useState(false);
   const [iconSearchQuery, setIconSearchQuery] = useState('');
-  const [selectedModuleId, setSelectedModuleId] = useState<string>('');
+  const [selectedModuleId, setSelectedModuleId] = useState<string>('timetable');
   const [activeDragField, setActiveDragField] = useState<string | null>(null);
   const [activeSlotName, setActiveSlotName] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [newCustomVarName, setNewCustomVarName] = useState<string>('');
   const [userCustomVars, setUserCustomVars] = useState<{ name: string; label: string }[]>([]);
-  const [viewMode, setViewMode] = useState<'blueprint' | 'sample'>('blueprint');
+  const [viewMode, setViewMode] = useState<'blueprint' | 'sample'>('sample');
+  const [isMappingMode, setIsMappingMode] = useState<boolean>(false);
+  const [wizardStep, setWizardStep] = useState<1 | 2 | 3>(1);
+  const [htmlCode, setHtmlCode] = useState<string>('');
+  const [showHtmlEditor, setShowHtmlEditor] = useState<boolean>(false);
+  const [showTweakHtml, setShowTweakHtml] = useState<boolean>(false);
+  const [isNewModalOpen, setIsNewModalOpen] = useState<boolean>(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const loadPresets = () => {
     const list = getStoredCardPresets();
-    const filtered = list.filter(p => ['style-1', 'style-2', 'style-3', 'style-4'].includes(p.id) || p.id.startsWith('style-custom-'));
+    const filtered = list.filter(p => p.id.startsWith('style-custom-'));
     setPresets(filtered);
   };
 
@@ -111,15 +149,31 @@ export const CardBuilderStudio: React.FC = () => {
   }, []);
 
   const handleOpenNew = () => {
+    setIsNewModalOpen(true);
+  };
+
+  const handleOpenNewWithModule = (moduleId: string) => {
     const newPreset = createNewCardPreset();
+    const schema = allModuleSchemas.find(m => m.id === moduleId);
+    newPreset.name = schema ? `${schema.name} Card Template` : 'New Card Template';
+    newPreset.moduleContextId = moduleId;
     setEditingPreset(newPreset);
-    setViewMode('blueprint');
+    setSelectedModuleId(moduleId);
+    setViewMode('sample');
+    setIsMappingMode(false);
+    setWizardStep(1);
+    setHtmlCode(DEFAULT_CARD_HTML_TEMPLATES['style-1'] || '');
+    setIsNewModalOpen(false);
     setIsDrawerOpen(true);
   };
 
   const handleEdit = (preset: CardSlotConfig) => {
     setEditingPreset(JSON.parse(JSON.stringify(preset)));
-    setViewMode('blueprint');
+    setSelectedModuleId(preset.moduleContextId || 'timetable');
+    setViewMode('sample');
+    setIsMappingMode(false);
+    setWizardStep(1);
+    setHtmlCode(preset.htmlTemplate || DEFAULT_CARD_HTML_TEMPLATES[preset.id] || DEFAULT_CARD_HTML_TEMPLATES['style-1'] || '');
     setIsDrawerOpen(true);
   };
 
@@ -184,7 +238,7 @@ export const CardBuilderStudio: React.FC = () => {
 
   const handleSaveDrawer = () => {
     if (editingPreset) {
-      saveCardPreset(editingPreset);
+      saveCardPreset({ ...editingPreset, htmlTemplate: htmlCode });
       loadPresets();
       setIsDrawerOpen(false);
       setEditingPreset(null);
@@ -212,6 +266,92 @@ export const CardBuilderStudio: React.FC = () => {
     handleUpdateEditing(updates);
     setToastMessage(`Mapped {${fieldName}} to ${slotName}`);
     setTimeout(() => setToastMessage(null), 2500);
+  };
+
+  const handleSelectBaseStyle = (styleId: string) => {
+    if (styleId === 'custom-html') {
+      if (!editingPreset) return;
+      const customHtml = htmlCode || editingPreset.htmlTemplate || DEFAULT_CARD_HTML_TEMPLATES['style-1'] || '';
+      setHtmlCode(customHtml);
+      setEditingPreset({
+        ...editingPreset,
+        presetStyleType: 'custom',
+        isCustom: true,
+        htmlTemplate: customHtml,
+      });
+      setShowHtmlEditor(true);
+      return;
+    }
+    const base = INITIAL_CARD_PRESETS.find(p => p.id === styleId);
+    if (!base || !editingPreset) return;
+    const newHtml = DEFAULT_CARD_HTML_TEMPLATES[styleId] || '';
+    setHtmlCode(newHtml);
+    const currentBadgeVar = editingPreset.badgeSlot?.fieldVar || '';
+    const currentMediaVar = editingPreset.mediaSlot?.fieldVar || '';
+    const currentTitleVar = editingPreset.titleSlot?.fieldVar || '';
+    const currentSubVar = editingPreset.subtitleSlot?.fieldVar || '';
+    const currentFooterVar = editingPreset.footerRightSlot?.fieldVar || '';
+
+    setEditingPreset({
+      ...editingPreset,
+      isCustom: false,
+      presetStyleType: base.presetStyleType,
+      showTopAccent: base.showTopAccent,
+      accentPosition: base.accentPosition,
+      accentSides: base.accentSides,
+      accentWidth: base.accentWidth,
+      accentColor: base.accentColor,
+      gradientColor: base.gradientColor,
+      badgeSlot: { ...base.badgeSlot, fieldVar: currentBadgeVar },
+      mediaSlot: { ...base.mediaSlot, fieldVar: currentMediaVar },
+      titleSlot: { ...base.titleSlot, fieldVar: currentTitleVar },
+      subtitleSlot: { ...base.subtitleSlot, fieldVar: currentSubVar },
+      showDivider: base.showDivider,
+      footerLeftSlot: { ...base.footerLeftSlot, fieldVar: editingPreset.footerLeftSlot?.fieldVar || '' },
+      footerRightSlot: { ...base.footerRightSlot, fieldVar: currentFooterVar },
+      borderRadius: base.borderRadius,
+      shadowSize: base.shadowSize,
+      hoverEffect: base.hoverEffect,
+      cardBgColor: base.cardBgColor,
+      htmlTemplate: newHtml,
+    });
+    setToastMessage(`Switched to base template "${base.name}"`);
+    setTimeout(() => setToastMessage(null), 2000);
+  };
+
+  const handleCustomizeTemplateHtml = (styleId: string) => {
+    const base = INITIAL_CARD_PRESETS.find(p => p.id === styleId);
+    const templateMarkup = DEFAULT_CARD_HTML_TEMPLATES[styleId] || htmlCode || '';
+    setHtmlCode(templateMarkup);
+    if (editingPreset) {
+      setEditingPreset({
+        ...editingPreset,
+        isCustom: true,
+        presetStyleType: 'custom',
+        htmlTemplate: templateMarkup,
+      });
+    }
+    setShowHtmlEditor(true);
+    setToastMessage(`Customizing HTML for "${base?.name || styleId}"`);
+    setTimeout(() => setToastMessage(null), 2000);
+  };
+
+  const handleInsertSlotTag = (slotType: string) => {
+    let snippet = '';
+    if (slotType === 'badgeSlot') {
+      snippet = '\n  <span class="dynamicFieldDeclaration font-bold px-3 py-1 rounded-lg text-xs bg-blue-50 text-blue-700" data-slot="badgeSlot">2026-2027</span>';
+    } else if (slotType === 'titleSlot') {
+      snippet = '\n  <h3 class="dynamicFieldDeclaration font-bold text-base text-gray-900" data-slot="titleSlot">Schedule Title</h3>';
+    } else if (slotType === 'subtitleSlot') {
+      snippet = '\n  <p class="dynamicFieldDeclaration text-xs text-gray-500" data-slot="subtitleSlot">Program Details • Semester 1</p>';
+    } else if (slotType === 'footerRightSlot') {
+      snippet = '\n  <a class="dynamicFieldDeclaration font-bold text-xs text-blue-600" data-slot="footerRightSlot">Download PDF ↗</a>';
+    }
+    const nextHtml = (htmlCode || '') + snippet;
+    setHtmlCode(nextHtml);
+    handleUpdateEditing({ htmlTemplate: nextHtml });
+    setToastMessage(`Tagged dynamic slot: ${slotType}`);
+    setTimeout(() => setToastMessage(null), 2000);
   };
 
   // Dynamic Module Schemas (Built-in + Module Studio Dynamic Entities)
@@ -250,47 +390,17 @@ export const CardBuilderStudio: React.FC = () => {
     <div className="space-y-6 pb-12 max-w-7xl mx-auto">
       {/* Top One-Line Header */}
       <div className="py-1 border-b border-gray-200/80 pb-4 flex items-center justify-between">
-        <h1 className="text-xl font-bold text-gray-900">Card Builder Studio</h1>
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">Card Builder Studio</h1>
+          <p className="text-xs text-gray-500 mt-0.5">Your saved card templates. Create and manage custom card designs for any module.</p>
+        </div>
 
         <div className="flex items-center gap-3">
-          {/* Reset Styles Button */}
-          <button
-            onClick={handleResetStyles}
-            className="px-3 py-1.5 rounded-lg border border-gray-200/80 bg-white hover:bg-gray-50 text-gray-700 text-xs font-bold transition-all shadow-2xs cursor-pointer flex items-center gap-1.5 active:scale-95"
-            title="Discard all changes and restore original default card styles"
-          >
-            <RotateCcw className="w-3.5 h-3.5 text-gray-500" />
-            <span>Reset Styles</span>
-          </button>
-
-          {/* Blueprint / Live Sample Toggle */}
-          <div className="bg-gray-100 p-1 rounded-lg border border-gray-200/80 flex items-center gap-1 shadow-2xs">
-            <button
-              onClick={() => setViewMode('blueprint')}
-              className={`px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
-                viewMode === 'blueprint'
-                  ? 'bg-white text-blue-700 shadow-xs border border-gray-200/80'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Blueprint Slots
-            </button>
-            <button
-              onClick={() => setViewMode('sample')}
-              className={`px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
-                viewMode === 'sample'
-                  ? 'bg-white text-blue-700 shadow-xs border border-gray-200/80'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Live Sample Data
-            </button>
-          </div>
-
           <button
             onClick={handleOpenNew}
             className="px-4 py-2 rounded-[4px] bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95 flex items-center gap-2"
           >
+            <Plus className="w-3.5 h-3.5" />
             <span>Create Custom Style</span>
             <span className="text-[10px] bg-blue-800/60 text-blue-100 px-1.5 py-0.5 rounded font-extrabold uppercase tracking-wider border border-blue-400/30">Advanced</span>
           </button>
@@ -319,41 +429,52 @@ export const CardBuilderStudio: React.FC = () => {
         </div>
       )}
 
-      {/* Main Preset Gallery Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
-        {presets.map((preset) => (
-          <div key={preset.id} className="group">
-            {/* Clickable Card Box Container */}
-            <div 
-              onClick={() => handleEdit(preset)}
-              className="bg-white rounded-2xl border border-gray-200 hover:border-gray-400 hover:shadow-lg transition-all duration-200 cursor-pointer overflow-hidden group/card"
-            >
-              {/* Card Internal Top Header */}
-              <div className="px-4 py-2.5 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between gap-2">
-                <span className="text-xs font-bold text-gray-900 transition-colors line-clamp-1">
-                  {preset.name}
-                </span>
-                <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
-                  {preset.isCustom ? (
+      {/* Main Saved Styles Gallery Grid */}
+      {presets.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 px-8">
+          <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-blue-50 to-indigo-100 border border-blue-200/60 flex items-center justify-center mb-5 shadow-xs">
+            <Layers className="w-9 h-9 text-blue-400" />
+          </div>
+          <h3 className="text-base font-extrabold text-gray-900 mb-1.5">No saved styles yet</h3>
+          <p className="text-xs text-gray-500 max-w-sm text-center leading-relaxed mb-6">
+            Create your first custom card template by clicking the button above. Choose a base style, map data fields, and pick your colors.
+          </p>
+          <button
+            onClick={handleOpenNew}
+            className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95 flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Create Your First Style</span>
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
+          {presets.map((preset) => (
+            <div key={preset.id} className="group">
+              {/* Clickable Card Box Container */}
+              <div 
+                onClick={() => handleEdit(preset)}
+                className="bg-white rounded-2xl border border-gray-200 hover:border-gray-400 hover:shadow-lg transition-all duration-200 cursor-pointer overflow-hidden group/card"
+              >
+                {/* Card Internal Top Header */}
+                <div className="px-4 py-2.5 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between gap-2">
+                  <span className="text-xs font-bold text-gray-900 transition-colors line-clamp-1">
+                    {preset.name}
+                  </span>
+                  <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
                     <span className="text-[10px] font-bold bg-amber-50 text-amber-800 px-2 py-0.5 rounded-full border border-amber-200 shrink-0 flex items-center gap-1">
                       <Sparkles className="w-2.5 h-2.5 text-amber-600" /> Custom
                     </span>
-                  ) : (
-                    <span className="text-[10px] font-bold bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full border border-blue-200/80 shrink-0">
-                      Default
-                    </span>
-                  )}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDuplicate(preset);
-                    }}
-                    className="p-1 text-gray-400 hover:text-gray-700 hover:bg-white rounded-lg transition-colors cursor-pointer"
-                    title="Duplicate Preset"
-                  >
-                    <Copy className="w-3.5 h-3.5" />
-                  </button>
-                  {preset.isCustom && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDuplicate(preset);
+                      }}
+                      className="p-1 text-gray-400 hover:text-gray-700 hover:bg-white rounded-lg transition-colors cursor-pointer"
+                      title="Duplicate Preset"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                    </button>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -364,146 +485,395 @@ export const CardBuilderStudio: React.FC = () => {
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
-                  )}
+                  </div>
+                </div>
+
+                <div className="p-4 bg-white">
+                  {/* Visual Card Preview */}
+                  <CardPresetView preset={preset} sampleData={currentModuleSchema?.sampleData} viewMode="sample" />
                 </div>
               </div>
-
-              <div className="p-4 bg-white">
-                {/* Visual Card Preview */}
-                <CardPresetView preset={preset} sampleData={currentModuleSchema?.sampleData} viewMode={viewMode} />
-              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Full-Viewport Studio Drawer (Portalled to document.body for 100% full-screen coverage) */}
       {isDrawerOpen && editingPreset && createPortal(
         <div className="fixed inset-0 top-0 left-0 right-0 bottom-0 z-[9999] overflow-hidden bg-black/50 flex justify-end animate-fade-in">
           <div className="w-full max-w-[96vw] bg-white shadow-2xl flex flex-col h-full">
             
-            {/* Studio Drawer Top Header */}
-            <div className="px-6 py-4 bg-white border-b border-gray-200 flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <span className="text-xs font-bold uppercase tracking-wider text-gray-400">
-                  {editingPreset.isCustom ? 'Advanced Studio Workstation' : 'Preset Quick Customize'}
-                </span>
-                <span className="text-gray-300">|</span>
-                
-                {/* Inline Editable Preset Title */}
-                <div className="flex items-center gap-1.5 group">
-                  <input
-                    type="text"
-                    value={editingPreset.name}
-                    onChange={(e) => handleUpdateEditing({ name: e.target.value })}
-                    style={{ width: `${Math.max(editingPreset.name.length + 1, 15)}ch` }}
-                    className="text-base font-extrabold text-gray-900 bg-transparent hover:bg-gray-100 focus:bg-white focus:ring-2 focus:ring-blue-500/40 px-2 py-0.5 rounded-md outline-none transition-all cursor-pointer"
-                  />
-                  <Edit3 className="w-3.5 h-3.5 text-gray-400 group-hover:text-blue-600 transition-colors" />
+            {/* Studio Drawer Top Header — Row 1: Name + Actions */}
+            <div className="px-8 py-3 bg-white border-b border-gray-100 flex items-center justify-between gap-6">
+              {/* Left: Name and Module */}
+              <div className="flex items-center gap-5 min-w-0">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider shrink-0">Name</label>
+                  <div className="flex items-center gap-2 bg-gray-50 hover:bg-gray-100 border border-gray-200 focus-within:border-blue-500 focus-within:bg-white rounded-lg px-3 py-1.5 transition-all">
+                    <input
+                      type="text"
+                      value={editingPreset.name}
+                      onChange={(e) => handleUpdateEditing({ name: e.target.value })}
+                      placeholder="Template Name"
+                      className="text-sm font-bold text-gray-900 bg-transparent outline-none w-64"
+                    />
+                    <Edit3 className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                  </div>
                 </div>
 
-                {editingPreset.isCustom && (
-                  <span className="text-[10px] font-bold bg-amber-50 text-amber-800 px-2 py-0.5 rounded-full border border-amber-200">
-                    Custom Layout
+                <div className="h-5 w-px bg-gray-200 shrink-0" />
+
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider shrink-0">Template for</label>
+                  <span className="text-sm font-semibold text-gray-700 truncate">
+                    {currentModuleSchema?.name || 'Academic Timetables'}
                   </span>
-                )}
+                </div>
               </div>
 
-              {/* Header Action Buttons & View Toggle */}
-              <div className="flex items-center gap-3">
-                {/* Blueprint / Live Sample Toggle inside Drawer Header */}
-                <div className="bg-gray-100 p-1 rounded-lg border border-gray-200/80 flex items-center gap-1 shadow-2xs">
-                  <button
-                    onClick={() => setViewMode('blueprint')}
-                    className={`px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
-                      viewMode === 'blueprint'
-                        ? 'bg-white text-blue-700 shadow-xs border border-gray-200/80'
-                        : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    Blueprint Slots
-                  </button>
-                  <button
-                    onClick={() => setViewMode('sample')}
-                    className={`px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
-                      viewMode === 'sample'
-                        ? 'bg-white text-blue-700 shadow-xs border border-gray-200/80'
-                        : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    Live Sample Data
-                  </button>
-                </div>
-
-                <div className="h-4 w-px bg-gray-200" />
-
+              {/* Right: Action Buttons */}
+              <div className="flex items-center gap-2.5 shrink-0">
                 <button
                   onClick={() => {
                     setIsDrawerOpen(false);
                     setEditingPreset(null);
                   }}
-                  className="px-4 py-1.5 rounded-[4px] border border-gray-300 hover:bg-gray-100 text-gray-700 text-xs font-bold transition-all cursor-pointer active:scale-95"
+                  className="px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-100 text-gray-700 text-xs font-bold transition-all cursor-pointer active:scale-95"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleSaveDrawer}
-                  className="px-4 py-1.5 rounded-[4px] bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs cursor-pointer active:scale-95 transition-all"
+                  className="px-4 py-2 rounded-lg border border-blue-300 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold transition-all cursor-pointer active:scale-95 flex items-center gap-1.5"
                 >
-                  Save
+                  <Save className="w-3.5 h-3.5" />
+                  <span>Save</span>
+                </button>
+                <button
+                  onClick={() => {
+                    if (editingPreset) {
+                      saveCardPreset({ ...editingPreset, htmlTemplate: htmlCode, isPublished: true });
+                      loadPresets();
+                      setIsDrawerOpen(false);
+                      setEditingPreset(null);
+                      setToastMessage(`Published "${editingPreset.name}" — now live across all modules!`);
+                      setTimeout(() => setToastMessage(null), 2500);
+                    }
+                  }}
+                  className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs cursor-pointer active:scale-95 transition-all flex items-center gap-1.5"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>Publish</span>
                 </button>
               </div>
             </div>
 
-            {/* Studio Drawer Content: 2 Clean Columns (Canvas 7 cols, Property & Design Controls 5 cols) */}
-            <div className="flex-1 overflow-y-auto p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 bg-gray-50/50">
-              
-              {/* Column 1: Interactive Studio Canvas (7 cols - Centered Card Preview) */}
-              <div className="lg:col-span-7 bg-slate-100/80 p-5 rounded-2xl border border-gray-200 shadow-2xs flex flex-col items-center justify-between h-fit space-y-4">
-                <div className="flex items-center justify-between w-full border-b border-gray-200/60 pb-3">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-gray-700 uppercase tracking-wider">
-                    <Eye className="w-4 h-4 text-blue-600" /> Interactive Studio Canvas
-                  </div>
-                  <span className="text-[11px] text-gray-400 font-medium">
-                    {viewMode === 'blueprint' ? '📐 Blueprint Slots Mode' : '👁️ Live Sample Data Mode'}
-                  </span>
-                </div>
-
-                <div className="w-full max-w-[420px] my-auto">
-                  <CardPresetView 
-                    preset={editingPreset} 
-                    sampleData={currentModuleSchema?.sampleData}
-                    viewMode={viewMode}
-                    onDropToSlot={handleDropToSlot}
-                    activeDragField={activeDragField}
-                    onSelectSlot={setActiveSlotName}
-                    activeSlotName={activeSlotName}
-                  />
-                </div>
-
-                {/* Bottom Divider & Muted Note Section */}
-                <div className="w-full border-t border-gray-200/50 pt-3 mt-1 space-y-1">
-                  <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider block">
-                    Note:
-                  </span>
-                  <p className="text-[10px] text-gray-400 font-normal leading-relaxed">
-                    This card layout template is optimized to display up to 5 primary visual regions:
-                  </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-0.5 text-[10px] text-gray-400 pt-0.5">
-                    <div>• <span className="text-gray-500 font-medium">Media Box:</span> Icon, Image, or Initials</div>
-                    <div>• <span className="text-gray-500 font-medium">Badge Pill:</span> Status or Category tag</div>
-                    <div>• <span className="text-gray-500 font-medium">Title:</span> Main heading text</div>
-                    <div>• <span className="text-gray-500 font-medium">Detail Lines:</span> 1–3 key metadata fields</div>
-                    <div className="sm:col-span-2">• <span className="text-gray-500 font-medium">Footer Action:</span> Action link or button</div>
-                  </div>
-                </div>
+            {/* Studio Drawer Top Header — Row 2: Wizard Steps */}
+            <div className="px-8 py-2 bg-gray-50/80 border-b border-gray-200 flex items-center justify-center">
+              <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-gray-200 shadow-2xs">
+                <button
+                  type="button"
+                  onClick={() => setWizardStep(1)}
+                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    wizardStep === 1
+                      ? 'bg-blue-50 text-blue-700 shadow-xs border border-blue-200'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-extrabold ${
+                    wizardStep === 1 ? 'bg-blue-600 text-white' : 'bg-gray-300 text-gray-700'
+                  }`}>1</span>
+                  <span>Choose Style</span>
+                </button>
+                <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
+                <button
+                  type="button"
+                  onClick={() => setWizardStep(2)}
+                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    wizardStep === 2
+                      ? 'bg-blue-50 text-blue-700 shadow-xs border border-blue-200'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-extrabold ${
+                    wizardStep === 2 ? 'bg-blue-600 text-white' : 'bg-gray-300 text-gray-700'
+                  }`}>2</span>
+                  <span>Decide Fields</span>
+                </button>
+                <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
+                <button
+                  type="button"
+                  onClick={() => setWizardStep(3)}
+                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    wizardStep === 3
+                      ? 'bg-blue-50 text-blue-700 shadow-xs border border-blue-200'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-extrabold ${
+                    wizardStep === 3 ? 'bg-blue-600 text-white' : 'bg-gray-300 text-gray-700'
+                  }`}>3</span>
+                  <span>Decide Colors</span>
+                </button>
               </div>
-              {/* Column 2: Property Controls, Design Settings & Label Modes (5 cols) */}
-              <div className="lg:col-span-5 bg-white p-5 rounded-2xl border border-gray-200 shadow-2xs space-y-5 max-h-[760px] overflow-y-auto">
-                <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center gap-1.5 border-b border-gray-100 pb-2.5">
-                  <Sliders className="w-4 h-4 text-blue-600" /> Style & Property Controls
-                </h3>
-                <div className="space-y-4 text-xs">
+            </div>
+
+            {/* Studio Drawer Content Area */}
+            <div className="flex-1 overflow-y-auto p-6 bg-gray-50/50">
+
+              {/* STEP 1: Select Style (Slide 2: 5 Styles Across the Screen) */}
+              {wizardStep === 1 && (
+                <div className="space-y-6">
+                  {/* Style Gallery Grid: 3 columns, authentic card dimensions */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto py-2">
+                    {/* The 4 Base Card Styles */}
+                    {BASE_STYLE_OPTIONS.map((styleOpt) => {
+                      const basePreset = INITIAL_CARD_PRESETS.find(p => p.id === styleOpt.id) || INITIAL_CARD_PRESETS[0];
+                      const isSelected = !editingPreset.isCustom && editingPreset.presetStyleType === basePreset.presetStyleType;
+
+                      return (
+                        <div
+                          key={styleOpt.id}
+                          onClick={() => handleSelectBaseStyle(styleOpt.id)}
+                          className="group cursor-pointer flex flex-col space-y-3 transition-all"
+                        >
+                          {/* Card Header Strip */}
+                          <div className="flex items-center justify-between px-1">
+                            <span className="text-sm font-extrabold text-gray-900 group-hover:text-blue-600 transition-colors">
+                              {styleOpt.name}
+                            </span>
+                            {isSelected && (
+                              <span className="text-xs font-bold text-white bg-blue-600 px-3 py-0.5 rounded-full flex items-center gap-1 shadow-xs">
+                                <Check className="w-3.5 h-3.5" /> Selected
+                              </span>
+                            )}
+                          </div>
+
+                          {/* The Real Authentic Card */}
+                          <div className={`rounded-2xl transition-all duration-200 ${
+                            isSelected
+                              ? 'ring-4 ring-blue-600 ring-offset-2 shadow-xl scale-[1.01]'
+                              : 'hover:shadow-lg hover:-translate-y-1'
+                          }`}>
+                            <CardPresetView
+                              preset={basePreset}
+                              sampleData={currentModuleSchema?.sampleData}
+                              viewMode="sample"
+                              wizardStep={1}
+                              className="w-full min-h-[260px]"
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {/* Card 5: Custom HTML Card Option */}
+                    <div
+                      onClick={() => handleSelectBaseStyle('custom-html')}
+                      className="group cursor-pointer flex flex-col space-y-3 transition-all"
+                    >
+                      <div className="flex items-center justify-between px-1">
+                        <span className="text-sm font-extrabold text-gray-900 group-hover:text-indigo-600 transition-colors">
+                          Custom HTML
+                        </span>
+                        {editingPreset.isCustom && (
+                          <span className="text-xs font-bold text-white bg-indigo-600 px-3 py-0.5 rounded-full flex items-center gap-1 shadow-xs">
+                            <Check className="w-3.5 h-3.5" /> Selected
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Card Dimension Container for Custom HTML */}
+                      <div className={`min-h-[260px] bg-white rounded-2xl border-2 border-dashed flex flex-col justify-between p-6 transition-all duration-200 ${
+                        editingPreset.isCustom
+                          ? 'border-indigo-600 ring-4 ring-indigo-600 ring-offset-2 shadow-xl scale-[1.01] bg-indigo-50/20'
+                          : 'border-gray-300 hover:border-indigo-400 hover:shadow-lg hover:-translate-y-1'
+                      }`}>
+                        <div className="flex items-start justify-between">
+                          <div className="w-11 h-11 rounded-2xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold shadow-xs">
+                            <Code className="w-5 h-5" />
+                          </div>
+                          <span className="text-[10px] font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded-md uppercase tracking-wider">
+                            HTML / Tailwind
+                          </span>
+                        </div>
+
+                        <div className="space-y-1.5 my-auto py-2">
+                          <h4 className="font-extrabold text-sm text-gray-900">Custom HTML Markup</h4>
+                          <p className="text-xs text-gray-500 leading-relaxed">
+                            Write custom HTML and tag elements with dynamic slot attributes for full styling freedom.
+                          </p>
+                        </div>
+
+                        <div className="pt-3 border-t border-gray-100 flex items-center justify-between">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSelectBaseStyle('custom-html');
+                            }}
+                            className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                            <span>Open HTML Editor</span>
+                          </button>
+                          <span className="text-[11px] font-mono text-gray-400 font-medium">data-slot="..."</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Bottom Navigation Strip */}
+                  <div className="p-4 bg-white rounded-2xl border border-gray-200 flex items-center justify-between shadow-2xs">
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="font-bold text-gray-500">Selected Style:</span>
+                      <span className="font-extrabold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200">
+                        {editingPreset.isCustom ? 'Custom HTML Template' : editingPreset.name}
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setWizardStep(2)}
+                      className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs cursor-pointer active:scale-95 transition-all flex items-center gap-2"
+                    >
+                      <span>Next: Decide Fields</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 2: Decide Fields (Slide 3 & 4: Center Card with Slots, Right Sidebar Data Available) */}
+              {wizardStep === 2 && (
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                  
+                  {/* Center / Left Stage: The Selected Card with Droppable Slots (8 cols) */}
+                  <div className="lg:col-span-8 bg-slate-100/90 p-6 rounded-2xl border border-gray-200 shadow-2xs flex flex-col min-h-[620px]">
+                    <div className="flex items-center justify-between border-b border-gray-200 pb-3 flex-wrap gap-2">
+                      <div className="flex items-center gap-2">
+                        <Database className="w-4 h-4 text-blue-600" />
+                        <h2 className="text-xs font-extrabold text-gray-900 uppercase tracking-wider">
+                          Step 2: Adjust Fields & Card Slots
+                        </h2>
+                      </div>
+                      <span className="text-[11px] text-gray-500">
+                        Drag fields from right onto Slot 1 – Slot 5
+                      </span>
+                    </div>
+
+                    {/* Prominent Card Display with Dashed Droppable Slot Boxes */}
+                    <div className="flex-1 flex items-center justify-center">
+                      <div className="w-full max-w-[480px]">
+                      <CardPresetView 
+                        preset={editingPreset} 
+                        sampleData={currentModuleSchema?.sampleData}
+                        wizardStep={2}
+                        availableFields={currentModuleSchema?.fields}
+                        onDropToSlot={handleDropToSlot}
+                        activeDragField={activeDragField}
+                      />
+                      </div>
+                    </div>
+
+                  </div>
+
+                  {/* Right Sidebar: Data Available (4 cols) matching Slide 3 & Slide 4 */}
+                  <div className="lg:col-span-4 bg-white p-5 rounded-2xl border border-gray-200 shadow-2xs space-y-5">
+                    {/* Header */}
+                    <div className="border-b border-gray-100 pb-3">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-xs font-extrabold text-gray-900 uppercase tracking-wider flex items-center gap-1.5">
+                          <Database className="w-4 h-4 text-blue-600" /> Fields Available
+                        </h3>
+                        <span className="text-[10px] font-bold bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full border border-blue-200">
+                          {currentModuleSchema?.fields.length || 0} Fields
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-gray-500 mt-1">
+                        Drag any field onto card slots or click a slot on the card to map.
+                      </p>
+                    </div>
+
+                    {/* Draggable Fields List */}
+                    <div className="space-y-2.5">
+                      {currentModuleSchema?.fields.map((f) => (
+                        <div
+                          key={f.name}
+                          draggable
+                          onDragStart={(e) => {
+                            e.dataTransfer.setData('text/plain', f.name);
+                            setActiveDragField(f.name);
+                          }}
+                          onDragEnd={() => setActiveDragField(null)}
+                          className="p-3 bg-white hover:bg-blue-50/80 border border-gray-200 hover:border-blue-400 rounded-xl shadow-2xs transition-all cursor-grab active:cursor-grabbing flex items-center justify-between group select-none hover:shadow-xs"
+                          title={`Drag "${f.label}" onto a card slot`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span className="text-gray-400 group-hover:text-blue-600 font-mono text-sm leading-none">⠿</span>
+                            <div className="min-w-0">
+                              <div className="font-extrabold text-xs text-gray-800 group-hover:text-blue-800 truncate">
+                                {f.label}
+                              </div>
+                            </div>
+                          </div>
+                          <span className="text-[10px] font-bold bg-gray-100 group-hover:bg-blue-600 text-gray-600 group-hover:text-white px-2 py-0.5 rounded-md transition-colors shrink-0">
+                            Drag ↗
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Quick Slot Mapping Overview & Configuration */}
+                    <div className="pt-3 border-t border-gray-100 space-y-2.5">
+                      <span className="text-[11px] font-extrabold text-gray-700 uppercase tracking-wide block">
+                        Current Slot Mapping:
+                      </span>
+                      <div className="space-y-1.5 text-xs">
+                        {/* Slot 1 — Locked / Style-configured */}
+                        <div className="flex items-center justify-between p-2 rounded-lg border bg-gray-50 border-gray-200">
+                          <span className="font-bold text-gray-700">Slot 1 (Media/Logo):</span>
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-gray-400 bg-gray-100 border border-gray-200 px-1.5 py-0.5 rounded">
+                            🔒 {editingPreset.mediaSlot?.type || 'initials'}
+                          </span>
+                        </div>
+                        {/* Slots 2–4 — Droppable field slots */}
+                        {[
+                          { label: 'Slot 2 (Badge)', value: editingPreset.badgeSlot?.fieldVar },
+                          { label: 'Slot 3 (Title)', value: editingPreset.titleSlot?.fieldVar },
+                          { label: 'Slot 4 (Subtitle)', value: editingPreset.subtitleSlot?.fieldVar },
+                        ].map((slot) => (
+                          <div key={slot.label} className={`flex items-center justify-between p-2 rounded-lg border ${slot.value ? 'bg-gray-50 border-gray-200' : 'bg-gray-50/50 border-dashed border-gray-200'}`}>
+                            <span className={`font-bold ${slot.value ? 'text-gray-700' : 'text-gray-400'}`}>{slot.label}:</span>
+                            {slot.value ? (
+                              <span className="font-mono text-blue-700 text-[11px] font-bold">{slot.value}</span>
+                            ) : (
+                              <span className="text-gray-300 text-[11px]">—</span>
+                            )}
+                          </div>
+                        ))}
+                        {/* Slot 5 — Locked / Label-only */}
+                        <div className="flex items-center justify-between p-2 rounded-lg border bg-gray-50 border-gray-200">
+                          <span className="font-bold text-gray-700">Slot 5 (Action Link):</span>
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-gray-400 bg-gray-100 border border-gray-200 px-1.5 py-0.5 rounded">
+                            🔒 {editingPreset.footerRightSlot?.label || 'View Document'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 3: Colors & Style Factors */}
+              {wizardStep === 3 && (
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                  {/* Step 3 Left Panel (5 cols): The 8 Style & Property Controls */}
+                  <div className="lg:col-span-5 bg-white p-5 rounded-2xl border border-gray-200 shadow-2xs space-y-5 max-h-[760px] overflow-y-auto">
+                    <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center gap-1.5 border-b border-gray-100 pb-2.5">
+                      <Sliders className="w-4 h-4 text-blue-600" /> Style & Property Controls
+                    </h3>
+                    <div className="space-y-4 text-xs">
                     {/* 1. Theme & Background Colors */}
                     <div className="border border-gray-100 p-3.5 rounded-xl bg-gray-50/50 space-y-3">
                       <div className="flex items-center justify-between">
@@ -688,47 +1058,7 @@ export const CardBuilderStudio: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Badge Pill Custom Color Overrides */}
-                    <div className="pt-2.5 border-t border-gray-200/60 flex items-center justify-between">
-                      <label className="text-xs text-gray-700 font-semibold">Badge Pill Colors</label>
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-1">
-                          <span className="text-[10px] text-gray-500 font-medium">BG:</span>
-                          <div className="flex items-center gap-1 bg-white px-2 py-0.5 rounded-lg border border-gray-300">
-                            <input
-                              type="color"
-                              value={editingPreset.badgeSlot?.bgColor || '#eff6ff'}
-                              onChange={(e) => handleUpdateEditing({
-                                badgeSlot: { ...editingPreset.badgeSlot, bgColor: e.target.value }
-                              })}
-                              className="w-4 h-3.5 rounded-xs cursor-pointer border-0 p-0 shrink-0"
-                              title="Badge Pill Background Color"
-                            />
-                            <span className="text-[10px] font-bold font-mono text-gray-700">
-                              {editingPreset.badgeSlot?.bgColor || '#eff6ff'}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <span className="text-[10px] text-gray-500 font-medium">Text:</span>
-                          <div className="flex items-center gap-1 bg-white px-2 py-0.5 rounded-lg border border-gray-300">
-                            <input
-                              type="color"
-                              value={editingPreset.badgeSlot?.textColor || '#1d4ed8'}
-                              onChange={(e) => handleUpdateEditing({
-                                badgeSlot: { ...editingPreset.badgeSlot, textColor: e.target.value }
-                              })}
-                              className="w-4 h-3.5 rounded-xs cursor-pointer border-0 p-0 shrink-0"
-                              title="Badge Pill Text Color"
-                            />
-                            <span className="text-[10px] font-bold font-mono text-gray-700">
-                              {editingPreset.badgeSlot?.textColor || '#1d4ed8'}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
                     </div>
-                  </div>
 
                   {/* 2. Separate Accent Border Box */}
                   <div className="border border-gray-100 p-3.5 rounded-xl bg-gray-50/50 space-y-3">
@@ -1193,13 +1523,161 @@ export const CardBuilderStudio: React.FC = () => {
                     )}
                   </div>
 
-                  {/* 4. Footer Right Action Slot */}
-                  <div className="border border-gray-100 p-3.5 rounded-xl bg-gray-50/50 space-y-2">
+                  {/* 4. Badge Pill Settings */}
+                  <div className="border border-gray-100 p-3.5 rounded-xl bg-gray-50/50 space-y-3">
                     <div className="flex items-center justify-between">
-                      <label className="font-bold text-gray-800">4. Footer Right Action Link</label>
+                      <label className="font-bold text-gray-800">4. Badge Pill Settings (Year / Tag)</label>
                       <input
                         type="checkbox"
-                        checked={editingPreset.footerRightSlot?.enabled}
+                        checked={editingPreset.badgeSlot?.enabled !== false}
+                        onChange={(e) => handleUpdateEditing({
+                          badgeSlot: { ...editingPreset.badgeSlot, enabled: e.target.checked }
+                        })}
+                        className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                        title="Toggle Badge Pill"
+                      />
+                    </div>
+
+                    {editingPreset.badgeSlot?.enabled !== false && (
+                      <div className="space-y-2.5 pt-1">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[11px] text-gray-600 font-semibold">Badge Colors</label>
+                          <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-1">
+                              <span className="text-[10px] text-gray-500 font-medium">BG:</span>
+                              <div className="flex items-center gap-1 bg-white px-2 py-0.5 rounded-lg border border-gray-300 shadow-2xs">
+                                <input
+                                  type="color"
+                                  value={editingPreset.badgeSlot?.bgColor || '#eff6ff'}
+                                  onChange={(e) => handleUpdateEditing({
+                                    badgeSlot: { ...editingPreset.badgeSlot, bgColor: e.target.value }
+                                  })}
+                                  className="w-4 h-3.5 rounded-xs cursor-pointer border-0 p-0 shrink-0"
+                                />
+                                <span className="text-[10px] font-bold font-mono text-gray-700">
+                                  {editingPreset.badgeSlot?.bgColor || '#eff6ff'}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span className="text-[10px] text-gray-500 font-medium">Text:</span>
+                              <div className="flex items-center gap-1 bg-white px-2 py-0.5 rounded-lg border border-gray-300 shadow-2xs">
+                                <input
+                                  type="color"
+                                  value={editingPreset.badgeSlot?.textColor || '#1d4ed8'}
+                                  onChange={(e) => handleUpdateEditing({
+                                    badgeSlot: { ...editingPreset.badgeSlot, textColor: e.target.value }
+                                  })}
+                                  className="w-4 h-3.5 rounded-xs cursor-pointer border-0 p-0 shrink-0"
+                                />
+                                <span className="text-[10px] font-bold font-mono text-gray-700">
+                                  {editingPreset.badgeSlot?.textColor || '#1d4ed8'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-1 border-t border-gray-200/60">
+                          <label className="text-[11px] text-gray-600 font-semibold">Display Format</label>
+                          <select
+                            value={editingPreset.badgeSlot?.displayMode || 'value_only'}
+                            onChange={(e) => handleUpdateEditing({
+                              badgeSlot: { ...editingPreset.badgeSlot, displayMode: e.target.value as any }
+                            })}
+                            className="px-2 py-0.5 bg-white border border-gray-300 rounded-lg text-xs font-semibold text-gray-800 shadow-2xs cursor-pointer"
+                          >
+                            <option value="value_only">Value Only (2026-2027)</option>
+                            <option value="label_and_value">Label & Value (Year: 2026-2027)</option>
+                          </select>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-1 border-t border-gray-200/60">
+                          <label className="text-[11px] text-gray-600 font-semibold">Mapped Field</label>
+                          <select
+                            value={editingPreset.badgeSlot?.fieldVar || 'year'}
+                            onChange={(e) => handleDropToSlot('badgeSlot', e.target.value)}
+                            className="px-2 py-0.5 bg-white border border-gray-300 rounded-lg text-xs font-semibold text-blue-700 shadow-2xs cursor-pointer max-w-[190px]"
+                          >
+                            {(currentModuleSchema?.fields || [
+                              { name: 'year', label: 'Academic Year' },
+                              { name: 'title', label: 'Title' },
+                              { name: 'branch', label: 'Branch' },
+                              { name: 'semester', label: 'Semester' },
+                              { name: 'section', label: 'Section' },
+                            ]).map((f) => (
+                              <option key={f.name} value={f.name}>{f.label} ({f.name})</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 5. Subtitle & Detail Lines Settings */}
+                  <div className="border border-gray-100 p-3.5 rounded-xl bg-gray-50/50 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="font-bold text-gray-800">5. Subtitle & Detail Lines</label>
+                      <input
+                        type="checkbox"
+                        checked={editingPreset.subtitleSlot?.enabled !== false}
+                        onChange={(e) => handleUpdateEditing({
+                          subtitleSlot: { ...editingPreset.subtitleSlot, enabled: e.target.checked }
+                        })}
+                        className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                        title="Toggle Subtitle / Detail Lines"
+                      />
+                    </div>
+
+                    {editingPreset.subtitleSlot?.enabled !== false && (
+                      <div className="space-y-2 pt-1">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[11px] text-gray-600 font-semibold">Display Format</label>
+                          <select
+                            value={editingPreset.subtitleSlot?.displayMode || editingPreset.detailLineMode || 'value_only'}
+                            onChange={(e) => {
+                              const mode = e.target.value as any;
+                              handleUpdateEditing({
+                                detailLineMode: mode,
+                                subtitleSlot: { ...editingPreset.subtitleSlot, displayMode: mode }
+                              });
+                            }}
+                            className="px-2 py-0.5 bg-white border border-gray-300 rounded-lg text-xs font-semibold text-gray-800 shadow-2xs cursor-pointer"
+                          >
+                            <option value="value_only">Value Only (Food Technology • Sem 1)</option>
+                            <option value="label_and_value">Label & Value (Branch: Food Technology)</option>
+                          </select>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-1 border-t border-gray-200/60">
+                          <label className="text-[11px] text-gray-600 font-semibold">Mapped Field</label>
+                          <select
+                            value={editingPreset.subtitleSlot?.fieldVar || 'recipient'}
+                            onChange={(e) => handleDropToSlot('subtitleSlot', e.target.value)}
+                            className="px-2 py-0.5 bg-white border border-gray-300 rounded-lg text-xs font-semibold text-blue-700 shadow-2xs cursor-pointer max-w-[190px]"
+                          >
+                            {(currentModuleSchema?.fields || [
+                              { name: 'recipient', label: 'Program & Semester' },
+                              { name: 'branch', label: 'Branch' },
+                              { name: 'semester', label: 'Semester' },
+                              { name: 'section', label: 'Section' },
+                              { name: 'year', label: 'Academic Year' },
+                            ]).map((f) => (
+                              <option key={f.name} value={f.name}>{f.label} ({f.name})</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 6. Footer Right Action Slot */}
+                  <div className="border border-gray-100 p-3.5 rounded-xl bg-gray-50/50 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="font-bold text-gray-800">6. Footer Right Action Link</label>
+                      <input
+                        type="checkbox"
+                        checked={editingPreset.footerRightSlot?.enabled !== false}
                         onChange={(e) => handleUpdateEditing({
                           footerRightSlot: { ...editingPreset.footerRightSlot, enabled: e.target.checked }
                         })}
@@ -1207,39 +1685,56 @@ export const CardBuilderStudio: React.FC = () => {
                       />
                     </div>
 
-                    {editingPreset.footerRightSlot?.enabled && (
+                    {editingPreset.footerRightSlot?.enabled !== false && (
                       <div className="space-y-2 pt-1">
                         <div>
                           <label className="text-[11px] font-semibold text-gray-600 block mb-1">Action Text Label</label>
                           <input
                             type="text"
-                            value={editingPreset.footerRightSlot.label}
+                            value={editingPreset.footerRightSlot.label || 'Download PDF'}
                             onChange={(e) => handleUpdateEditing({
                               footerRightSlot: { ...editingPreset.footerRightSlot, label: e.target.value }
                             })}
-                            className="w-full px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs"
-                            placeholder="View Document"
+                            className="w-full px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs bg-white font-medium"
+                            placeholder="Download PDF"
                           />
                         </div>
                         <div className="flex items-center justify-between pt-1">
                           <label className="text-[11px] text-gray-600 font-semibold">Show Arrow Icon ↗</label>
                           <input
                             type="checkbox"
-                            checked={editingPreset.footerRightSlot.showArrow}
+                            checked={editingPreset.footerRightSlot.showArrow !== false}
                             onChange={(e) => handleUpdateEditing({
                               footerRightSlot: { ...editingPreset.footerRightSlot, showArrow: e.target.checked }
                             })}
                             className="rounded text-blue-600 focus:ring-blue-500 w-3.5 h-3.5 cursor-pointer"
                           />
                         </div>
+
+                        <div className="flex items-center justify-between pt-1 border-t border-gray-200/60">
+                          <label className="text-[11px] text-gray-600 font-semibold">Mapped Link Field</label>
+                          <select
+                            value={editingPreset.footerRightSlot?.fieldVar || 'pdf_url'}
+                            onChange={(e) => handleDropToSlot('footerRightSlot', e.target.value)}
+                            className="px-2 py-0.5 bg-white border border-gray-300 rounded-lg text-xs font-semibold text-blue-700 shadow-2xs cursor-pointer max-w-[190px]"
+                          >
+                            {(currentModuleSchema?.fields || [
+                              { name: 'pdf_url', label: 'PDF Document Link' },
+                              { name: 'link', label: 'External URL' },
+                              { name: 'title', label: 'Title' },
+                            ]).map((f) => (
+                              <option key={f.name} value={f.name}>{f.label} ({f.name})</option>
+                            ))}
+                          </select>
+                        </div>
                       </div>
                     )}
                   </div>
 
-                  {/* 5. Card Aesthetics & Geometry Panel */}
+                  {/* 7. Card Aesthetics & Geometry Panel */}
                   <div className="border border-gray-100 p-3.5 rounded-xl bg-gray-50/50 space-y-3.5">
                     <div className="flex items-center justify-between">
-                      <label className="font-bold text-gray-800 block">5. Card Aesthetics & Geometry</label>
+                      <label className="font-bold text-gray-800 block">7. Card Aesthetics & Geometry</label>
                       <input
                         type="checkbox"
                         checked={editingPreset.showDivider !== false || (editingPreset.shadowSize && editingPreset.shadowSize !== 'none') || (editingPreset.borderRadius && editingPreset.borderRadius !== 'none')}
@@ -1349,9 +1844,9 @@ export const CardBuilderStudio: React.FC = () => {
                     )}
                   </div>
 
-                  {/* 6. Dedicated Hover Effect Panel */}
+                  {/* 8. Dedicated Hover Effect Panel */}
                   <div className="border border-gray-100 p-3.5 rounded-xl bg-gray-50/50 space-y-2">
-                    <label className="font-bold text-gray-800 block">6. Hover Effect Settings</label>
+                    <label className="font-bold text-gray-800 block">8. Hover Effect Settings</label>
 
                     <div className="grid grid-cols-4 gap-1 pt-1">
                       {[
@@ -1375,55 +1870,347 @@ export const CardBuilderStudio: React.FC = () => {
                       ))}
                     </div>
                   </div>
+                  {/* 9. Tweak HTML — Advanced Layout Editor */}
+                  <div className="border border-indigo-100 rounded-xl bg-indigo-50/40">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!showTweakHtml) {
+                          const styleId = editingPreset.isCustom ? 'style-1' : (
+                            editingPreset.presetStyleType === 'official' ? 'style-1' :
+                            editingPreset.presetStyleType === 'minimal' ? 'style-2' :
+                            editingPreset.presetStyleType === 'gradient-banner' ? 'style-3' :
+                            editingPreset.presetStyleType === 'split-card' ? 'style-4' : 'style-1'
+                          );
+                          const baseHtml = editingPreset.htmlTemplate || DEFAULT_CARD_HTML_TEMPLATES[styleId] || DEFAULT_CARD_HTML_TEMPLATES['style-1'] || '';
+                          setHtmlCode(baseHtml);
+                        }
+                        setShowTweakHtml(prev => !prev);
+                      }}
+                      className="w-full p-3.5 flex items-center justify-between text-xs font-bold text-indigo-700 hover:text-indigo-900 transition-colors cursor-pointer group rounded-xl"
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <Code className="w-3.5 h-3.5" />
+                        9. Tweak HTML Layout
+                      </span>
+                      <span className={`text-indigo-400 transition-transform duration-200 ${showTweakHtml ? 'rotate-180' : ''}`}>
+                        ▾
+                      </span>
+                    </button>
 
-                  {/* 7. Slot Text Formatting */}
-                  <div className="border border-gray-100 p-3.5 rounded-xl bg-gray-50/50 space-y-2.5">
-                    <label className="font-bold text-gray-800 block">7. Slot Text Formatting</label>
-
-                    <div className="space-y-2 pt-1">
-                      {/* Subtitle / Details Slot */}
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-gray-700 font-semibold">Subtitle / Detail Lines</span>
-                        <select
-                          value={editingPreset.subtitleSlot?.displayMode || editingPreset.detailLineMode || 'value_only'}
+                    {showTweakHtml && (
+                      <div className="px-3.5 pb-3.5 space-y-2">
+                        <p className="text-[10px] text-indigo-600/80 leading-relaxed">
+                          Edit Tailwind classes for alignment, spacing, typography. Keep{' '}
+                          <code className="bg-white text-indigo-700 px-1 rounded font-mono border border-indigo-200">data-slot="..."</code>{' '}
+                          attributes — they wire your fields. The right panel shows a live preview.
+                        </p>
+                        <textarea
+                          value={htmlCode}
                           onChange={(e) => {
-                            const mode = e.target.value as any;
-                            handleUpdateEditing({
-                              detailLineMode: mode,
-                              subtitleSlot: { ...editingPreset.subtitleSlot, displayMode: mode }
-                            });
+                            const val = e.target.value;
+                            setHtmlCode(val);
+                            setEditingPreset(prev => prev ? { ...prev, htmlTemplate: val } : prev);
                           }}
-                          className="px-2.5 py-1 bg-white border border-gray-300 rounded-lg text-xs font-semibold text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-2xs cursor-pointer"
-                        >
-                          <option value="value_only">Value Only</option>
-                          <option value="label_and_value">Label & Value</option>
-                        </select>
-                      </div>
-
-                      {/* Badge Slot */}
-                      {editingPreset.badgeSlot?.enabled !== false && (
-                        <div className="flex items-center justify-between pt-1 border-t border-gray-200/60">
-                          <span className="text-xs text-gray-700 font-semibold">Badge Pill</span>
-                          <select
-                            value={editingPreset.badgeSlot?.displayMode || 'value_only'}
-                            onChange={(e) => handleUpdateEditing({
-                              badgeSlot: { ...editingPreset.badgeSlot, displayMode: e.target.value as any }
-                            })}
-                            className="px-2.5 py-1 bg-white border border-gray-300 rounded-lg text-xs font-semibold text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-2xs cursor-pointer"
+                          spellCheck={false}
+                          className="w-full h-48 p-3 text-[11px] font-mono bg-gray-900 text-green-300 rounded-xl border border-gray-700 resize-y outline-none focus:ring-2 focus:ring-indigo-500/50 leading-relaxed"
+                          placeholder={'<div class="p-5 space-y-4">...</div>'}
+                        />
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] text-indigo-500 italic flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
+                            Auto-applies · saved via <strong className="not-italic text-indigo-700">Save &amp; Publish</strong>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const styleId = editingPreset.isCustom ? 'style-1' : (
+                                editingPreset.presetStyleType === 'official' ? 'style-1' :
+                                editingPreset.presetStyleType === 'minimal' ? 'style-2' :
+                                editingPreset.presetStyleType === 'gradient-banner' ? 'style-3' :
+                                editingPreset.presetStyleType === 'split-card' ? 'style-4' : 'style-1'
+                              );
+                              const orig = DEFAULT_CARD_HTML_TEMPLATES[styleId] || '';
+                              setHtmlCode(orig);
+                              setEditingPreset(prev => prev ? { ...prev, htmlTemplate: orig } : prev);
+                            }}
+                            className="text-[10px] text-gray-400 hover:text-red-500 underline cursor-pointer transition-colors"
                           >
-                            <option value="value_only">Value Only</option>
-                            <option value="label_and_value">Label & Value</option>
-                          </select>
+                            Reset to default
+                          </button>
                         </div>
+                      </div>
+                    )}
+                  </div>
+
+                </div>
+              </div>
+
+                  {/* Step 3 Right Panel (7 cols): Studio Canvas for Final Production Card */}
+                  <div className="lg:col-span-7 bg-slate-100/80 p-5 rounded-2xl border border-gray-200 shadow-2xs flex flex-col items-center justify-between min-h-[560px] space-y-4">
+                    <div className="flex items-center justify-between w-full border-b border-gray-200/60 pb-3 flex-wrap gap-2">
+                      <div className="flex items-center gap-2">
+                        <Eye className="w-4 h-4 text-blue-600" />
+                        <span className="text-xs font-bold text-gray-700 uppercase tracking-wider">Step 3: Colors & Style Factors (Production Preview)</span>
+                      </div>
+                      <div className="bg-white border border-gray-200 p-0.5 rounded-lg flex items-center gap-1 shadow-2xs">
+                        <button
+                          type="button"
+                          onClick={() => setViewMode('blueprint')}
+                          className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
+                            viewMode === 'blueprint' ? 'bg-blue-600 text-white shadow-xs' : 'text-gray-600 hover:text-gray-900'
+                          }`}
+                        >
+                          Blueprint
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setViewMode('sample')}
+                          className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
+                            viewMode === 'sample' ? 'bg-blue-600 text-white shadow-xs' : 'text-gray-600 hover:text-gray-900'
+                          }`}
+                        >
+                          Live Sample
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="w-full max-w-[420px] my-auto">
+                      {showTweakHtml && htmlCode ? (
+                        // When Tweak HTML is open: swap to live HTML-rendered preview
+                        <div className="flex flex-col gap-2">
+                          {/* Label floats above the card, clearly outside it */}
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse inline-block" />
+                            <span className="text-[10px] font-extrabold uppercase tracking-wider text-indigo-500">
+                              Live HTML Preview
+                            </span>
+                          </div>
+                          {/* Pure card HTML — no inner header */}
+                          <div className="rounded-2xl border-2 border-dashed border-indigo-300 bg-white shadow-md overflow-hidden">
+                            <div dangerouslySetInnerHTML={{ __html: htmlCode }} />
+                          </div>
+                        </div>
+                      ) : (
+                        <CardPresetView 
+                          preset={editingPreset} 
+                          sampleData={currentModuleSchema?.sampleData}
+                          wizardStep={3}
+                          viewMode={viewMode}
+                        />
                       )}
+                    </div>
+
+                    <div className="w-full border-t border-gray-200/60 pt-4 flex items-center justify-between">
+                      <button
+                        type="button"
+                        onClick={() => setWizardStep(2)}
+                        className="px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-100 text-gray-700 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 active:scale-95"
+                      >
+                        <ArrowLeft className="w-4 h-4" />
+                        <span>Back: Decide Fields</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSaveDrawer}
+                        className="px-6 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs cursor-pointer active:scale-95 transition-all flex items-center gap-2"
+                      >
+                        <Save className="w-4 h-4" />
+                        <span>Save & Publish Template</span>
+                      </button>
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
+
+            {/* Custom HTML Editor Modal (Opened on click of Custom HTML card) */}
+            {showHtmlEditor && (
+              <div className="fixed inset-0 z-[10000] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in">
+                <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-3xl flex flex-col max-h-[85vh] overflow-hidden">
+                  {/* Modal Header */}
+                  <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gray-50/80">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold">
+                        <Code className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-extrabold text-gray-900">Custom HTML Card Template</h3>
+                        <p className="text-[11px] text-gray-500">
+                          Tag any element with <code className="bg-white px-1 py-0.5 rounded text-indigo-700 font-bold border border-indigo-200">class="dynamicFieldDeclaration"</code> and <code className="bg-white px-1 py-0.5 rounded text-indigo-700 font-bold border border-indigo-200">data-slot="..."</code>
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setShowHtmlEditor(false)}
+                      className="p-1.5 rounded-lg hover:bg-gray-200 text-gray-500 hover:text-gray-800 transition-colors cursor-pointer"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  {/* Modal Body */}
+                  <div className="p-6 space-y-4 overflow-y-auto flex-1">
+                    {/* Quick Insert Buttons */}
+                    <div className="space-y-1.5">
+                      <span className="text-xs font-bold text-gray-700 block">Quick Insert Dynamic Slot Tags:</span>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleInsertSlotTag('badgeSlot')}
+                          className="px-3 py-1.5 text-xs font-bold bg-gray-100 hover:bg-blue-50 hover:text-blue-700 text-gray-700 rounded-lg border border-gray-200 transition-all cursor-pointer shadow-2xs active:scale-95 flex items-center gap-1"
+                        >
+                          + 🏷️ Badge Area
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleInsertSlotTag('titleSlot')}
+                          className="px-3 py-1.5 text-xs font-bold bg-gray-100 hover:bg-blue-50 hover:text-blue-700 text-gray-700 rounded-lg border border-gray-200 transition-all cursor-pointer shadow-2xs active:scale-95 flex items-center gap-1"
+                        >
+                          + 📌 Main Title
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleInsertSlotTag('subtitleSlot')}
+                          className="px-3 py-1.5 text-xs font-bold bg-gray-100 hover:bg-blue-50 hover:text-blue-700 text-gray-700 rounded-lg border border-gray-200 transition-all cursor-pointer shadow-2xs active:scale-95 flex items-center gap-1"
+                        >
+                          + 📝 Subtitle Area
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleInsertSlotTag('footerRightSlot')}
+                          className="px-3 py-1.5 text-xs font-bold bg-gray-100 hover:bg-blue-50 hover:text-blue-700 text-gray-700 rounded-md border border-gray-200 transition-all cursor-pointer shadow-2xs active:scale-95 flex items-center gap-1"
+                        >
+                          + 🔗 Action Link
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Monospace Code Editor */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-gray-700">HTML Markup:</label>
+                        <span className="text-[11px] text-gray-500 font-mono">
+                          {extractDynamicSlots(htmlCode || '').length} slots detected
+                        </span>
+                      </div>
+                      <textarea
+                        value={htmlCode}
+                        onChange={(e) => {
+                          setHtmlCode(e.target.value);
+                          handleUpdateEditing({ htmlTemplate: e.target.value });
+                        }}
+                        rows={13}
+                        className="w-full font-mono text-xs p-4 bg-slate-900 text-emerald-400 rounded-xl border border-slate-800 focus:ring-2 focus:ring-indigo-500/50 outline-none resize-y leading-relaxed"
+                        placeholder="Paste or write HTML here..."
+                      />
+                    </div>
+
+                    {/* Detected slots list */}
+                    <div className="flex flex-wrap items-center gap-1.5 p-3 bg-gray-50 rounded-xl border border-gray-200">
+                      <span className="text-xs font-bold text-gray-600">Detected Droppable Slots:</span>
+                      {extractDynamicSlots(htmlCode || '').map((slot) => (
+                        <span key={slot} className="inline-flex items-center gap-1 text-[11px] font-bold bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full border border-emerald-300">
+                          <Check className="w-3 h-3 text-emerald-700" />
+                          {slot === 'badgeSlot' ? '🏷️ Badge Area' :
+                           slot === 'titleSlot' ? '📌 Main Title' :
+                           slot === 'subtitleSlot' ? '📝 Subtitle Area' :
+                           slot === 'footerRightSlot' ? '🔗 Action Link' :
+                           slot === 'mediaSlot' ? '🖼️ Media Box' : slot}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Modal Footer */}
+                  <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between bg-gray-50/80">
+                    <button
+                      type="button"
+                      onClick={() => setShowHtmlEditor(false)}
+                      className="px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-100 text-gray-700 text-xs font-bold transition-all cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleUpdateEditing({ 
+                          htmlTemplate: htmlCode,
+                          presetStyleType: 'custom',
+                          isCustom: true
+                        });
+                        setShowHtmlEditor(false);
+                        setToastMessage('Custom HTML layout applied!');
+                        setTimeout(() => setToastMessage(null), 2500);
+                      }}
+                      className="px-5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs cursor-pointer active:scale-95 transition-all flex items-center gap-1.5"
+                    >
+                      <Check className="w-4 h-4" />
+                      <span>Apply Custom HTML & Close</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>,
         document.body
+      )}
+
+      {/* Upfront Module Selection Modal for New Template */}
+      {isNewModalOpen && (
+        <div className="fixed inset-0 z-[10000] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-150">
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gray-50/80">
+              <div>
+                <h3 className="text-sm font-extrabold text-gray-900">Create Card Template</h3>
+                <p className="text-xs text-gray-500">Select which module this card template will be designed for:</p>
+              </div>
+              <button
+                onClick={() => setIsNewModalOpen(false)}
+                className="p-1 rounded-lg hover:bg-gray-200 text-gray-400 hover:text-gray-700 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-2.5 max-h-[60vh] overflow-y-auto">
+              {allModuleSchemas.map((schema) => (
+                <button
+                  key={schema.id}
+                  type="button"
+                  onClick={() => handleOpenNewWithModule(schema.id)}
+                  className="w-full p-3.5 rounded-xl border border-gray-200 hover:border-blue-500 hover:bg-blue-50/60 flex items-center justify-between transition-all group cursor-pointer text-left"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">
+                      {schema.id === 'timetable' ? '📅' :
+                       schema.id === 'aqar' ? '📜' :
+                       schema.id === 'affiliation' ? '🏛️' :
+                       schema.id === 'results' ? '🏆' : '📊'}
+                    </span>
+                    <div>
+                      <h4 className="text-xs font-extrabold text-gray-900 group-hover:text-blue-700">
+                        {schema.name}
+                      </h4>
+                      <p className="text-[11px] text-gray-500">
+                        {schema.fields.length} available fields ({schema.fields.map(f => f.label).slice(0, 3).join(', ')}...)
+                      </p>
+                    </div>
+                  </div>
+                  <div className="w-7 h-7 rounded-lg bg-gray-100 group-hover:bg-blue-600 group-hover:text-white text-gray-400 flex items-center justify-center transition-colors shrink-0">
+                    <ArrowRight className="w-4 h-4" />
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            <div className="px-6 py-3 bg-gray-50 border-t border-gray-100 text-[11px] text-gray-400 flex items-center gap-1.5">
+              <Lock className="w-3 h-3 text-gray-400" />
+              <span>Target module is selected upfront to prevent slot mapping conflicts.</span>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

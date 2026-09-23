@@ -8,7 +8,8 @@ import {
   Search,
   ShoppingBag,
   Code2,
-  Layers
+  Layers,
+  Briefcase
 } from 'lucide-react';
 import { MenuItem } from '../../types/navigation';
 
@@ -62,9 +63,13 @@ export const superadminMenuItems: MenuItem[] = [
     icon: 'circle',
   },
   {
-    id: 'platform-settings',
-    label: 'Platform Setup & Configuration',
-    icon: 'database',
+    id: 'careers',
+    label: 'Careers',
+    icon: 'briefcase',
+    children: [
+      { id: 'career-postings', label: 'Job Postings' },
+      { id: 'career-responses', label: 'Job Posting Responses' },
+    ],
   },
 ];
 
@@ -115,6 +120,15 @@ export const getCollegeAdminMenuItems = (): MenuItem[] => {
       children: [
         { id: 'photo-gallery', label: 'Photo Gallery' },
         { id: 'admission-enquiry', label: 'Website Admission Enquiry Form' },
+      ],
+    },
+    {
+      id: 'careers',
+      label: 'Careers',
+      icon: 'briefcase',
+      children: [
+        { id: 'career-postings', label: 'Job Postings' },
+        { id: 'career-responses', label: 'Job Posting Responses' },
       ],
     },
     {
@@ -191,6 +205,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     homepage: false,
     website: false,
     'website-builder': false,
+    careers: false,
   });
 
   const isSuperAdmin = portalRole === 'superadmin';
@@ -269,6 +284,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   {item.icon === 'code' && <Code2 className="w-4 h-4" />}
                   {item.icon === 'circle' && <Circle className="w-4 h-4 stroke-[2]" />}
                   {item.icon === 'layers' && <Layers className="w-4 h-4" />}
+                  {item.icon === 'briefcase' && <Briefcase className="w-4 h-4" />}
                   <span>{item.label}</span>
                 </div>
                 {hasChildren && (

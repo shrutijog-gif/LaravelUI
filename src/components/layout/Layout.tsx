@@ -14,6 +14,7 @@ import { DesignSettings } from '../modules/developer/DesignSettings';
 import { CardBuilderStudio } from '../modules/developer/CardBuilderStudio';
 import { CommitteesAdmin } from '../modules/website/committees/CommitteesAdmin';
 import { DepartmentsAdmin } from '../modules/website/departments/DepartmentsAdmin'; // Clean departments module
+import { CareersAdmin } from '../modules/website/careers/CareersAdmin';
 
 interface LayoutProps {
   onToggleViewMode?: () => void;
@@ -98,8 +99,12 @@ export const Layout: React.FC<LayoutProps> = ({ onToggleViewMode }) => {
               <DynamicEntityManager moduleSlug={activeModuleId.replace('module-', '')} />
             ) : activeModuleId.includes('content-manager') || activeModuleId === 'content-manager' ? (
               <DynamicEntityManager moduleSlug="awards" />
-            ) : activeModuleId === 'website-timetable' ? (
-              <TimetableAdmin />
+            ) : activeModuleId === 'career-postings' ? (
+              <CareersAdmin initialTab="jobs" />
+            ) : activeModuleId === 'career-responses' ? (
+              <CareersAdmin initialTab="applicants" />
+            ) : activeModuleId.startsWith('career') || activeModuleId === 'website-careers' ? (
+              <CareersAdmin />
             ) : activeModuleId === 'committees' ? (
               <CommitteesAdmin />
             ) : activeModuleId === 'departments' ? (
