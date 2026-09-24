@@ -4,6 +4,9 @@ import { ChevronDown } from 'lucide-react';
 import { TimetableBlock, TimetableBlockProps } from './components/storefront/blocks/TimetableBlock';
 import { CommitteesBlock } from './components/storefront/blocks/CommitteesBlock';
 import { DepartmentsBlock } from './components/storefront/blocks/DepartmentsBlock';
+import { Careers } from './components/storefront/blocks/Careers';
+import { HeroBanner } from './components/storefront/blocks/HeroBanner';
+import { PrincipalMessage } from './components/storefront/blocks/PrincipalMessage';
 import { StylePickerModal } from './components/builder/StylePickerModal';
 
 import { DynamicModuleBlock } from './components/storefront/blocks/DynamicModuleBlock';
@@ -97,12 +100,46 @@ export const getDynamicPuckConfig = (): Config<Props> => {
 
               {isExpanded && (
                 <div className="p-3 bg-white space-y-3">
+                  {/* 1-Click Layout View Switcher: Cards vs Table */}
+                  <div className="flex items-center gap-1 p-1 bg-gray-100 border border-gray-200 rounded-lg">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const currentObj = typeof value === 'object' ? value : { columns: 3 };
+                        const prevStyle = currentObj.cardStyle || 'style-1';
+                        const newStyle = prevStyle.startsWith('table-') ? 'style-1' : prevStyle;
+                        onChange({ ...currentObj, cardStyle: newStyle });
+                      }}
+                      className={`flex-1 py-1.5 px-2 rounded-md text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                        !isTable 
+                          ? 'bg-white text-blue-600 shadow-2xs border border-gray-200/80 font-extrabold' 
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      <span>🎴 Cards</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const currentObj = typeof value === 'object' ? value : { columns: 3 };
+                        onChange({ ...currentObj, cardStyle: 'table-1' });
+                      }}
+                      className={`flex-1 py-1.5 px-2 rounded-md text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                        isTable 
+                          ? 'bg-white text-blue-600 shadow-2xs border border-gray-200/80 font-extrabold' 
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      <span>📋 Table</span>
+                    </button>
+                  </div>
+
                   <button
                     type="button"
                     onClick={() => setIsModalOpen(true)}
-                    className="w-full py-1.5 px-3 bg-gray-100 hover:bg-gray-200 border border-gray-300 active:bg-gray-300 rounded-md font-semibold text-xs text-gray-700 transition-colors flex items-center justify-between"
+                    className="w-full py-1.5 px-3 bg-gray-100 hover:bg-gray-200 border border-gray-300 active:bg-gray-300 rounded-md font-semibold text-xs text-gray-700 transition-colors flex items-center justify-between cursor-pointer"
                   >
-                    <span>Select Style</span>
+                    <span>Select Style Preset</span>
                     <span className="text-[11px] bg-white border border-gray-200 px-2 py-0.5 rounded font-mono text-blue-600 uppercase font-bold">
                       {activeStyle}
                     </span>
@@ -130,6 +167,8 @@ export const getDynamicPuckConfig = (): Config<Props> => {
                     isOpen={isModalOpen}
                     onClose={() => setIsModalOpen(false)}
                     selectedStyle={activeStyle}
+                    moduleId={schema.slug || schema.id}
+                    moduleTitle={schema.name}
                     onSelectStyle={(newStyle) => {
                       const currentObj = typeof value === 'object' ? value : { columns: 3 };
                       onChange({ ...currentObj, cardStyle: newStyle });
@@ -398,12 +437,79 @@ export const getDynamicPuckConfig = (): Config<Props> => {
       '⚡ Module Studio': {
         components: [...studioComponentKeys, 'DynamicStudioModule'],
       },
+      '🏛️ University Sections': {
+        components: ['HeroBanner', 'PrincipalMessage'],
+      },
       '📝 General Components': {
-        components: ['HeadingBlock', 'TimetableBlock', 'CommitteesBlock', 'DepartmentsBlock'],
+        components: ['HeadingBlock', 'TimetableBlock', 'CommitteesBlock', 'DepartmentsBlock', 'Careers'],
       },
     },
     components: {
       ...dynamicModuleComponents,
+      HeroBanner: {
+        label: '🏛️ Hero Campus Banner',
+        fields: {
+          tagline: { type: 'text', label: 'Tagline Pill' },
+          title: { type: 'text', label: 'Main Headline' },
+          subtitle: { type: 'textarea', label: 'Subtitle Description' },
+          bgImageUrl: { type: 'text', label: 'Background Image URL' },
+          primaryCtaText: { type: 'text', label: 'Primary Button Label' },
+          primaryCtaLink: { type: 'text', label: 'Primary Button Link' },
+          secondaryCtaText: { type: 'text', label: 'Secondary Button Label' },
+          secondaryCtaLink: { type: 'text', label: 'Secondary Button Link' },
+          admissionTitle: { type: 'text', label: 'Admission Card Title' },
+          admissionStatus: { type: 'text', label: 'Admission Status Tag' },
+          highlight1: { type: 'text', label: 'Highlight Bullet 1' },
+          highlight2: { type: 'text', label: 'Highlight Bullet 2' },
+          highlight3: { type: 'text', label: 'Highlight Bullet 3' },
+          anchorId: { type: 'text', label: 'Section Anchor ID' },
+          className: { type: 'text', label: 'CSS Class' },
+        },
+        defaultProps: {
+          tagline: 'Premier Centre of Higher Learning & Research',
+          title: 'Empowering Generations Through Excellence & Innovation',
+          subtitle: 'Discover cutting-edge academic curricula, world-class laboratory infrastructure, renowned faculty mentorship, and a thriving campus ecosystem designed for visionary leaders of tomorrow.',
+          bgImageUrl: 'https://images.unsplash.com/photo-1562774053-701939374585?q=80&w=1920&auto=format&fit=crop',
+          primaryCtaText: 'Explore Academic Programs',
+          primaryCtaLink: '#admissions',
+          secondaryCtaText: 'View Timetables',
+          secondaryCtaLink: '#timetables-section',
+          admissionTitle: 'Apply for Academic Year 2026-27',
+          admissionStatus: 'Open',
+          highlight1: 'State-of-the-Art Research Laboratories & Digital Library',
+          highlight2: '100% Placement Assistance & Corporate Partnerships',
+          highlight3: 'Scholarship Grants for Merit & Economically Weaker Students',
+          anchorId: 'hero',
+          className: '',
+        },
+        render: (props: any) => <HeroBanner {...props} />,
+      },
+      PrincipalMessage: {
+        label: "🎓 Principal's Message",
+        fields: {
+          principalName: { type: 'text', label: 'Principal Name' },
+          principalTitle: { type: 'text', label: 'Designation / Title' },
+          leadershipBadge: { type: 'text', label: 'Experience Badge' },
+          messageTag: { type: 'text', label: 'Category Tag' },
+          messageTitle: { type: 'text', label: 'Quote / Main Title' },
+          paragraph1: { type: 'textarea', label: 'Paragraph 1' },
+          paragraph2: { type: 'textarea', label: 'Paragraph 2' },
+          anchorId: { type: 'text', label: 'Section Anchor ID' },
+          className: { type: 'text', label: 'CSS Class' },
+        },
+        defaultProps: {
+          principalName: 'Dr. Ananya Sharma',
+          principalTitle: 'Principal & Dean',
+          leadershipBadge: '25+ Yrs Academic Leadership',
+          messageTag: 'Message from Leadership',
+          messageTitle: '"Fostering Academic Rigor, Character & Global Competence"',
+          paragraph1: 'Welcome to our esteemed institution. Education is not merely the acquisition of knowledge; it is the empowerment to think critically, innovate fearlessly, and serve society with integrity.',
+          paragraph2: 'Our faculty members are world-class researchers and mentors who guide students through rigorous curriculum, practical industry projects, and holistic co-curricular growth. We invite you to explore our academic programs and join our vibrant community.',
+          anchorId: 'principal-message',
+          className: '',
+        },
+        render: (props: any) => <PrincipalMessage {...props} />,
+      },
       RichText: {
         label: 'Rich Text',
         fields: {
@@ -544,11 +650,11 @@ export const getDynamicPuckConfig = (): Config<Props> => {
           titleOverride: '',
           descriptionOverride: '',
         },
-        render: ({ moduleSlug, titleOverride, descriptionOverride }: any) => (
+        render: ({ moduleSlug, titleOverride, descriptionOverride, moduleConfig, headerConfig }: any) => (
           <DynamicModuleBlock
-            moduleSlug={moduleSlug}
-            titleOverride={titleOverride}
-            descriptionOverride={descriptionOverride}
+            moduleSlug={moduleSlug || moduleConfig?.moduleSlug || 'awards'}
+            titleOverride={titleOverride || headerConfig?.title}
+            descriptionOverride={descriptionOverride || headerConfig?.description}
           />
         ),
       },
@@ -1380,12 +1486,46 @@ export const getDynamicPuckConfig = (): Config<Props> => {
 
                 {isExpanded && (
                   <div className="p-3 bg-white space-y-3">
+                    {/* 1-Click Layout View Switcher: Cards vs Table */}
+                    <div className="flex items-center gap-1 p-1 bg-gray-100 border border-gray-200 rounded-lg">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const currentObj = typeof value === 'object' ? value : { columns: 3 };
+                          const prevStyle = currentObj.cardStyle || 'style-1';
+                          const newStyle = prevStyle.startsWith('table-') ? 'style-1' : prevStyle;
+                          onChange({ ...currentObj, cardStyle: newStyle });
+                        }}
+                        className={`flex-1 py-1.5 px-2 rounded-md text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                          !isTable 
+                            ? 'bg-white text-blue-600 shadow-2xs border border-gray-200/80 font-extrabold' 
+                            : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                      >
+                        <span>🎴 Cards</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const currentObj = typeof value === 'object' ? value : { columns: 3 };
+                          onChange({ ...currentObj, cardStyle: 'table-1' });
+                        }}
+                        className={`flex-1 py-1.5 px-2 rounded-md text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                          isTable 
+                            ? 'bg-white text-blue-600 shadow-2xs border border-gray-200/80 font-extrabold' 
+                            : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                      >
+                        <span>📋 Table</span>
+                      </button>
+                    </div>
+
                     <button
                       type="button"
                       onClick={() => setIsModalOpen(true)}
-                      className="w-full py-1.5 px-3 bg-gray-100 hover:bg-gray-200 border border-gray-300 active:bg-gray-300 rounded-md font-semibold text-xs text-gray-700 transition-colors flex items-center justify-between"
+                      className="w-full py-1.5 px-3 bg-gray-100 hover:bg-gray-200 border border-gray-300 active:bg-gray-300 rounded-md font-semibold text-xs text-gray-700 transition-colors flex items-center justify-between cursor-pointer"
                     >
-                      <span>Select Style</span>
+                      <span>Select Style Preset</span>
                       <span className="text-[11px] bg-white border border-gray-200 px-2 py-0.5 rounded font-mono text-blue-600 uppercase font-bold">
                         {activeStyle}
                       </span>
@@ -1413,6 +1553,8 @@ export const getDynamicPuckConfig = (): Config<Props> => {
                       isOpen={isModalOpen}
                       onClose={() => setIsModalOpen(false)}
                       selectedStyle={activeStyle}
+                      moduleId="timetable"
+                      moduleTitle="Academic Timetables"
                       onSelectStyle={(newStyle) => {
                         const currentObj = typeof value === 'object' ? value : { columns: 3 };
                         onChange({ ...currentObj, cardStyle: newStyle });
@@ -1582,6 +1724,100 @@ export const getDynamicPuckConfig = (): Config<Props> => {
         );
       },
     },
+
+  // ═══════════════════════════════════════════════════════
+  // CAREERS BLOCK
+  // ═══════════════════════════════════════════════════════
+  Careers: {
+    label: 'Careers',
+    fields: {
+      /* 1. Block Header */
+      headerConfig: {
+        type: 'custom',
+        render: ({ value = { title: "We're Hiring", description: 'Join our growing team. Explore open roles and apply today.' }, onChange }: any) => {
+          const [isExpanded, setIsExpanded] = useState(true);
+          return (
+            <div className="border border-gray-200 rounded-lg overflow-hidden my-1 bg-white shadow-2xs">
+              <button type="button" onClick={() => setIsExpanded(!isExpanded)}
+                className="w-full bg-gray-100 px-3 py-2 border-b border-gray-200 flex items-center justify-between hover:bg-gray-200/80 transition-colors text-left">
+                <span className="text-xs font-semibold text-gray-700">Block Header</span>
+                <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+              </button>
+              {isExpanded && (
+                <div className="p-3 space-y-3 bg-white">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Title</label>
+                    <input type="text" className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                      value={value?.title ?? "We're Hiring"}
+                      onChange={(e) => onChange({ ...value, title: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Description</label>
+                    <textarea rows={2} className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-y outline-none"
+                      value={value?.description ?? 'Join our growing team. Explore open roles and apply today.'}
+                      onChange={(e) => onChange({ ...value, description: e.target.value })} />
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        },
+      },
+
+      /* 2. Advanced Controller */
+      advancedConfig: {
+        type: 'custom',
+        render: ({ value = { anchorId: '', className: '' }, onChange }: any) => {
+          const [isExpanded, setIsExpanded] = useState(false);
+          const activeAnchorId = typeof value === 'object' && value?.anchorId ? value.anchorId : '';
+          const activeClassName = typeof value === 'object' && value?.className ? value.className : '';
+          return (
+            <div className="border border-gray-200 rounded-lg overflow-hidden my-1 bg-white shadow-2xs">
+              <button type="button" onClick={() => setIsExpanded(!isExpanded)}
+                className="w-full bg-gray-100 px-3 py-2 border-b border-gray-200 flex items-center justify-between hover:bg-gray-200/80 transition-colors text-left">
+                <span className="text-xs font-semibold text-gray-700">Advanced Controller</span>
+                <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+              </button>
+              {isExpanded && (
+                <div className="p-3 bg-white space-y-2">
+                  <div className="w-full py-1.5 px-3 bg-gray-100 border border-gray-300 rounded-md font-semibold text-xs text-gray-700 flex items-center justify-between gap-2">
+                    <span className="shrink-0">Anchor Id</span>
+                    <input type="text" placeholder="e.g. careers-section"
+                      className="bg-white border border-gray-200 px-2 py-0.5 rounded text-xs font-mono text-gray-800 text-left w-36 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                      value={activeAnchorId}
+                      onChange={(e) => onChange({ ...value, anchorId: e.target.value })} />
+                  </div>
+                  <div className="w-full py-1.5 px-3 bg-gray-100 border border-gray-300 rounded-md font-semibold text-xs text-gray-700 flex items-center justify-between gap-2">
+                    <span className="shrink-0">Css Class</span>
+                    <input type="text" placeholder="e.g. custom-class"
+                      className="bg-white border border-gray-200 px-2 py-0.5 rounded text-xs font-mono text-gray-800 text-left w-36 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                      value={activeClassName}
+                      onChange={(e) => onChange({ ...value, className: e.target.value })} />
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        },
+      },
+    },
+    defaultProps: {
+      headerConfig: { title: "We're Hiring", description: 'Join our growing team. Explore open roles and apply today.' },
+      advancedConfig: { anchorId: '', className: '' },
+    },
+    render: ({ headerConfig, advancedConfig }: any) => {
+      return (
+        <Careers
+          title={headerConfig?.title ?? "We're Hiring"}
+          description={headerConfig?.description ?? ''}
+          columns={3}
+          showSearch={false}
+          className={advancedConfig?.className ?? ''}
+          anchorId={advancedConfig?.anchorId ?? ''}
+        />
+      );
+    },
+  },
   },
 };
 };

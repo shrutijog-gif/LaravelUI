@@ -9,29 +9,44 @@ export interface StylePickerModalProps {
   onClose: () => void;
   selectedStyle: string;
   onSelectStyle: (style: string) => void;
+  moduleId?: string;
+  moduleTitle?: string;
+  sampleData?: any;
 }
 
 const sampleTimetables = [
   {
     id: 'sample-1',
-    name: 'B.Tech First Year (Sem 1)',
-    year: '2024-25',
-    branch: ['Computer Science', 'IT'],
-    semester: ['I', 'II'],
+    name: 'B.Sc Home Science & Food Technology Schedule',
+    year: '2026-2027',
+    branch: ['Food Technology'],
+    semester: ['1'],
     section: ['A'],
-    fileName: 'btech_1st_sem1.pdf',
+    fileName: 'Home_Science_Sem1_2026.pdf',
     fileUrl: '#',
     showOnWebsite: true,
     createdAt: '2024-01-01T00:00:00.000Z',
   },
   {
     id: 'sample-2',
-    name: 'BCA Third Year (Sem 5)',
-    year: '2024-25',
-    branch: ['BCA'],
-    semester: ['V'],
+    name: 'M.Sc Clinical Nutrition & Dietetics Exam Schedule',
+    year: '2026-2027',
+    branch: ['Clinical Nutrition'],
+    semester: ['3'],
     section: ['A'],
-    fileName: 'bca_3rd_sem5.pdf',
+    fileName: 'MSc_Nutrition_Timetable_2026.pdf',
+    fileUrl: '#',
+    showOnWebsite: true,
+    createdAt: '2024-01-01T00:00:00.000Z',
+  },
+  {
+    id: 'sample-3',
+    name: 'B.Ed Special Education & Disability Studies',
+    year: '2026-2027',
+    branch: ['Pedagogy & Child Dev'],
+    semester: ['2'],
+    section: ['A'],
+    fileName: 'BED_Special_Ed_Schedule.pdf',
     fileUrl: '#',
     showOnWebsite: true,
     createdAt: '2024-01-01T00:00:00.000Z',
@@ -79,6 +94,9 @@ export const StylePickerModal: React.FC<StylePickerModalProps> = ({
   onClose,
   selectedStyle,
   onSelectStyle,
+  moduleId,
+  moduleTitle,
+  sampleData,
 }) => {
   const [cardPresets, setCardPresets] = useState(getStoredCardPresets());
 
@@ -97,11 +115,46 @@ export const StylePickerModal: React.FC<StylePickerModalProps> = ({
     };
   }, [isOpen]);
 
-  const cardStylesList = cardPresets.map(preset => ({
-    id: preset.id,
-    name: preset.name,
-    description: preset.description,
-  }));
+  const isTimetable = moduleId === 'timetable' || moduleTitle?.toLowerCase().includes('time table') || moduleId?.toLowerCase().includes('timetable');
+
+  const resolvedSampleData = sampleData || (isTimetable ? {
+    year: '2026-2027',
+    logoText: 'BS',
+    title: 'B.Sc Home Science & Food Technology Schedule',
+    recipient: 'Food Technology • Semester 1',
+    pdf_url: '#',
+  } : {
+    year: '2024-25',
+    logoText: moduleTitle ? moduleTitle.slice(0, 2).toUpperCase() : 'UG',
+    title: `${moduleTitle || 'Academic'} Document Record`,
+    recipient: 'Department & Program Details',
+    pdf_url: '#',
+  });
+
+  const cardStylesList = cardPresets.map(preset => {
+    let name = preset.name;
+    let description = preset.description;
+    if (isTimetable) {
+      if (preset.id === 'style-1') {
+        name = 'Style 1: Official Timetable Card';
+        description = 'Official timetable layout with branch initials badge, title, semester details, and download link.';
+      } else if (preset.id === 'style-2') {
+        name = 'Style 2: Compact Minimal Timetable Card';
+        description = 'Clean minimalist card featuring academic year pill, timetable title, and direct download action.';
+      } else if (preset.id === 'style-3') {
+        name = 'Style 3: Gradient Banner Timetable Card';
+        description = 'Modern gradient header banner with high-contrast branch details and action button.';
+      } else if (preset.id === 'style-4') {
+        name = 'Style 4: Dual-Pane Split Timetable Card';
+        description = 'Split visual card with colored branch block on the left and timetable details on the right.';
+      }
+    }
+    return {
+      id: preset.id,
+      name,
+      description,
+    };
+  });
 
   const [activeTab, setActiveTab] = useState<'card' | 'table' | 'icon'>((
     selectedStyle?.startsWith('table-')
@@ -123,7 +176,16 @@ export const StylePickerModal: React.FC<StylePickerModalProps> = ({
       >
         {/* Modal Header */}
         <div className="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between gap-4 bg-gray-50/60">
-          <h2 className="text-base font-bold text-gray-900">Select Display Template</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-base font-bold text-gray-900">
+              {moduleTitle ? `Select Display Template — ${moduleTitle}` : 'Select Display Template'}
+            </h2>
+            {isTimetable && (
+              <span className="text-[10px] bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded-full border border-blue-200">
+                Time Table Context
+              </span>
+            )}
+          </div>
 
           {/* Tab Switcher */}
           <div className="flex items-center gap-1 bg-gray-200/80 p-1 rounded-xl shrink-0">
@@ -282,13 +344,8 @@ export const StylePickerModal: React.FC<StylePickerModalProps> = ({
                         return (
                           <CardPresetView
                             preset={matchedPreset}
-                            sampleData={{
-                              year: 'Active',
-                              logoText: 'UGC',
-                              title: 'UGC Affiliation',
-                              recipient: 'University Grants Commission',
-                              pdf_url: '#',
-                            }}
+                            sampleData={resolvedSampleData}
+                            viewMode="sample"
                           />
                         );
                       })()

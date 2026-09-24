@@ -70,6 +70,7 @@ export interface CardSlotConfig {
   cardBgColor?: string;
   detailLineMode?: 'label_and_value' | 'value_only' | 'custom_label';
   customDetailLabel?: string;
+  htmlTemplate?: string;
 }
 
 export interface ModuleSchema {
@@ -108,17 +109,40 @@ export const MODULE_SCHEMAS: ModuleSchema[] = [
     id: 'timetable',
     name: 'Academic Timetables',
     fields: [
-      { name: 'title', label: 'Timetable Name', type: 'text' },
-      { name: 'year', label: 'Academic Year', type: 'text' },
+      { name: 'title', label: 'Title', type: 'text' },
+      { name: 'year', label: 'Year', type: 'text' },
+      { name: 'pdf_url', label: 'Pdf file', type: 'url' },
+      { name: 'semester', label: 'Semester', type: 'text' },
+      { name: 'branch', label: 'Branch', type: 'text' },
       { name: 'recipient', label: 'Branch & Semester', type: 'text' },
-      { name: 'logoText', label: 'Branch Code', type: 'text' },
-      { name: 'pdf_url', label: 'Download PDF', type: 'url' },
+      { name: 'section', label: 'Section', type: 'text' },
+    ],
+    sampleData: {
+      year: '2026-2027',
+      logoText: 'BS',
+      title: 'B.Sc Home Science & Food Technology Schedule',
+      recipient: 'Food Technology • Semester 1',
+      branch: 'Food Technology',
+      semester: 'Semester 1',
+      section: 'Section A',
+      pdf_url: '#',
+    },
+  },
+  {
+    id: 'aqar',
+    name: 'AQAR & NAAC Reports',
+    fields: [
+      { name: 'title', label: 'Metric Name / Title', type: 'text' },
+      { name: 'year', label: 'Academic Year', type: 'text' },
+      { name: 'recipient', label: 'Criterion & Category', type: 'text' },
+      { name: 'logoText', label: 'Criterion Badge', type: 'text' },
+      { name: 'pdf_url', label: 'Report PDF', type: 'url' },
     ],
     sampleData: {
       year: '2024-25',
-      logoText: 'CS',
-      title: 'B.Tech First Year (Sem 1)',
-      recipient: 'Computer Science, IT • Sem I, II',
+      logoText: 'C-1',
+      title: 'Curricular Planning and Implementation Annual Report',
+      recipient: 'Criterion 1: Curricular Aspects • Metric 1.1.2',
       pdf_url: '#',
     },
   },
@@ -310,20 +334,20 @@ export const INITIAL_CARD_PRESETS: CardSlotConfig[] = [
   },
   {
     id: 'style-4',
-    name: 'Style 4: Dual-Pane Split Card',
-    description: 'Horizontal split-pane layout with left gradient icon block and clean right pane for details.',
+    name: 'Style 4: Left Accent Border Card',
+    description: 'Prominent vertical brand accent border with full-width content and clean metadata bar.',
     presetStyleType: 'split-card',
     showTopAccent: false,
     accentPosition: 'left',
-    accentSides: { top: false, bottom: false, left: false, right: false },
-    accentWidth: 6,
+    accentSides: { top: false, bottom: false, left: true, right: false },
+    accentWidth: 5,
     accentColor: '#2563eb',
     gradientColor: '#3b82f6',
     badgeSlot: {
       enabled: true,
       fieldVar: 'year',
-      bgColor: '#ffffff33',
-      textColor: '#ffffff',
+      bgColor: '#eff6ff',
+      textColor: '#1d4ed8',
     },
     mediaSlot: {
       enabled: true,
@@ -455,10 +479,11 @@ export const createNewCardPreset = (): CardSlotConfig => {
     accentWidth: 4,
     accentColor: '#2563eb',
     badgeSlot: {
-      enabled: false,
+      enabled: true,
       fieldVar: '',
       bgColor: '#eff6ff',
       textColor: '#1d4ed8',
+      displayMode: 'value_only',
     },
     mediaSlot: {
       enabled: true,
@@ -476,8 +501,9 @@ export const createNewCardPreset = (): CardSlotConfig => {
       fontSize: 'base',
     },
     subtitleSlot: {
-      enabled: false,
+      enabled: true,
       fieldVar: '',
+      displayMode: 'value_only',
     },
     showDivider: true,
     footerLeftSlot: {
@@ -486,10 +512,92 @@ export const createNewCardPreset = (): CardSlotConfig => {
       fieldVar: '',
     },
     footerRightSlot: {
-      enabled: false,
-      label: '',
+      enabled: true,
+      label: 'Download PDF',
       fieldVar: '',
       showArrow: true,
     },
+    borderRadius: 'md',
+    shadowSize: 'sm',
+    hoverEffect: 'lift',
   };
+};
+
+export const DEFAULT_CARD_HTML_TEMPLATES: Record<string, string> = {
+  'style-1': `<div class="p-5 space-y-4">
+  <div class="flex items-start justify-between gap-2">
+    <div class="w-11 h-11 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-bold">BS</div>
+    <span class="dynamicFieldDeclaration font-bold px-3 py-1 rounded-lg text-xs bg-blue-50 text-blue-700" data-slot="badgeSlot">
+      2026-2027
+    </span>
+  </div>
+  <div class="space-y-1">
+    <h3 class="dynamicFieldDeclaration font-bold text-base text-gray-900" data-slot="titleSlot">
+      B.Sc Home Science & Food Technology Schedule
+    </h3>
+    <p class="dynamicFieldDeclaration text-xs text-gray-500" data-slot="subtitleSlot">
+      Food Technology • Semester 1
+    </p>
+  </div>
+  <div class="border-t border-gray-100 pt-3 flex justify-end">
+    <a class="dynamicFieldDeclaration font-bold text-xs text-blue-600 inline-flex items-center gap-1" data-slot="footerRightSlot">
+      Download PDF ↗
+    </a>
+  </div>
+</div>`,
+  'style-2': `<div class="p-5 space-y-4">
+  <div class="flex items-start justify-between gap-2">
+    <div class="w-11 h-11 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold">BS</div>
+    <span class="dynamicFieldDeclaration font-bold px-3 py-1 rounded-lg text-xs bg-blue-50 text-blue-700" data-slot="badgeSlot">
+      2026-2027
+    </span>
+  </div>
+  <div class="space-y-1">
+    <h3 class="dynamicFieldDeclaration font-bold text-base text-gray-900" data-slot="titleSlot">
+      B.Sc Home Science & Food Technology Schedule
+    </h3>
+    <p class="dynamicFieldDeclaration text-xs text-gray-500" data-slot="subtitleSlot">
+      Food Technology • Semester 1
+    </p>
+  </div>
+  <div class="border-t border-gray-100 pt-3 flex items-center justify-between">
+    <a class="dynamicFieldDeclaration font-bold text-xs text-blue-600" data-slot="footerRightSlot">Download PDF ↗</a>
+  </div>
+</div>`,
+  'style-3': `<div class="p-5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white space-y-3">
+  <div class="flex items-center justify-between">
+    <div class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center font-bold">BS</div>
+    <span class="dynamicFieldDeclaration bg-white/20 px-2.5 py-0.5 rounded-full text-xs" data-slot="badgeSlot">2026-2027</span>
+  </div>
+  <h3 class="dynamicFieldDeclaration font-bold text-base" data-slot="titleSlot">Schedule Title</h3>
+  <p class="dynamicFieldDeclaration text-xs text-white/90" data-slot="subtitleSlot">Program Details</p>
+</div>
+<div class="p-4 bg-white flex justify-end">
+  <a class="dynamicFieldDeclaration px-4 py-2 bg-slate-900 text-white font-bold text-xs rounded-xl" data-slot="footerRightSlot">Download PDF ↗</a>
+</div>`,
+  'style-4': `<div class="p-5 border-l-4 border-l-blue-600 bg-white space-y-4">
+  <div class="flex items-start justify-between gap-2">
+    <div class="w-11 h-11 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-bold">BS</div>
+    <span class="dynamicFieldDeclaration font-bold px-3 py-1 rounded-lg text-xs bg-blue-50 text-blue-700" data-slot="badgeSlot">2026-2027</span>
+  </div>
+  <div class="space-y-1">
+    <h3 class="dynamicFieldDeclaration font-bold text-base text-gray-900" data-slot="titleSlot">Schedule Title</h3>
+    <p class="dynamicFieldDeclaration text-xs text-gray-500" data-slot="subtitleSlot">Program Details • Semester 1</p>
+  </div>
+  <div class="border-t border-gray-100 pt-3 flex items-center justify-between">
+    <span class="text-[11px] text-gray-400 font-medium">Official Document</span>
+    <a class="dynamicFieldDeclaration font-bold text-xs text-blue-600" data-slot="footerRightSlot">View Details ↗</a>
+  </div>
+</div>`
+};
+
+export const extractDynamicSlots = (html: string): string[] => {
+  const matches = html.matchAll(/data-slot=["']([^"']+)["']/g);
+  const slots: string[] = [];
+  for (const m of matches) {
+    if (m[1] && !slots.includes(m[1])) {
+      slots.push(m[1]);
+    }
+  }
+  return slots.length > 0 ? slots : ['badgeSlot', 'titleSlot', 'subtitleSlot', 'footerRightSlot'];
 };

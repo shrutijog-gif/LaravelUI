@@ -9,6 +9,7 @@ import {
 } from '../../../../data/mockPageData';
 import { PageList } from './PageList';
 import { PageDrawer } from './PageDrawer';
+// Page Builder Integration
 import { PuckEditor } from '../../../builder/PuckEditor';
 import { CheckCircle2 } from 'lucide-react';
 
