@@ -9,14 +9,12 @@ interface ApplicantViewModalProps {
   applicant: JobApplicant | null;
   isOpen: boolean;
   onClose: () => void;
-  onStatusChange?: (id: string, newStatus: JobApplicant['status']) => void;
 }
 
 export const ApplicantViewModal: React.FC<ApplicantViewModalProps> = ({
   applicant,
   isOpen,
   onClose,
-  onStatusChange,
 }) => {
   if (!isOpen || !applicant) return null;
 
@@ -67,48 +65,14 @@ export const ApplicantViewModal: React.FC<ApplicantViewModalProps> = ({
             </div>
           </div>
 
-          {/* Status & Experience */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="p-3.5 border border-gray-200 rounded-xl">
-              <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block mb-1">
-                Application Status
-              </span>
-              <div className="flex items-center gap-2">
-                <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                  applicant.status === 'Shortlisted'
-                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                    : applicant.status === 'Interview'
-                    ? 'bg-purple-100 text-purple-800 border border-purple-300'
-                    : applicant.status === 'Reviewed'
-                    ? 'bg-blue-100 text-blue-800 border border-blue-300'
-                    : 'bg-amber-100 text-amber-800 border border-amber-300'
-                }`}>
-                  {applicant.status || 'New'}
-                </span>
-                {onStatusChange && (
-                  <select
-                    value={applicant.status || 'New'}
-                    onChange={(e) => onStatusChange(applicant.id, e.target.value as any)}
-                    className="text-xs border border-gray-300 rounded px-2 py-1 text-gray-700 bg-white focus:outline-none"
-                  >
-                    <option value="New">Mark: New</option>
-                    <option value="Reviewed">Mark: Reviewed</option>
-                    <option value="Shortlisted">Mark: Shortlisted</option>
-                    <option value="Interview">Mark: Interview</option>
-                    <option value="Rejected">Mark: Rejected</option>
-                  </select>
-                )}
-              </div>
-            </div>
-
-            <div className="p-3.5 border border-gray-200 rounded-xl">
-              <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block mb-1">
-                Candidate Experience
-              </span>
-              <p className="text-xs font-semibold text-gray-800">
-                {applicant.experience || 'Fresher'}
-              </p>
-            </div>
+          {/* Candidate Experience */}
+          <div className="p-3.5 border border-gray-200 rounded-xl">
+            <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block mb-1">
+              Candidate Experience
+            </span>
+            <p className="text-xs font-semibold text-gray-800">
+              {applicant.experience || 'Fresher'}
+            </p>
           </div>
 
           {/* Cover Note / Statement */}

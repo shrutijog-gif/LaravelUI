@@ -106,16 +106,7 @@ export const CareersAdmin: React.FC<CareersAdminProps> = ({ initialTab = 'jobs' 
     setJobToDelete(null);
   };
 
-  // Applicant status change
-  const handleApplicantStatusChange = (appId: string, newStatus: JobApplicant['status']) => {
-    const updated = applicants.map(a => a.id === appId ? { ...a, status: newStatus } : a);
-    setApplicants(updated);
-    saveStoredJobApplicants(updated);
-    if (selectedApplicant && selectedApplicant.id === appId) {
-      setSelectedApplicant({ ...selectedApplicant, status: newStatus });
-    }
-    showToast(`Applicant status updated to ${newStatus}`);
-  };
+
 
   // Filtering
   const filteredJobs = jobs.filter(j =>
@@ -307,14 +298,13 @@ export const CareersAdmin: React.FC<CareersAdminProps> = ({ initialTab = 'jobs' 
                   <th className="py-4 px-5">Candidate</th>
                   <th className="py-4 px-5">Post & Date</th>
                   <th className="py-4 px-4 text-center">Resume</th>
-                  <th className="py-4 px-4 text-center">Status</th>
                   <th className="py-4 px-4 text-center">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 text-sm">
                 {paginatedApplicants.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-8 text-center text-gray-500">
+                    <td colSpan={4} className="py-8 text-center text-gray-500">
                       {searchQuery ? 'No applicants match your search.' : 'No candidate applications received yet.'}
                     </td>
                   </tr>
@@ -353,23 +343,6 @@ export const CareersAdmin: React.FC<CareersAdminProps> = ({ initialTab = 'jobs' 
                         >
                           Resume
                         </a>
-                      </td>
-
-                      {/* Status */}
-                      <td className="py-4 px-4 text-center">
-                        <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold ${
-                          applicant.status === 'Shortlisted'
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                            : applicant.status === 'Interview'
-                            ? 'bg-purple-50 text-purple-700 border border-purple-200'
-                            : applicant.status === 'Reviewed'
-                            ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                            : applicant.status === 'Rejected'
-                            ? 'bg-red-50 text-red-700 border border-red-200'
-                            : 'bg-amber-50 text-amber-800 border border-amber-200'
-                        }`}>
-                          {applicant.status || 'New'}
-                        </span>
                       </td>
 
                       {/* Action */}
@@ -451,7 +424,6 @@ export const CareersAdmin: React.FC<CareersAdminProps> = ({ initialTab = 'jobs' 
           setIsApplicantDrawerOpen(false);
           setSelectedApplicant(null);
         }}
-        onStatusChange={handleApplicantStatusChange}
       />
 
       {/* Delete Confirmation Modal */}

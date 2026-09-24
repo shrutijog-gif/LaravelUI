@@ -5,6 +5,8 @@ import { TimetableBlock, TimetableBlockProps } from './components/storefront/blo
 import { CommitteesBlock } from './components/storefront/blocks/CommitteesBlock';
 import { DepartmentsBlock } from './components/storefront/blocks/DepartmentsBlock';
 import { Careers } from './components/storefront/blocks/Careers';
+import { HeroBanner } from './components/storefront/blocks/HeroBanner';
+import { PrincipalMessage } from './components/storefront/blocks/PrincipalMessage';
 import { StylePickerModal } from './components/builder/StylePickerModal';
 
 import { DynamicModuleBlock } from './components/storefront/blocks/DynamicModuleBlock';
@@ -435,12 +437,79 @@ export const getDynamicPuckConfig = (): Config<Props> => {
       '⚡ Module Studio': {
         components: [...studioComponentKeys, 'DynamicStudioModule'],
       },
+      '🏛️ University Sections': {
+        components: ['HeroBanner', 'PrincipalMessage'],
+      },
       '📝 General Components': {
         components: ['HeadingBlock', 'TimetableBlock', 'CommitteesBlock', 'DepartmentsBlock', 'Careers'],
       },
     },
     components: {
       ...dynamicModuleComponents,
+      HeroBanner: {
+        label: '🏛️ Hero Campus Banner',
+        fields: {
+          tagline: { type: 'text', label: 'Tagline Pill' },
+          title: { type: 'text', label: 'Main Headline' },
+          subtitle: { type: 'textarea', label: 'Subtitle Description' },
+          bgImageUrl: { type: 'text', label: 'Background Image URL' },
+          primaryCtaText: { type: 'text', label: 'Primary Button Label' },
+          primaryCtaLink: { type: 'text', label: 'Primary Button Link' },
+          secondaryCtaText: { type: 'text', label: 'Secondary Button Label' },
+          secondaryCtaLink: { type: 'text', label: 'Secondary Button Link' },
+          admissionTitle: { type: 'text', label: 'Admission Card Title' },
+          admissionStatus: { type: 'text', label: 'Admission Status Tag' },
+          highlight1: { type: 'text', label: 'Highlight Bullet 1' },
+          highlight2: { type: 'text', label: 'Highlight Bullet 2' },
+          highlight3: { type: 'text', label: 'Highlight Bullet 3' },
+          anchorId: { type: 'text', label: 'Section Anchor ID' },
+          className: { type: 'text', label: 'CSS Class' },
+        },
+        defaultProps: {
+          tagline: 'Premier Centre of Higher Learning & Research',
+          title: 'Empowering Generations Through Excellence & Innovation',
+          subtitle: 'Discover cutting-edge academic curricula, world-class laboratory infrastructure, renowned faculty mentorship, and a thriving campus ecosystem designed for visionary leaders of tomorrow.',
+          bgImageUrl: 'https://images.unsplash.com/photo-1562774053-701939374585?q=80&w=1920&auto=format&fit=crop',
+          primaryCtaText: 'Explore Academic Programs',
+          primaryCtaLink: '#admissions',
+          secondaryCtaText: 'View Timetables',
+          secondaryCtaLink: '#timetables-section',
+          admissionTitle: 'Apply for Academic Year 2026-27',
+          admissionStatus: 'Open',
+          highlight1: 'State-of-the-Art Research Laboratories & Digital Library',
+          highlight2: '100% Placement Assistance & Corporate Partnerships',
+          highlight3: 'Scholarship Grants for Merit & Economically Weaker Students',
+          anchorId: 'hero',
+          className: '',
+        },
+        render: (props: any) => <HeroBanner {...props} />,
+      },
+      PrincipalMessage: {
+        label: "🎓 Principal's Message",
+        fields: {
+          principalName: { type: 'text', label: 'Principal Name' },
+          principalTitle: { type: 'text', label: 'Designation / Title' },
+          leadershipBadge: { type: 'text', label: 'Experience Badge' },
+          messageTag: { type: 'text', label: 'Category Tag' },
+          messageTitle: { type: 'text', label: 'Quote / Main Title' },
+          paragraph1: { type: 'textarea', label: 'Paragraph 1' },
+          paragraph2: { type: 'textarea', label: 'Paragraph 2' },
+          anchorId: { type: 'text', label: 'Section Anchor ID' },
+          className: { type: 'text', label: 'CSS Class' },
+        },
+        defaultProps: {
+          principalName: 'Dr. Ananya Sharma',
+          principalTitle: 'Principal & Dean',
+          leadershipBadge: '25+ Yrs Academic Leadership',
+          messageTag: 'Message from Leadership',
+          messageTitle: '"Fostering Academic Rigor, Character & Global Competence"',
+          paragraph1: 'Welcome to our esteemed institution. Education is not merely the acquisition of knowledge; it is the empowerment to think critically, innovate fearlessly, and serve society with integrity.',
+          paragraph2: 'Our faculty members are world-class researchers and mentors who guide students through rigorous curriculum, practical industry projects, and holistic co-curricular growth. We invite you to explore our academic programs and join our vibrant community.',
+          anchorId: 'principal-message',
+          className: '',
+        },
+        render: (props: any) => <PrincipalMessage {...props} />,
+      },
       RichText: {
         label: 'Rich Text',
         fields: {
@@ -581,11 +650,11 @@ export const getDynamicPuckConfig = (): Config<Props> => {
           titleOverride: '',
           descriptionOverride: '',
         },
-        render: ({ moduleSlug, titleOverride, descriptionOverride }: any) => (
+        render: ({ moduleSlug, titleOverride, descriptionOverride, moduleConfig, headerConfig }: any) => (
           <DynamicModuleBlock
-            moduleSlug={moduleSlug}
-            titleOverride={titleOverride}
-            descriptionOverride={descriptionOverride}
+            moduleSlug={moduleSlug || moduleConfig?.moduleSlug || 'awards'}
+            titleOverride={titleOverride || headerConfig?.title}
+            descriptionOverride={descriptionOverride || headerConfig?.description}
           />
         ),
       },

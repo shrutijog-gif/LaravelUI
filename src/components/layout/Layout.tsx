@@ -23,8 +23,8 @@ interface LayoutProps {
 export const Layout: React.FC<LayoutProps> = ({ onToggleViewMode }) => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [portalRole, setPortalRole] = useState<'superadmin' | 'collegeadmin'>('collegeadmin');
-  const [activeModuleId, setActiveModuleId] = useState('card-builder-studio');
-  const [activeModuleLabel, setActiveModuleLabel] = useState('Card Builder Studio');
+  const [activeModuleId, setActiveModuleId] = useState('dashboard');
+  const [activeModuleLabel, setActiveModuleLabel] = useState('Dashboard');
 
   const toggleSidebar = () => {
     setSidebarOpen(prev => !prev);
@@ -41,8 +41,8 @@ export const Layout: React.FC<LayoutProps> = ({ onToggleViewMode }) => {
       setActiveModuleId('module-studio');
       setActiveModuleLabel('Module Studio');
     } else {
-      setActiveModuleId('card-builder-studio');
-      setActiveModuleLabel('Card Builder Studio');
+      setActiveModuleId('dashboard');
+      setActiveModuleLabel('Dashboard');
     }
   };
 

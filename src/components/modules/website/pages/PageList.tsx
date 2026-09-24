@@ -103,9 +103,12 @@ export const PageList: React.FC<PageListProps> = ({
                 filteredPages.map(page => {
                   const origin = typeof window !== 'undefined' && window.location.origin ? window.location.origin : 'http://localhost:5173';
                   const slug = (page.slug || page.name).toLowerCase().replace(/\s+/g, '-');
+                  const isHome = slug === 'home' || page.id === 'p-home';
                   const url = page.type === 'custom' && page.customLink 
                     ? page.customLink 
-                    : `${origin}/${slug}`;
+                    : isHome
+                      ? `${origin}/`
+                      : `${origin}/${slug}`;
 
                   return (
                     <tr key={page.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
@@ -126,7 +129,9 @@ export const PageList: React.FC<PageListProps> = ({
                               e.preventDefault();
                               const liveUrl = page.type === 'custom' && page.customLink && page.customLink.startsWith('http') && !page.customLink.includes(window.location.host)
                                 ? page.customLink
-                                : `${origin}${window.location.pathname}?mode=storefront&page=${slug}`;
+                                : isHome
+                                  ? `${origin}${window.location.pathname}?mode=storefront`
+                                  : `${origin}${window.location.pathname}?mode=storefront&page=${slug}`;
                               window.open(liveUrl, '_blank');
                             }}
                             className="hover:underline truncate max-w-xs md:max-w-sm cursor-pointer"

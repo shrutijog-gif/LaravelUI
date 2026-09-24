@@ -148,8 +148,8 @@ export const PuckEditor: React.FC<PuckEditorProps> = ({
           </div>
 
           {/* Render Actual Live Website Page */}
-          <div className="flex-1 overflow-y-auto bg-gray-50 py-8 px-4 sm:px-8">
-            <div className="max-w-7xl mx-auto bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden min-h-[650px] p-6 sm:p-10">
+          <div className={`flex-1 overflow-y-auto bg-gray-50 ${pageSlug === 'home' || pageId === 'p-home' ? 'p-0' : 'py-8 px-4 sm:px-8'}`}>
+            <div className={`${pageSlug === 'home' || pageId === 'p-home' ? 'w-full bg-white' : 'max-w-7xl mx-auto bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden min-h-[650px] p-6 sm:p-10'}`}>
               <Render config={dynamicConfig} data={previewData || initialData} />
             </div>
           </div>
@@ -158,3 +158,5 @@ export const PuckEditor: React.FC<PuckEditorProps> = ({
     </div>
   );
 };
+
+export default PuckEditor;

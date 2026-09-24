@@ -114,6 +114,15 @@ export const getCollegeAdminMenuItems = (): MenuItem[] => {
       ],
     },
     {
+      id: 'website-builder',
+      label: 'Website Builder',
+      icon: 'circle',
+      children: [
+        { id: 'webpage', label: 'Webpage' },
+        { id: 'menu-builder', label: 'Menu Builder' },
+      ],
+    },
+    {
       id: 'website',
       label: 'Website',
       icon: 'circle',
@@ -129,15 +138,6 @@ export const getCollegeAdminMenuItems = (): MenuItem[] => {
       children: [
         { id: 'career-postings', label: 'Job Postings' },
         { id: 'career-responses', label: 'Job Posting Responses' },
-      ],
-    },
-    {
-      id: 'website-builder',
-      label: 'Website Builder',
-      icon: 'circle',
-      children: [
-        { id: 'webpage', label: 'Webpage' },
-        { id: 'menu-builder', label: 'Menu Builder' },
       ],
     },
     {
