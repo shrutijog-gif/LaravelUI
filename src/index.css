@@ -6,23 +6,102 @@
   body {
     font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   }
+
 }
 
 /* Custom scrollbars for clean UI */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: #f8fafc;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.25);
+  background: #cbd5e1;
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.4);
+  background: #94a3b8;
 }
+
+/* Dedicated right-side scroller for drawers and modals */
+.custom-drawer-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #94a3b8 #f8fafc;
+}
+
+.custom-drawer-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.custom-drawer-scrollbar::-webkit-scrollbar-track {
+  background: #f8fafc;
+  border-left: 1px solid #f1f5f9;
+}
+
+.custom-drawer-scrollbar::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 9999px;
+  border: 2px solid #f8fafc;
+}
+
+.custom-drawer-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+/* Clean Puck 3-Column Grid Layout Override */
+div[class*="Puck"] div[class*="_grid_"],
+div[class*="Puck"] div[class*="grid_"],
+div[class*="Puck"] > div > div {
+  grid-template-columns: 240px minmax(0, 1fr) 360px !important;
+}
+
+div[class*="Puck"] [class*="sidebar"]:last-child,
+div[class*="Puck"] aside:last-child,
+[class*="Puck-sidebar"] {
+  width: 360px !important;
+  min-width: 360px !important;
+}
+
+/* 🎨 Puck Sidebar Components Category Box Container */
+[class*="PuckComponents"] > div,
+[class*="PuckComponents"] > section,
+[class*="PuckComponents"] > fieldset,
+[class*="PuckComponents-category"],
+[class*="PuckComponents"] [class*="category"],
+[class*="PuckComponents"] [class*="Category"],
+div[class*="Puck"] [class*="Components"] > div > div,
+div[class*="Puck"] [class*="Components"] > div {
+  border: 2px solid #3b82f6 !important; /* Vibrant Blue Box Border */
+  border-radius: 14px !important;
+  background-color: #f8fafc !important;
+  padding: 14px 12px 12px 12px !important;
+  margin: 14px 2px 20px 2px !important;
+  box-shadow: 0 4px 12px -2px rgba(59, 130, 246, 0.12) !important;
+}
+
+/* Category Title Header Styling */
+[class*="PuckComponents"] [class*="title"],
+[class*="PuckComponents"] [class*="Title"],
+[class*="PuckComponents"] [class*="label"],
+[class*="PuckComponents"] [class*="Header"],
+[class*="PuckComponents"] summary,
+[class*="PuckComponents"] header,
+div[class*="Puck"] [class*="Components"] summary,
+div[class*="Puck"] [class*="Components"] button {
+  font-weight: 800 !important;
+  font-size: 12px !important;
+  color: #1d4ed8 !important;
+  letter-spacing: 0.05em !important;
+  padding-bottom: 8px !important;
+  margin-bottom: 12px !important;
+  border-bottom: 1.5px solid #dbeafe !important;
+  text-transform: uppercase !important;
+}
+
+
+

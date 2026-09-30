@@ -1,0 +1,8 @@
+# Robots.txt for Search Engine Crawlers (Googlebot, Bingbot)
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+
+# Sitemap Location
+Sitemap: https://novatech.com/sitemap.xml
