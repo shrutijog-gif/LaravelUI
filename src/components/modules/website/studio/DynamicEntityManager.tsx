@@ -5,6 +5,7 @@ import { getActiveTenant } from '../../../../data/tenantData';
 import { naacCriteriaList } from '../../../../data/naacCriteriaData';
 import { Drawer } from '../../../common/Drawer';
 import { Plus, Search, Trash2, Edit, Eye, EyeOff, Check, X, ShieldCheck, Download, Award, Trophy, BookOpen, GraduationCap, FileText, Layers, Upload, ExternalLink, Globe } from 'lucide-react';
+import { openFileInNewTab } from '../../../../utils/fileHelper';
 
 interface DynamicEntityManagerProps {
   moduleSlug?: string;
@@ -59,12 +60,69 @@ export const DynamicEntityManager: React.FC<DynamicEntityManagerProps> = ({ modu
     e.preventDefault();
     if (!selectedTemplate) return;
 
+    const finalData = { ...formData };
+    
+    // Auto-detect and normalize any uploaded PDF or document across fields
+    let detectedFileUrl: string | null = null;
+    let detectedFileName: string | null = null;
+
+    // First pass: Prioritize actual uploaded local PDF base64 data URLs
+    for (const f of selectedTemplate.schema.fields) {
+      const val = finalData[f.name];
+      if (val && typeof val === 'string' && (val.startsWith('data:application/pdf') || val.startsWith('data:'))) {
+        detectedFileUrl = val;
+        detectedFileName = finalData[`${f.name}_filename`] || detectedFileName;
+        break;
+      }
+    }
+
+    // Second pass: Check fields specifically designated as document / PDF
+    if (!detectedFileUrl) {
+      for (const f of selectedTemplate.schema.fields) {
+        const fn = f.name.toLowerCase();
+        const fl = f.label.toLowerCase();
+        const isPdfField = f.type === 'file_pdf' || fn.includes('pdf') || fl.includes('pdf') || fn.includes('file') || fl.includes('file') || fn.includes('doc');
+        const val = finalData[f.name];
+        if (isPdfField && val && typeof val === 'string' && val.trim() !== '' && val !== '#') {
+          detectedFileUrl = val;
+          detectedFileName = finalData[`${f.name}_filename`] || detectedFileName;
+          break;
+        }
+      }
+    }
+
+    // Third pass: Check any remaining non-image URL fields
+    if (!detectedFileUrl) {
+      for (const f of selectedTemplate.schema.fields) {
+        if (f.type !== 'image') {
+          const val = finalData[f.name];
+          if (val && typeof val === 'string' && (val.includes('.pdf') || val.startsWith('http'))) {
+            detectedFileUrl = val;
+            detectedFileName = finalData[`${f.name}_filename`] || detectedFileName;
+            break;
+          }
+        }
+      }
+    }
+
+    if (detectedFileUrl) {
+      finalData.fileUrl = detectedFileUrl;
+      finalData.pdf_url = detectedFileUrl;
+      finalData.file = detectedFileUrl;
+      finalData.choose_file = detectedFileUrl;
+      if (detectedFileName) {
+        finalData.fileName = detectedFileName;
+        finalData.choose_file_filename = detectedFileName;
+        finalData.file_pdf_filename = detectedFileName;
+      }
+    }
+
     let updatedItems: DynamicEntityItem[];
 
     if (editingItem) {
       updatedItems = items.map(item =>
         item.id === editingItem.id
-          ? { ...item, data: formData, updatedAt: new Date().toISOString() }
+          ? { ...item, data: finalData, updatedAt: new Date().toISOString() }
           : item
       );
     } else {
@@ -73,7 +131,7 @@ export const DynamicEntityManager: React.FC<DynamicEntityManagerProps> = ({ modu
         tenantId: activeTenant.id,
         moduleSlug: selectedTemplate.schema.slug,
         showOnWebsite: true,
-        data: formData,
+        data: finalData,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -187,16 +245,22 @@ export const DynamicEntityManager: React.FC<DynamicEntityManagerProps> = ({ modu
                                val === 'external-link' ? '🔗' :
                                '📄'}
                             </span>
-                          ) : (f.type === 'file_pdf' || f.name.toLowerCase().includes('file')) && val ? (
-                            <a
-                              href={val}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-800 underline underline-offset-2 transition-colors"
+                          ) : (
+                            f.type === 'file_pdf' || 
+                            f.name.toLowerCase().includes('file') || 
+                            f.name.toLowerCase().includes('pdf') || 
+                            f.label.toLowerCase().includes('pdf') || 
+                            (typeof val === 'string' && (val.startsWith('data:application/pdf') || val.startsWith('data:') || val.toLowerCase().includes('.pdf') || val.includes('dummy.pdf')))
+                          ) && val ? (
+                            <button
+                              type="button"
+                              onClick={() => openFileInNewTab(val, item.data[`${f.name}_filename`])}
+                              className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline underline-offset-2 transition-colors cursor-pointer"
+                              title="Click to view/open document PDF"
                             >
                               <FileText className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                              <span>{item.data[`${f.name}_filename`] || item.data['choose_file_filename'] || item.data['file_pdf_filename'] || 'View Document PDF'}</span>
-                            </a>
+                              <span>{item.data[`${f.name}_filename`] || item.data['choose_file_filename'] || item.data['file_pdf_filename'] || (typeof val === 'string' && val.startsWith('data:') ? 'Attached Local PDF' : 'View Document PDF')}</span>
+                            </button>
                           ) : f.type === 'badge' ? (
                             <span className="bg-blue-50 text-blue-700 font-bold px-2 py-0.5 rounded border border-blue-100">
                               {val}
@@ -449,58 +513,87 @@ export const DynamicEntityManager: React.FC<DynamicEntityManagerProps> = ({ modu
                         className="w-full text-xs pl-9 pr-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white font-mono text-blue-600"
                       />
                     </div>
-                  ) : field.type === 'file_pdf' ? (
-                    <div className="flex items-center w-full bg-white border border-gray-300 rounded-xl overflow-hidden shadow-2xs focus-within:ring-2 focus-within:ring-blue-500">
-                      <label className="px-4 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 text-xs font-bold border-r border-gray-300 cursor-pointer shrink-0 transition-colors">
-                        Choose File
-                        <input
-                          type="file"
-                          accept=".pdf,application/pdf"
-                          className="hidden"
-                          onChange={e => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              const reader = new FileReader();
-                              reader.onload = (evt) => {
-                                setFormData({
-                                  ...formData,
-                                  [field.name]: evt.target?.result as string,
-                                  [`${field.name}_filename`]: file.name,
-                                });
-                              };
-                              reader.readAsDataURL(file);
-                            }
-                          }}
-                        />
-                      </label>
-                      <span className="px-3 text-xs text-gray-500 truncate flex-1 font-sans">
-                        {formData[`${field.name}_filename`] || (formData[field.name] ? 'PDF File Attached' : 'No file chosen')}
-                      </span>
-                      {formData[field.name] && (
-                        <div className="flex items-center gap-1 mr-2 shrink-0">
-                          <a
-                            href={formData[field.name]}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="px-2.5 py-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 shrink-0"
-                          >
-                            View PDF
-                          </a>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const nextData = { ...formData };
-                              delete nextData[field.name];
-                              delete nextData[`${field.name}_filename`];
-                              setFormData(nextData);
+                  ) : (field.type === 'file_pdf' || field.name.toLowerCase().includes('pdf') || field.label.toLowerCase().includes('pdf')) ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center w-full bg-white border border-gray-300 rounded-xl overflow-hidden shadow-2xs focus-within:ring-2 focus-within:ring-blue-500">
+                        <label className="px-4 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 text-xs font-bold border-r border-gray-300 cursor-pointer shrink-0 transition-colors">
+                          Choose Local PDF
+                          <input
+                            type="file"
+                            accept=".pdf,application/pdf"
+                            className="hidden"
+                            onChange={e => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onload = (evt) => {
+                                  const dataUrl = evt.target?.result as string;
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    [field.name]: dataUrl,
+                                    [`${field.name}_filename`]: file.name,
+                                    fileUrl: dataUrl,
+                                    pdf_url: dataUrl,
+                                    file: dataUrl,
+                                    fileName: file.name,
+                                    file_pdf_filename: file.name,
+                                    choose_file_filename: file.name,
+                                  }));
+                                };
+                                reader.readAsDataURL(file);
+                              }
                             }}
-                            className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
-                            title="Remove PDF File"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      )}
+                          />
+                        </label>
+                        <span className="px-3 text-xs text-gray-500 truncate flex-1 font-sans">
+                          {formData[`${field.name}_filename`] || (formData[field.name] ? (formData[field.name].startsWith('data:') ? 'Local PDF File Attached' : formData[field.name]) : 'No local file chosen')}
+                        </span>
+                        {formData[field.name] && (
+                          <div className="flex items-center gap-1 mr-2 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => openFileInNewTab(formData[field.name], formData[`${field.name}_filename`])}
+                              className="px-2.5 py-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 shrink-0 cursor-pointer"
+                            >
+                              View PDF
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setFormData(prev => {
+                                  const nextData = { ...prev };
+                                  delete nextData[field.name];
+                                  delete nextData[`${field.name}_filename`];
+                                  return nextData;
+                                });
+                              }}
+                              className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                              title="Remove PDF File"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      <div className="relative">
+                        <Globe className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          placeholder="Or paste external PDF URL (e.g. https://...)"
+                          value={formData[field.name] && !formData[field.name].startsWith('data:') ? formData[field.name] : ''}
+                          onChange={e => {
+                            const val = e.target.value;
+                            setFormData(prev => ({
+                              ...prev,
+                              [field.name]: val,
+                              fileUrl: val,
+                              pdf_url: val,
+                              file: val,
+                            }));
+                          }}
+                          className="w-full text-xs pl-8 pr-3 py-1.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none bg-gray-50/50 font-mono text-gray-600 placeholder:text-gray-400"
+                        />
+                      </div>
                     </div>
                   ) : field.type === 'image' ? (
                     <div className="flex items-center w-full bg-white border border-gray-300 rounded-xl overflow-hidden shadow-2xs focus-within:ring-2 focus-within:ring-blue-500">

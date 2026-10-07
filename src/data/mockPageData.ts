@@ -155,6 +155,18 @@ export const initialPages: WebPage[] = [
     metaDescription: 'Browse open teaching, administrative, and research positions and submit candidate applications.'
   },
   {
+    id: 'p-nirf',
+    name: 'NIRF Showcase',
+    slug: 'nirf-showcase',
+    lastModified: '24/09/2026 at 03:30 pm',
+    type: 'builder',
+    showHeader: true,
+    showFooter: true,
+    showBreadcrumb: true,
+    seoTitle: 'NIRF Ranking & Statutory Disclosures - Official Portal',
+    metaDescription: 'National Institutional Ranking Framework data reports, scores and statutory public disclosure dossiers.'
+  },
+  {
     id: 'p-1',
     name: 'Alumni Registration',
     customLink: `${getBaseOrigin()}/alumni-registration`,
@@ -218,6 +230,19 @@ export const getStoredWebPages = (): WebPage[] => {
     metaDescription: 'Browse open teaching, administrative, and research positions and submit candidate applications.'
   };
 
+  const defaultNirfPage: WebPage = {
+    id: 'p-nirf',
+    name: 'NIRF Showcase',
+    slug: 'nirf-showcase',
+    lastModified: '24/09/2026 at 03:30 pm',
+    type: 'builder',
+    showHeader: true,
+    showFooter: true,
+    showBreadcrumb: true,
+    seoTitle: 'NIRF Ranking & Statutory Disclosures - Official Portal',
+    metaDescription: 'National Institutional Ranking Framework data reports, scores and statutory public disclosure dossiers.'
+  };
+
   try {
     const raw = localStorage.getItem(PAGES_STORAGE_KEY);
     if (raw) {
@@ -251,6 +276,12 @@ export const getStoredWebPages = (): WebPage[] => {
         const hasCareers = updated.some(p => p.id === 'p-careers' || p.name.toLowerCase() === 'careers' || p.slug === 'careers');
         if (!hasCareers) {
           updated = [defaultCareersPage, ...updated];
+        }
+
+        // Ensure NIRF Showcase page is present
+        const hasNirf = updated.some(p => p.id === 'p-nirf' || p.slug === 'nirf-showcase');
+        if (!hasNirf) {
+          updated = [...updated, defaultNirfPage];
         }
 
         localStorage.setItem(PAGES_STORAGE_KEY, JSON.stringify(updated));

@@ -129,6 +129,7 @@ export const getCollegeAdminMenuItems = (): MenuItem[] => {
       children: [
         { id: 'photo-gallery', label: 'Photo Gallery' },
         { id: 'admission-enquiry', label: 'Website Admission Enquiry Form' },
+        { id: 'nirf-showcase', label: 'NIRF Showcase' },
       ],
     },
     {

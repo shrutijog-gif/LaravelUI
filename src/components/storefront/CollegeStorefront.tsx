@@ -173,6 +173,7 @@ export const CollegeStorefront: React.FC<CollegeStorefrontProps> = ({ onToggleVi
                 <a href="#alumni-section" className="hover:text-amber-600 transition-colors">Alumni</a>
                 <a href="#notices-section" className="hover:text-amber-600 transition-colors">Notices</a>
                 <a href="?mode=storefront&page=careers" className="hover:text-amber-600 transition-colors">Careers</a>
+                <a href="?mode=storefront&page=nirf-showcase" className="hover:text-amber-600 transition-colors">NIRF</a>
                 <a 
                   href="#admissions" 
                   className="px-4 py-2 rounded-xl text-white font-extrabold shadow-sm transition-all hover:shadow-md"
@@ -260,6 +261,7 @@ export const CollegeStorefront: React.FC<CollegeStorefrontProps> = ({ onToggleVi
                 <li><a href="?mode=storefront#timetables-section" className="hover:text-white">Timetables &amp; Downloads</a></li>
                 <li><a href="?mode=storefront#principal-message" className="hover:text-white">Principal's Message</a></li>
                 <li><a href="?mode=storefront&page=careers" className="hover:text-white">Careers &amp; Opportunities</a></li>
+                <li><a href="?mode=storefront&page=nirf-showcase" className="hover:text-white">NIRF Disclosures</a></li>
               </ul>
             </div>
 

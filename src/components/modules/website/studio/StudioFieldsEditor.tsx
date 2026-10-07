@@ -76,6 +76,16 @@ export const StudioFieldsEditor: React.FC<StudioFieldsEditorProps> = ({ fields, 
       const slug = val.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
       setNewKey(slug);
     }
+    const lower = val.toLowerCase();
+    if (newType === 'text') {
+      if (lower.includes('pdf') || lower.includes('document') || lower.includes('file')) {
+        setNewType('file_pdf');
+      } else if (lower.includes('image') || lower.includes('photo')) {
+        setNewType('image');
+      } else if (lower.includes('date')) {
+        setNewType('date');
+      }
+    }
   };
 
   const selectedField = fields.find(f => f.id === selectedFieldId);

@@ -15,6 +15,7 @@ import { CardBuilderStudio } from '../modules/developer/CardBuilderStudio';
 import { CommitteesAdmin } from '../modules/website/committees/CommitteesAdmin';
 import { DepartmentsAdmin } from '../modules/website/departments/DepartmentsAdmin'; // Clean departments module
 import { CareersAdmin } from '../modules/website/careers/CareersAdmin';
+import { NirfShowcaseAdmin } from '../modules/website/nirf/NirfShowcaseAdmin';
 
 interface LayoutProps {
   onToggleViewMode?: () => void;
@@ -111,6 +112,8 @@ export const Layout: React.FC<LayoutProps> = ({ onToggleViewMode }) => {
               <DepartmentsAdmin />
             ) : activeModuleId === 'webpage' ? (
               <PageAdmin />
+            ) : activeModuleId === 'nirf-showcase' ? (
+              <NirfShowcaseAdmin />
             ) : (
               <ModulePlaceholder 
                 moduleId={activeModuleId} 

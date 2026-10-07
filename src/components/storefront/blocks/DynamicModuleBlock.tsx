@@ -5,6 +5,7 @@ import { getActiveTenant } from '../../../data/tenantData';
 import { Search, ArrowUpRight, FileText, Calendar, Award, Trophy, BookOpen, ExternalLink, ShieldCheck, Layers, Globe, Download } from 'lucide-react';
 import { CardPresetView } from '../../modules/developer/CardPresetView';
 import { getStoredCardPresets, INITIAL_CARD_PRESETS, CardSlotConfig } from '../../../utils/cardPresets';
+import { openFileInNewTab } from '../../../utils/fileHelper';
 
 export interface DynamicModuleBlockProps {
   moduleSlug?: string;
@@ -153,8 +154,56 @@ export const DynamicModuleBlock: React.FC<DynamicModuleBlockProps> = ({
     ? filteredItems.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
     : filteredItems;
 
-  const getValidUrl = (url?: string) => {
-    if (url && url.trim() !== '' && url !== '#') return url;
+  const resolveDocFileUrl = (itemData: Record<string, any>, schemaFields: any[]) => {
+    // 1. Highest priority: User's locally uploaded base64 data URL anywhere in itemData
+    for (const [_, val] of Object.entries(itemData)) {
+      if (typeof val === 'string' && (val.startsWith('data:application/pdf') || val.startsWith('data:'))) {
+        return val;
+      }
+    }
+
+    // 2. Specific fields with file_pdf or name/label containing pdf/file/doc
+    const docFields = schemaFields.filter(f => 
+      f.type === 'file_pdf' || 
+      f.name.toLowerCase().includes('pdf') || 
+      f.label.toLowerCase().includes('pdf') ||
+      f.name.toLowerCase().includes('file') || 
+      f.label.toLowerCase().includes('file') ||
+      f.name.toLowerCase().includes('doc')
+    );
+
+    for (const f of docFields) {
+      const val = itemData[f.name];
+      if (val && typeof val === 'string' && val.trim() !== '' && val !== '#') {
+        return val;
+      }
+    }
+
+    // 3. Document aliases
+    const aliases = ['fileUrl', 'pdf_url', 'file', 'choose_file', 'file_pdf', 'downloadUrl', 'documentUrl', 'pdf_link'];
+    for (const k of aliases) {
+      const val = itemData[k];
+      if (val && typeof val === 'string' && val.trim() !== '' && val !== '#') {
+        return val;
+      }
+    }
+
+    // 4. URL/link fields
+    const urlFields = schemaFields.filter(f => f.type === 'url' || f.name.toLowerCase().includes('link') || f.name.toLowerCase() === 'url');
+    for (const f of urlFields) {
+      const val = itemData[f.name];
+      if (val && typeof val === 'string' && val.trim() !== '' && val !== '#') {
+        return val;
+      }
+    }
+
+    // 5. Any string value ending in .pdf
+    for (const [_, val] of Object.entries(itemData)) {
+      if (typeof val === 'string' && (val.toLowerCase().endsWith('.pdf') || val.includes('.pdf?'))) {
+        return val;
+      }
+    }
+
     return 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf';
   };
 
@@ -232,10 +281,7 @@ export const DynamicModuleBlock: React.FC<DynamicModuleBlockProps> = ({
             const imageField = fields.find(f => f.type === 'image');
             const itemData = item?.data || {};
             const imageUrl = imageField ? itemData[imageField.name] : null;
-            const linkField = fields.find(f => f.type === 'url') || fields.find(f => f.name.toLowerCase().includes('link') || f.name.toLowerCase() === 'url');
-            const pdfField = fields.find(f => f.type === 'file_pdf') || fields.find(f => f.name.toLowerCase().includes('file'));
-            const rawTargetUrl = (linkField && itemData[linkField.name]) ? itemData[linkField.name] : (pdfField ? itemData[pdfField.name] : (itemData.fileUrl || itemData.pdf_url || itemData.url || '#'));
-            const fileUrl = getValidUrl(rawTargetUrl);
+            const fileUrl = resolveDocFileUrl(itemData, fields);
             const titleField = fields.find(f => f.name === 'title' || f.name === 'name' || f.name.includes('name') || f.name.includes('title')) || fields.find(f => f.type === 'text');
             const titleVal = (titleField && itemData[titleField.name])
               ? itemData[titleField.name]
@@ -389,6 +435,12 @@ export const DynamicModuleBlock: React.FC<DynamicModuleBlockProps> = ({
                 href={fileUrl}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={(e) => {
+                  if (fileUrl.startsWith('data:')) {
+                    e.preventDefault();
+                    openFileInNewTab(fileUrl, titleVal);
+                  }
+                }}
                 className="block h-full cursor-pointer no-underline group"
               >
                 <CardPresetView
@@ -423,10 +475,7 @@ export const DynamicModuleBlock: React.FC<DynamicModuleBlockProps> = ({
             <tbody className="divide-y divide-gray-100 text-sm">
               {displayedItems.map(item => {
                 const rowData = item?.data || {};
-                const linkField = fields.find(f => f.type === 'url') || fields.find(f => f.name.toLowerCase().includes('link') || f.name.toLowerCase() === 'url');
-                const pdfField = fields.find(f => f.type === 'file_pdf') || fields.find(f => f.name.toLowerCase().includes('file'));
-                const rawTargetUrl = (linkField && rowData[linkField.name]) ? rowData[linkField.name] : (pdfField ? rowData[pdfField.name] : (rowData.fileUrl || rowData.pdf_url || rowData.url || '#'));
-                const fileUrl = getValidUrl(rawTargetUrl);
+                const fileUrl = resolveDocFileUrl(rowData, fields);
                 return (
                   <tr key={item.id} className="hover:bg-blue-50/30 transition-colors group">
                     {fields.filter(f => f.showInTable !== false && (showFields ? showFields[f.name] !== false : true)).map(f => {
@@ -453,6 +502,12 @@ export const DynamicModuleBlock: React.FC<DynamicModuleBlockProps> = ({
                         href={fileUrl}
                         target="_blank"
                         rel="noopener noreferrer"
+                        onClick={(e) => {
+                          if (fileUrl.startsWith('data:')) {
+                            e.preventDefault();
+                            openFileInNewTab(fileUrl, rowData.title);
+                          }
+                        }}
                         className="inline-flex items-center gap-1 bg-gray-900 group-hover:bg-blue-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors shadow-2xs"
                       >
                         {displayConfig.primaryActionLabel || 'View'} <ArrowUpRight className="w-3.5 h-3.5" />

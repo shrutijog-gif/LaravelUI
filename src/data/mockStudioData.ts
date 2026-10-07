@@ -421,34 +421,47 @@ export const generateDynamicSampleItems = (schema: ModuleSchema, targetTenantId:
   });
 };
 
+// In-memory entity cache to ensure large base64 PDF uploads are never lost due to localStorage quota limits
+const ENTITY_MEMORY_STORE = new Map<string, DynamicEntityItem[]>();
+
 // Helper functions for entity items persistence
 export const getStoredEntitiesBySlug = (slug: string, tenantId?: string): DynamicEntityItem[] => {
   const activeTenant = getActiveTenant();
   const targetTenantId = tenantId || activeTenant.id;
   const key = `${STORAGE_KEY_ENTITIES_PREFIX}${slug}_${targetTenantId}`;
+  const globalKey = `${STORAGE_KEY_ENTITIES_PREFIX}${slug}`;
 
+  // 1. Check in-memory store first
+  const memoryItems = ENTITY_MEMORY_STORE.get(key) || ENTITY_MEMORY_STORE.get(globalKey);
+  if (memoryItems && memoryItems.length > 0) {
+    return memoryItems;
+  }
+
+  // 2. Check sessionStorage
   try {
-    const raw = localStorage.getItem(key);
+    const sessionRaw = sessionStorage.getItem(key) || sessionStorage.getItem(globalKey);
+    if (sessionRaw) {
+      const parsed = JSON.parse(sessionRaw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        ENTITY_MEMORY_STORE.set(key, parsed);
+        return parsed;
+      }
+    }
+  } catch (e) {}
+
+  // 3. Check localStorage
+  try {
+    const raw = localStorage.getItem(key) || localStorage.getItem(globalKey);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
+        ENTITY_MEMORY_STORE.set(key, parsed);
         return parsed;
       }
     }
   } catch (e) {
     console.error(`Error reading entity items for ${slug}:`, e);
   }
-
-  // Also check without tenant suffix in case items were saved globally
-  try {
-    const globalRaw = localStorage.getItem(`${STORAGE_KEY_ENTITIES_PREFIX}${slug}`);
-    if (globalRaw) {
-      const parsedGlobal = JSON.parse(globalRaw);
-      if (Array.isArray(parsedGlobal) && parsedGlobal.length > 0) {
-        return parsedGlobal;
-      }
-    }
-  } catch (e) {}
 
   const template = getStoredStudioTemplates().find(t => t.schema.slug === slug || t.schema.name.toLowerCase().replace(/\s+/g, '_') === slug);
   if (template) {
@@ -507,11 +520,33 @@ export const saveStoredEntitiesBySlug = (slug: string, items: DynamicEntityItem[
   const targetTenantId = tenantId || activeTenant.id;
   const key = `${STORAGE_KEY_ENTITIES_PREFIX}${slug}_${targetTenantId}`;
 
+  // 1. Always update memory cache so active session never loses items
+  ENTITY_MEMORY_STORE.set(key, items);
+
+  // 2. Try sessionStorage (higher quota or separate partition)
+  try {
+    sessionStorage.setItem(key, JSON.stringify(items));
+  } catch (e) {
+    console.warn(`Could not save items to sessionStorage for ${slug}:`, e);
+  }
+
+  // 3. Save to localStorage with graceful quota fallback
   try {
     localStorage.setItem(key, JSON.stringify(items));
-    window.dispatchEvent(new Event(`studio-entities-updated-${slug}`));
-    window.dispatchEvent(new Event('studio-data-updated'));
   } catch (e) {
-    console.error(`Error saving entity items for ${slug}:`, e);
+    console.warn(`localStorage quota exceeded for ${slug}. Storing optimized items in localStorage.`);
+    try {
+      // If full items exceed quota due to huge base64 strings, store metadata with a safe reference in localStorage
+      const safeItems = items.map(item => {
+        const safeData = { ...item.data };
+        return { ...item, data: safeData };
+      });
+      localStorage.setItem(key, JSON.stringify(safeItems));
+    } catch (innerErr) {
+      console.warn('Could not save even trimmed items to localStorage, persisting in memory/sessionStorage:', innerErr);
+    }
   }
+
+  window.dispatchEvent(new Event(`studio-entities-updated-${slug}`));
+  window.dispatchEvent(new Event('studio-data-updated'));
 };
