@@ -38,6 +38,8 @@ export const superadminMenuItems: MenuItem[] = [
     label: 'Developers Area',
     icon: 'code',
     children: [
+      { id: 'dev-importer', label: 'Convert Design (AI) ✨' },
+      { id: 'dev-appearance', label: 'Website Appearance (CSS)' },
       { id: 'dev-header', label: 'Header' },
       { id: 'dev-footer', label: 'Footer' },
     ],
@@ -168,8 +170,13 @@ export const getCollegeAdminMenuItems = (): MenuItem[] => {
       label: 'Developers Area',
       icon: 'code',
       children: [
-        { id: 'dev-header', label: 'Header' },
+        { id: 'dev-importer', label: 'Convert Design (AI) ✨' },
+        { id: 'dev-appearance', label: 'Website Appearance' },
         { id: 'dev-footer', label: 'Footer' },
+        { id: 'dev-header', label: 'Header' },
+        { id: 'file-manager', label: 'File Manager' },
+        { id: 'dev-shortcode', label: 'ShortCode' },
+        { id: 'dev-findreplace', label: 'Find and Replace' },
       ],
     },
     {

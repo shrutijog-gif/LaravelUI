@@ -23,6 +23,7 @@ import { getActiveTenant, CollegeTenant, collegeTenantsList, setActiveTenantId }
 import { TimetableBlock } from './blocks/TimetableBlock';
 import { DynamicModuleBlock } from './blocks/DynamicModuleBlock';
 import { getStoredWebPages, getStoredPagePuckData } from '../../data/mockPageData';
+import { getTenantTemplateData, TenantTemplateData } from '../../data/tenantTemplateStorage';
 import { config, getDynamicPuckConfig } from '../../puck.config';
 import { Render } from '@measured/puck';
 
@@ -32,13 +33,26 @@ interface CollegeStorefrontProps {
 
 export const CollegeStorefront: React.FC<CollegeStorefrontProps> = ({ onToggleViewMode }) => {
   const [tenant, setTenant] = useState<CollegeTenant>(getActiveTenant());
+  const [templateData, setTemplateData] = useState<TenantTemplateData>(() => getTenantTemplateData());
 
   useEffect(() => {
     const handleTenantChange = () => {
-      setTenant(getActiveTenant());
+      const active = getActiveTenant();
+      setTenant(active);
+      setTemplateData(getTenantTemplateData(active.id));
+    };
+    const handleTemplateChange = (e: any) => {
+      const active = getActiveTenant();
+      setTemplateData(getTenantTemplateData(active.id));
     };
     window.addEventListener('tenant-changed', handleTenantChange);
-    return () => window.removeEventListener('tenant-changed', handleTenantChange);
+    window.addEventListener('tenant-template-updated', handleTemplateChange);
+    window.addEventListener('storage', handleTenantChange);
+    return () => {
+      window.removeEventListener('tenant-changed', handleTenantChange);
+      window.removeEventListener('tenant-template-updated', handleTemplateChange);
+      window.removeEventListener('storage', handleTenantChange);
+    };
   }, []);
 
   // Check if a specific page is requested via URL query e.g. ?page=about-college OR direct pathname /about-college
@@ -80,110 +94,118 @@ export const CollegeStorefront: React.FC<CollegeStorefrontProps> = ({ onToggleVi
     <div className="min-h-screen bg-white text-gray-800 font-sans flex flex-col justify-between">
       <div>
         
-        {/* 1. Top Utility Header Bar */}
-        {(activePage ? activePage.showHeader !== false : true) && (
-          <div 
-            className="text-white text-xs py-2 px-4 sm:px-8 border-b border-black/10 transition-colors sticky top-0 z-50 shadow-md"
-            style={{ backgroundColor: tenant.primaryColor }}
-          >
-            <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
-              
-              <div className="flex items-center gap-6 text-white/90">
-                <span className="flex items-center gap-1.5 font-medium">
-                  <Phone className="w-3.5 h-3.5 text-amber-400" />
-                  <a href="tel:+911123456789" className="hover:underline">+91 (011) 2345 6789</a>
-                </span>
-                <span className="hidden md:flex items-center gap-1.5 font-medium">
-                  <Mail className="w-3.5 h-3.5 text-amber-400" />
-                  <span>admissions@{tenant.id}.edu.in</span>
-                </span>
-                <span className="hidden lg:flex items-center gap-1 text-white/80 font-semibold bg-white/10 px-2.5 py-0.5 rounded-full border border-white/20">
-                  <Award className="w-3.5 h-3.5 text-amber-300" />
-                  <span>NAAC Accredited Grade A++ Institution</span>
-                </span>
-              </div>
-
-              <div className="flex items-center gap-3">
-                {/* Live Tenant Switcher */}
-                <div className="flex items-center gap-1.5 bg-white/15 hover:bg-white/25 px-3 py-1 rounded-lg border border-white/20 transition-all">
-                  <Building2 className="w-3.5 h-3.5 text-amber-300" />
-                  <select
-                    value={tenant.id}
-                    onChange={(e) => setActiveTenantId(e.target.value)}
-                    className="bg-transparent text-xs font-bold text-white cursor-pointer outline-none border-none p-0 pr-2"
-                  >
-                    {collegeTenantsList.map(t => (
-                      <option key={t.id} value={t.id} className="text-gray-900 font-semibold">
-                        {t.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {onToggleViewMode && (
-                  <button
-                    onClick={onToggleViewMode}
-                    className="flex items-center gap-1.5 text-xs text-white hover:text-amber-200 transition-colors cursor-pointer bg-black/25 hover:bg-black/40 px-3 py-1 rounded-lg border border-white/20 shadow-2xs font-semibold"
-                    title="Return to Admin Dashboard"
-                  >
-                    <Globe className="w-3.5 h-3.5 text-amber-300" />
-                    <span>Return to <strong>Admin Dashboard</strong></span>
-                  </button>
-                )}
-              </div>
-
-            </div>
-          </div>
+        {/* Injected Tenant Global CSS */}
+        {templateData.customCss && (
+          <style dangerouslySetInnerHTML={{ __html: templateData.customCss }} />
         )}
 
-        {/* 2. Main College Branding Navbar */}
+        {/* 1. Tenant Custom Header or Default Header */}
         {(activePage ? activePage.showHeader !== false : true) && (
-          <nav className="bg-white border-b border-gray-200 sticky top-9 z-40 shadow-xs">
-            <div className="max-w-7xl mx-auto px-4 sm:px-8 py-3.5 flex items-center justify-between">
-              {/* Logo & Institution Name */}
-              <a href="?mode=storefront" className="flex items-center gap-3.5 no-underline">
-                <div 
-                  className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${tenant.badgeGradient} p-2 flex items-center justify-center text-white shadow-md`}
-                >
-                  {tenant.logoType === 'lady-irwin' && (
-                    <GraduationCap className="w-7 h-7 text-white" />
-                  )}
-                  {tenant.logoType === 'kvk-leaf' && (
-                    <Sparkles className="w-7 h-7 text-white" />
-                  )}
-                  {tenant.logoType === 'university-crest' && (
-                    <Building2 className="w-7 h-7 text-white" />
-                  )}
-                </div>
-                <div>
-                  <h1 className="text-lg sm:text-xl font-black text-gray-900 leading-tight tracking-tight">
-                    {tenant.name}
-                  </h1>
-                  <p className="text-xs text-gray-500 font-medium">
-                    {tenant.subtitle}
-                  </p>
-                </div>
-              </a>
+          templateData.headerHtml ? (
+            <div 
+              className="w-full"
+              dangerouslySetInnerHTML={{ __html: templateData.headerHtml }} 
+            />
+          ) : (
+            <>
+              {/* Fallback Static Header */}
+              <div 
+                className="text-white text-xs py-2 px-4 sm:px-8 border-b border-black/10 transition-colors sticky top-0 z-50 shadow-md"
+                style={{ backgroundColor: tenant.primaryColor }}
+              >
+                <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-6 text-white/90">
+                    <span className="flex items-center gap-1.5 font-medium">
+                      <Phone className="w-3.5 h-3.5 text-amber-400" />
+                      <a href="tel:+911123456789" className="hover:underline">+91 (011) 2345 6789</a>
+                    </span>
+                    <span className="hidden md:flex items-center gap-1.5 font-medium">
+                      <Mail className="w-3.5 h-3.5 text-amber-400" />
+                      <span>admissions@{tenant.id}.edu.in</span>
+                    </span>
+                    <span className="hidden lg:flex items-center gap-1 text-white/80 font-semibold bg-white/10 px-2.5 py-0.5 rounded-full border border-white/20">
+                      <Award className="w-3.5 h-3.5 text-amber-300" />
+                      <span>NAAC Accredited Grade A++ Institution</span>
+                    </span>
+                  </div>
 
-              {/* Navigation Links */}
-              <div className="hidden lg:flex items-center gap-6 text-xs font-bold uppercase tracking-wider text-gray-700">
-                <a href="?mode=storefront" className="hover:text-amber-600 transition-colors">Home</a>
-                <a href="#timetables-section" className="hover:text-amber-600 transition-colors">Timetables</a>
-                <a href="#principal-message" className="hover:text-amber-600 transition-colors">Leadership</a>
-                <a href="#alumni-section" className="hover:text-amber-600 transition-colors">Alumni</a>
-                <a href="#notices-section" className="hover:text-amber-600 transition-colors">Notices</a>
-                <a href="?mode=storefront&page=careers" className="hover:text-amber-600 transition-colors">Careers</a>
-                <a href="?mode=storefront&page=nirf-showcase" className="hover:text-amber-600 transition-colors">NIRF</a>
-                <a 
-                  href="#admissions" 
-                  className="px-4 py-2 rounded-xl text-white font-extrabold shadow-sm transition-all hover:shadow-md"
-                  style={{ backgroundColor: tenant.primaryColor }}
-                >
-                  Admissions 2026-27
-                </a>
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1.5 bg-white/15 hover:bg-white/25 px-3 py-1 rounded-lg border border-white/20 transition-all">
+                      <Building2 className="w-3.5 h-3.5 text-amber-300" />
+                      <select
+                        value={tenant.id}
+                        onChange={(e) => setActiveTenantId(e.target.value)}
+                        className="bg-transparent text-xs font-bold text-white cursor-pointer outline-none border-none p-0 pr-2"
+                      >
+                        {collegeTenantsList.map(t => (
+                          <option key={t.id} value={t.id} className="text-gray-900 font-semibold">
+                            {t.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {onToggleViewMode && (
+                      <button
+                        onClick={onToggleViewMode}
+                        className="flex items-center gap-1.5 text-xs text-white hover:text-amber-200 transition-colors cursor-pointer bg-black/25 hover:bg-black/40 px-3 py-1 rounded-lg border border-white/20 shadow-2xs font-semibold"
+                        title="Return to Admin Dashboard"
+                      >
+                        <Globe className="w-3.5 h-3.5 text-amber-300" />
+                        <span>Return to <strong>Admin Dashboard</strong></span>
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
-          </nav>
+
+              {/* 2. Main College Branding Navbar */}
+              <nav className="bg-white border-b border-gray-200 sticky top-9 z-40 shadow-xs">
+                <div className="max-w-7xl mx-auto px-4 sm:px-8 py-3.5 flex items-center justify-between">
+                  <a href="?mode=storefront" className="flex items-center gap-3.5 no-underline">
+                    <div 
+                      className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${tenant.badgeGradient} p-2 flex items-center justify-center text-white shadow-md`}
+                    >
+                      {tenant.logoType === 'lady-irwin' && (
+                        <GraduationCap className="w-7 h-7 text-white" />
+                      )}
+                      {tenant.logoType === 'kvk-leaf' && (
+                        <Sparkles className="w-7 h-7 text-white" />
+                      )}
+                      {tenant.logoType === 'university-crest' && (
+                        <Building2 className="w-7 h-7 text-white" />
+                      )}
+                    </div>
+                    <div>
+                      <h1 className="text-lg sm:text-xl font-black text-gray-900 leading-tight tracking-tight">
+                        {tenant.name}
+                      </h1>
+                      <p className="text-xs text-gray-500 font-medium">
+                        {tenant.subtitle}
+                      </p>
+                    </div>
+                  </a>
+
+                  <div className="hidden lg:flex items-center gap-6 text-xs font-bold uppercase tracking-wider text-gray-700">
+                    <a href="?mode=storefront" className="hover:text-amber-600 transition-colors">Home</a>
+                    <a href="#timetables-section" className="hover:text-amber-600 transition-colors">Timetables</a>
+                    <a href="#principal-message" className="hover:text-amber-600 transition-colors">Leadership</a>
+                    <a href="#alumni-section" className="hover:text-amber-600 transition-colors">Alumni</a>
+                    <a href="#notices-section" className="hover:text-amber-600 transition-colors">Notices</a>
+                    <a href="?mode=storefront&page=careers" className="hover:text-amber-600 transition-colors">Careers</a>
+                    <a href="?mode=storefront&page=nirf-showcase" className="hover:text-amber-600 transition-colors">NIRF</a>
+                    <a 
+                      href="#admissions" 
+                      className="px-4 py-2 rounded-xl text-white font-extrabold shadow-sm transition-all hover:shadow-md"
+                      style={{ backgroundColor: tenant.primaryColor }}
+                    >
+                      Admissions 2026-27
+                    </a>
+                  </div>
+                </div>
+              </nav>
+            </>
+          )
         )}
 
         {/* Dynamic Specific Web Page View or Home Page */}
@@ -245,59 +267,76 @@ export const CollegeStorefront: React.FC<CollegeStorefrontProps> = ({ onToggleVi
 
       {/* 7. College Footer */}
       {(activePage ? activePage.showFooter !== false : true) && (
-        <footer className="bg-gray-900 text-white pt-12 pb-8 px-4 sm:px-8 mt-auto">
-          <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8 pb-8 border-b border-gray-800 text-xs">
-            
-            <div className="space-y-3">
-              <h4 className="text-sm font-bold text-amber-400">{tenant.name}</h4>
-              <p className="text-gray-400 leading-relaxed">{tenant.subtitle}</p>
-              <p className="text-gray-400">NAAC Grade A++ Accredited University Campus</p>
+        templateData.footerHtml ? (
+          <div 
+            className="w-full mt-auto"
+            dangerouslySetInnerHTML={{ __html: templateData.footerHtml }} 
+          />
+        ) : (
+          <footer className="bg-gray-900 text-white pt-12 pb-8 px-4 sm:px-8 mt-auto">
+            <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8 pb-8 border-b border-gray-800 text-xs">
+              
+              <div className="space-y-3">
+                <h4 className="text-sm font-bold text-amber-400">{tenant.name}</h4>
+                <p className="text-gray-400 leading-relaxed">{tenant.subtitle}</p>
+                <p className="text-gray-400">NAAC Grade A++ Accredited University Campus</p>
+              </div>
+
+              <div className="space-y-2">
+                <h5 className="font-bold text-gray-200">Quick Links</h5>
+                <ul className="space-y-1.5 text-gray-400">
+                  <li><a href="?mode=storefront#hero" className="hover:text-white">Academic Calendar</a></li>
+                  <li><a href="?mode=storefront#timetables-section" className="hover:text-white">Timetables &amp; Downloads</a></li>
+                  <li><a href="?mode=storefront#principal-message" className="hover:text-white">Principal's Message</a></li>
+                  <li><a href="?mode=storefront&page=careers" className="hover:text-white">Careers &amp; Opportunities</a></li>
+                  <li><a href="?mode=storefront&page=nirf-showcase" className="hover:text-white">NIRF Disclosures</a></li>
+                </ul>
+              </div>
+
+              <div className="space-y-2">
+                <h5 className="font-bold text-gray-200">Academics</h5>
+                <ul className="space-y-1.5 text-gray-400">
+                  <li><span>School of Computer Science &amp; IT</span></li>
+                  <li><span>School of Home Science &amp; Nutrition</span></li>
+                  <li><span>School of Agriculture &amp; Agronomy</span></li>
+                  <li><span>School of Business Management</span></li>
+                </ul>
+              </div>
+
+              <div className="space-y-2">
+                <h5 className="font-bold text-gray-200">Campus Contact</h5>
+                <p className="text-gray-400">Central Administrative Block</p>
+                <p className="text-gray-400">Helpline: 1800 123 4567</p>
+                <p className="text-gray-400">Email: registrar@{tenant.id}.edu.in</p>
+              </div>
+
             </div>
 
-            <div className="space-y-2">
-              <h5 className="font-bold text-gray-200">Quick Links</h5>
-              <ul className="space-y-1.5 text-gray-400">
-                <li><a href="?mode=storefront#hero" className="hover:text-white">Academic Calendar</a></li>
-                <li><a href="?mode=storefront#timetables-section" className="hover:text-white">Timetables &amp; Downloads</a></li>
-                <li><a href="?mode=storefront#principal-message" className="hover:text-white">Principal's Message</a></li>
-                <li><a href="?mode=storefront&page=careers" className="hover:text-white">Careers &amp; Opportunities</a></li>
-                <li><a href="?mode=storefront&page=nirf-showcase" className="hover:text-white">NIRF Disclosures</a></li>
-              </ul>
+            <div className="max-w-7xl mx-auto pt-6 flex flex-wrap items-center justify-between gap-4 text-[11px] text-gray-500">
+              <p>© 2026 {tenant.name}. Powered by College CMS SaaS Platform.</p>
+              <div className="flex items-center gap-4">
+                <a href="#" className="hover:text-gray-400">Privacy Policy</a>
+                {onToggleViewMode && (
+                  <a href="#" className="hover:text-gray-400 font-bold text-amber-400" onClick={onToggleViewMode}>
+                    ⚙️ Admin Dashboard
+                  </a>
+                )}
+              </div>
             </div>
-
-            <div className="space-y-2">
-              <h5 className="font-bold text-gray-200">Academics</h5>
-              <ul className="space-y-1.5 text-gray-400">
-                <li><span>School of Computer Science &amp; IT</span></li>
-                <li><span>School of Home Science &amp; Nutrition</span></li>
-                <li><span>School of Agriculture &amp; Agronomy</span></li>
-                <li><span>School of Business Management</span></li>
-              </ul>
-            </div>
-
-            <div className="space-y-2">
-              <h5 className="font-bold text-gray-200">Campus Contact</h5>
-              <p className="text-gray-400">Central Administrative Block</p>
-              <p className="text-gray-400">Helpline: 1800 123 4567</p>
-              <p className="text-gray-400">Email: registrar@{tenant.id}.edu.in</p>
-            </div>
-
-          </div>
-
-          <div className="max-w-7xl mx-auto pt-6 flex flex-wrap items-center justify-between gap-4 text-[11px] text-gray-500">
-            <p>© 2026 {tenant.name}. Powered by College CMS SaaS Platform.</p>
-            <div className="flex items-center gap-4">
-              <a href="#" className="hover:text-gray-400">Privacy Policy</a>
-              {onToggleViewMode && (
-                <a href="#" className="hover:text-gray-400 font-bold text-amber-400" onClick={onToggleViewMode}>
-                  ⚙️ Admin Dashboard
-                </a>
-              )}
-            </div>
-          </div>
-        </footer>
+          </footer>
+        )
       )}
 
+      {onToggleViewMode && (
+        <button
+          onClick={onToggleViewMode}
+          className="fixed bottom-4 right-4 z-50 bg-gray-900/90 hover:bg-black text-amber-300 hover:text-white px-3.5 py-2 rounded-full shadow-lg text-xs font-bold flex items-center gap-2 border border-amber-400/40 backdrop-blur-xs transition-all"
+          title="Return to CMS Admin Studio"
+        >
+          <Globe className="w-3.5 h-3.5" />
+          <span>Admin Studio</span>
+        </button>
+      )}
     </div>
   );
 };

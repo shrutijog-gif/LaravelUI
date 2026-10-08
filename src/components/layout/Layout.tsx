@@ -12,6 +12,8 @@ import { ModuleStudio } from '../modules/website/studio/ModuleStudio';
 import { DynamicEntityManager } from '../modules/website/studio/DynamicEntityManager';
 import { DesignSettings } from '../modules/developer/DesignSettings';
 import { CardBuilderStudio } from '../modules/developer/CardBuilderStudio';
+import { DevHeaderFooterStudio } from '../modules/developer/DevHeaderFooterStudio';
+import { FileManager } from '../modules/fileManager/FileManager';
 import { CommitteesAdmin } from '../modules/website/committees/CommitteesAdmin';
 import { DepartmentsAdmin } from '../modules/website/departments/DepartmentsAdmin'; // Clean departments module
 import { CareersAdmin } from '../modules/website/careers/CareersAdmin';
@@ -90,6 +92,16 @@ export const Layout: React.FC<LayoutProps> = ({ onToggleViewMode }) => {
               <CardBuilderStudio />
             ) : activeModuleId === 'design-settings' ? (
               <DesignSettings />
+            ) : activeModuleId === 'dev-importer' ? (
+              <DevHeaderFooterStudio initialTab="importer" />
+            ) : activeModuleId === 'dev-header' ? (
+              <DevHeaderFooterStudio initialTab="header" />
+            ) : activeModuleId === 'dev-footer' ? (
+              <DevHeaderFooterStudio initialTab="footer" />
+            ) : activeModuleId === 'dev-appearance' ? (
+              <DevHeaderFooterStudio initialTab="css" />
+            ) : activeModuleId === 'file-manager' ? (
+              <FileManager />
             ) : activeModuleId === 'dashboard' ? (
               <DashboardModule />
             ) : activeModuleId.startsWith('ecommerce') ? (
