@@ -3,10 +3,29 @@ import { Header } from './Header';
 import { Sidebar } from './Sidebar';
 import { Footer } from './Footer';
 import { DashboardModule } from '../modules/DashboardModule';
+import { EcommerceContainer } from '../modules/ecommerce/EcommerceContainer';
 import { ModulePlaceholder } from '../modules/ModulePlaceholder';
+import { TimetableAdmin } from '../modules/website/timetable/TimetableAdmin';
+import { PageAdmin } from '../modules/website/pages/PageAdmin';
 
-export const Layout: React.FC = () => {
+import { ModuleStudio } from '../modules/website/studio/ModuleStudio';
+import { DynamicEntityManager } from '../modules/website/studio/DynamicEntityManager';
+import { DesignSettings } from '../modules/developer/DesignSettings';
+import { CardBuilderStudio } from '../modules/developer/CardBuilderStudio';
+import { DevHeaderFooterStudio } from '../modules/developer/DevHeaderFooterStudio';
+import { FileManager } from '../modules/fileManager/FileManager';
+import { CommitteesAdmin } from '../modules/website/committees/CommitteesAdmin';
+import { DepartmentsAdmin } from '../modules/website/departments/DepartmentsAdmin'; // Clean departments module
+import { CareersAdmin } from '../modules/website/careers/CareersAdmin';
+import { NirfShowcaseAdmin } from '../modules/website/nirf/NirfShowcaseAdmin';
+
+interface LayoutProps {
+  onToggleViewMode?: () => void;
+}
+
+export const Layout: React.FC<LayoutProps> = ({ onToggleViewMode }) => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [portalRole, setPortalRole] = useState<'superadmin' | 'collegeadmin'>('collegeadmin');
   const [activeModuleId, setActiveModuleId] = useState('dashboard');
   const [activeModuleLabel, setActiveModuleLabel] = useState('Dashboard');
 
@@ -19,25 +38,94 @@ export const Layout: React.FC = () => {
     setActiveModuleLabel(label);
   };
 
+  const handleSwitchPortalRole = (role: 'superadmin' | 'collegeadmin') => {
+    setPortalRole(role);
+    if (role === 'superadmin') {
+      setActiveModuleId('module-studio');
+      setActiveModuleLabel('Module Studio');
+    } else {
+      setActiveModuleId('dashboard');
+      setActiveModuleLabel('Dashboard');
+    }
+  };
+
+  const getEcommerceSubTab = (): 'dashboard' | 'products' | 'offers' | 'categories' | 'orders' => {
+    switch (activeModuleId) {
+      case 'ecommerce-dashboard':
+        return 'dashboard';
+      case 'ecommerce-offers':
+        return 'offers';
+      case 'ecommerce-categories':
+        return 'categories';
+      case 'ecommerce-orders':
+        return 'orders';
+      default:
+        return 'products';
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-[#f3f4f6]">
       {/* Top Navigation Header */}
-      <Header toggleSidebar={toggleSidebar} />
+      <Header
+        toggleSidebar={toggleSidebar}
+        onToggleViewMode={onToggleViewMode}
+        onSelectModule={handleSelectMenuItem}
+        portalRole={portalRole}
+        onSwitchPortalRole={handleSwitchPortalRole}
+      />
 
       {/* Main Body Area (Sidebar + Content) */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left Sidebar */}
+        {/* Left Sidebar with Dynamic Superadmin / Collegeadmin Styling */}
         <Sidebar 
           isOpen={sidebarOpen}
           activeItem={activeModuleId}
           onSelectMenuItem={handleSelectMenuItem}
+          portalRole={portalRole}
         />
 
         {/* Right Main Content Area */}
         <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
           <main className="flex-1 p-6">
-            {activeModuleId === 'dashboard' ? (
+            {activeModuleId === 'card-builder-studio' ? (
+              <CardBuilderStudio />
+            ) : activeModuleId === 'design-settings' ? (
+              <DesignSettings />
+            ) : activeModuleId === 'dev-importer' ? (
+              <DevHeaderFooterStudio initialTab="importer" />
+            ) : activeModuleId === 'dev-header' ? (
+              <DevHeaderFooterStudio initialTab="header" />
+            ) : activeModuleId === 'dev-footer' ? (
+              <DevHeaderFooterStudio initialTab="footer" />
+            ) : activeModuleId === 'dev-appearance' ? (
+              <DevHeaderFooterStudio initialTab="css" />
+            ) : activeModuleId === 'file-manager' ? (
+              <FileManager />
+            ) : activeModuleId === 'dashboard' ? (
               <DashboardModule />
+            ) : activeModuleId.startsWith('ecommerce') ? (
+              <EcommerceContainer initialSubTab={getEcommerceSubTab()} />
+            ) : activeModuleId.includes('studio') || activeModuleId === 'module-studio' ? (
+              <ModuleStudio />
+            ) : activeModuleId.startsWith('module-') ? (
+              <DynamicEntityManager moduleSlug={activeModuleId.replace('module-', '')} />
+            ) : activeModuleId.includes('content-manager') || activeModuleId === 'content-manager' ? (
+              <DynamicEntityManager moduleSlug="awards" />
+            ) : activeModuleId === 'career-postings' ? (
+              <CareersAdmin initialTab="jobs" />
+            ) : activeModuleId === 'career-responses' ? (
+              <CareersAdmin initialTab="applicants" />
+            ) : activeModuleId.startsWith('career') || activeModuleId === 'website-careers' ? (
+              <CareersAdmin />
+            ) : activeModuleId === 'committees' ? (
+              <CommitteesAdmin />
+            ) : activeModuleId === 'departments' ? (
+              <DepartmentsAdmin />
+            ) : activeModuleId === 'webpage' ? (
+              <PageAdmin />
+            ) : activeModuleId === 'nirf-showcase' ? (
+              <NirfShowcaseAdmin />
             ) : (
               <ModulePlaceholder 
                 moduleId={activeModuleId} 
