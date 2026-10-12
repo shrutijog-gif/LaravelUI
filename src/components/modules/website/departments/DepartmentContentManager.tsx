@@ -57,74 +57,109 @@ const StaticTabPanel: React.FC<{
   const [showAddElement, setShowAddElement] = useState(false);
   const [saved, setSaved] = useState(false);
 
+  // Sync state if tab content changes externally
+  React.useEffect(() => {
+    setHasContent(!!tab.content);
+  }, [tab.id, tab.content]);
+
   const handleSave = () => {
     if (onSave) onSave();
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
 
+  const handleCancel = () => {
+    setSaved(false);
+  };
+
   return (
-    <>
+    <div>
       {/* Right panel header: tab name + Cancel / Save */}
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-base font-semibold text-gray-800">{tab.label}</h3>
-        <div className="flex gap-2">
+      <div className="flex items-center justify-between mb-8">
+        <h3 className="text-lg font-bold text-gray-900 tracking-tight">{tab.label}</h3>
+        <div className="flex items-center gap-3">
           <button
-            onClick={() => setSaved(false)}
-            className="px-3 py-1.5 text-sm border border-gray-300 rounded text-gray-600 hover:bg-gray-50 transition-colors"
+            type="button"
+            onClick={handleCancel}
+            className="px-4 py-1.5 text-sm bg-white border border-gray-300 rounded text-gray-700 hover:bg-gray-50 transition-colors shadow-2xs"
           >
             Cancel
           </button>
           <button
+            type="button"
             onClick={handleSave}
-            className="px-4 py-1.5 text-sm font-semibold bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+            className="px-5 py-1.5 text-sm font-medium bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors shadow-xs"
           >
             {saved ? '✓ Saved' : 'Save'}
           </button>
         </div>
       </div>
-      <hr className="mb-5 border-gray-200" />
 
       {hasContent ? (
         /* WYSIWYG toolbar + textarea */
-        <div className="border border-gray-200 rounded overflow-hidden">
-          <div className="flex items-center gap-1 px-2 py-1.5 bg-gray-50 border-b border-gray-200 flex-wrap">
-            {['B', 'I', 'U'].map(f => (
-              <button key={f} className="w-7 h-7 text-sm font-medium text-gray-700 hover:bg-gray-200 rounded transition-colors">
-                <span className={f === 'B' ? 'font-bold' : f === 'I' ? 'italic' : 'underline'}>{f}</span>
-              </button>
-            ))}
-            <div className="w-px h-4 bg-gray-300 mx-1" />
-            {['H1', 'H2', 'H3'].map(h => (
-              <button key={h} className="px-1.5 h-7 text-xs font-medium text-gray-700 hover:bg-gray-200 rounded transition-colors">{h}</button>
-            ))}
-            <div className="w-px h-4 bg-gray-300 mx-1" />
-            <button className="px-1.5 h-7 text-xs text-gray-700 hover:bg-gray-200 rounded transition-colors">UL</button>
-            <button className="px-1.5 h-7 text-xs text-gray-700 hover:bg-gray-200 rounded transition-colors">OL</button>
-            <div className="w-px h-4 bg-gray-300 mx-1" />
-            <button className="px-1.5 h-7 text-xs text-gray-700 hover:bg-gray-200 rounded transition-colors">Link</button>
-            <button className="px-1.5 h-7 text-xs text-gray-700 hover:bg-gray-200 rounded transition-colors">Img</button>
+        <div className="space-y-3">
+          <div className="border border-gray-200 rounded overflow-hidden shadow-2xs">
+            <div className="flex items-center gap-1 px-3 py-2 bg-gray-50 border-b border-gray-200 flex-wrap">
+              {['B', 'I', 'U'].map(f => (
+                <button
+                  key={f}
+                  type="button"
+                  className="w-7 h-7 text-sm font-semibold text-gray-700 hover:bg-gray-200 rounded transition-colors"
+                >
+                  <span className={f === 'B' ? 'font-bold' : f === 'I' ? 'italic' : 'underline'}>{f}</span>
+                </button>
+              ))}
+              <div className="w-px h-4 bg-gray-300 mx-1.5" />
+              {['H1', 'H2', 'H3'].map(h => (
+                <button
+                  key={h}
+                  type="button"
+                  className="px-2 h-7 text-xs font-semibold text-gray-700 hover:bg-gray-200 rounded transition-colors"
+                >
+                  {h}
+                </button>
+              ))}
+              <div className="w-px h-4 bg-gray-300 mx-1.5" />
+              <button type="button" className="px-2 h-7 text-xs font-medium text-gray-700 hover:bg-gray-200 rounded transition-colors">UL</button>
+              <button type="button" className="px-2 h-7 text-xs font-medium text-gray-700 hover:bg-gray-200 rounded transition-colors">OL</button>
+              <div className="w-px h-4 bg-gray-300 mx-1.5" />
+              <button type="button" className="px-2 h-7 text-xs font-medium text-gray-700 hover:bg-gray-200 rounded transition-colors">Link</button>
+              <button type="button" className="px-2 h-7 text-xs font-medium text-gray-700 hover:bg-gray-200 rounded transition-colors">Img</button>
+            </div>
+            <textarea
+              value={tab.content}
+              onChange={e => onContentChange(tab.id, e.target.value)}
+              placeholder="Start typing content here..."
+              rows={10}
+              className="w-full px-4 py-3 text-sm text-gray-800 resize-y focus:outline-none"
+            />
           </div>
-          <textarea
-            value={tab.content}
-            onChange={e => onContentChange(tab.id, e.target.value)}
-            placeholder="Start typing content here..."
-            rows={12}
-            className="w-full px-3 py-3 text-sm text-gray-700 resize-y focus:outline-none"
-          />
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => {
+                onContentChange(tab.id, '');
+                setHasContent(false);
+              }}
+              className="text-xs text-gray-500 hover:text-red-600 transition-colors"
+            >
+              Clear Content
+            </button>
+          </div>
         </div>
       ) : (
-        /* Dashed empty box with + button */
+        /* Dashed empty box with + button matching screenshot exactly */
         <div
-          className="border border-dashed border-gray-300 rounded flex items-center justify-center bg-white"
-          style={{ minHeight: '180px' }}
+          className="border border-dashed border-gray-300 rounded flex items-center justify-center bg-white w-full"
+          style={{ minHeight: '120px' }}
         >
           <button
+            type="button"
             onClick={() => setShowAddElement(true)}
-            className="w-9 h-9 bg-white border border-gray-300 rounded flex items-center justify-center text-gray-600 hover:border-blue-400 hover:text-blue-600 shadow-sm transition-all"
+            className="w-9 h-9 bg-white border border-gray-300 rounded flex items-center justify-center text-gray-800 hover:border-gray-400 hover:bg-gray-50 shadow-2xs transition-all cursor-pointer"
             title="Add Element"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-4 h-4 stroke-[2.2]" />
           </button>
         </div>
       )}
@@ -133,10 +168,13 @@ const StaticTabPanel: React.FC<{
       {showAddElement && (
         <AddElementModal
           onClose={() => setShowAddElement(false)}
-          onSelect={() => { setHasContent(true); setShowAddElement(false); }}
+          onSelect={() => {
+            setHasContent(true);
+            setShowAddElement(false);
+          }}
         />
       )}
-    </>
+    </div>
   );
 };
 
@@ -334,28 +372,31 @@ const TabManagerModal: React.FC<{
           ))}
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100">
+        {/* Footer matching screenshot 2 */}
+        <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between">
           <button
+            type="button"
             onClick={() => setShowSyncConfirm(true)}
-            className="px-3.5 py-2 text-xs font-semibold border border-blue-600 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex items-center gap-1.5"
-            title="Apply this section structure to all departments"
+            className="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-xs cursor-pointer"
+            title="Sync all sections across departments"
           >
-            Apply to All Departments
+            Sync All
           </button>
-          <div className="flex gap-3">
+          <div className="flex items-center gap-2.5">
             <button
+              type="button"
               onClick={onClose}
-              className="px-5 py-2 text-sm border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors"
+              className="px-4 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors cursor-pointer"
             >
               Cancel
             </button>
             <button
+              type="button"
               onClick={() => {
                 onTabsChange(localTabs);
                 onClose();
               }}
-              className="px-5 py-2 text-sm font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="px-5 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-xs cursor-pointer"
             >
               Save
             </button>
@@ -417,7 +458,12 @@ const TabManagerModal: React.FC<{
 // ─────────────────────────────────────────────
 export const DepartmentContentManager: React.FC<DepartmentContentManagerProps> = ({ department, onBack }) => {
   const [tabs, setTabs] = useState<DepartmentTab[]>(() => getDepartmentTabs(department.id));
-  const [activeTabId, setActiveTabId] = useState<string>('tab-overview');
+  const [activeTabId, setActiveTabId] = useState<string>(() => {
+    const storedTabs = getDepartmentTabs(department.id);
+    const hasMou = storedTabs.some(t => t.id === 'tab-mou' && t.visible);
+    if (hasMou) return 'tab-mou';
+    return storedTabs[0]?.id || 'tab-overview';
+  });
   const [showTabManager, setShowTabManager] = useState(false);
 
   // Sync state if tabs are updated globally
@@ -453,15 +499,19 @@ export const DepartmentContentManager: React.FC<DepartmentContentManagerProps> =
     }
   };
 
+  const departmentDisplayName = department.name.toLowerCase().startsWith('department of')
+    ? department.name
+    : `Department of ${department.name}`;
+
   return (
     <div className="min-h-full">
-      {/* Breadcrumb — flat text style matching Committees */}
-      <nav className="flex items-center gap-1.5 text-sm text-gray-500 mb-4">
-        <button onClick={onBack} className="flex items-center gap-1 hover:text-gray-700 transition-colors">
-          <Home className="w-4 h-4 text-slate-600" />
+      {/* Breadcrumb — matching screenshot Home / Departments / Department Profile */}
+      <nav className="flex items-center gap-2 text-xs text-gray-800 mb-5">
+        <button onClick={onBack} className="hover:text-blue-600 transition-colors font-medium">
+          Home
         </button>
         <span className="text-gray-400">/</span>
-        <button onClick={onBack} className="hover:text-blue-600 transition-colors text-gray-600">
+        <button onClick={onBack} className="hover:text-blue-600 transition-colors font-medium">
           Departments
         </button>
         <span className="text-gray-400">/</span>
@@ -469,31 +519,33 @@ export const DepartmentContentManager: React.FC<DepartmentContentManagerProps> =
       </nav>
 
       {/* Page title + gear icon */}
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-bold text-gray-900">{department.name}</h1>
+      <div className="flex items-center justify-between mb-5">
+        <h1 className="text-lg font-bold text-gray-900 tracking-tight">{departmentDisplayName}</h1>
         <button
+          type="button"
           onClick={() => setShowTabManager(true)}
-          className="text-gray-500 hover:text-gray-800 p-1.5 rounded hover:bg-gray-100 transition-colors"
+          className="p-1.5 bg-white border border-gray-300 rounded hover:bg-gray-50 text-gray-800 transition-colors shadow-2xs cursor-pointer"
           title="Manage Tabs"
         >
-          <Settings className="w-5 h-5" />
+          <Settings className="w-4 h-4 text-gray-800" />
         </button>
       </div>
 
-      {/* Two-panel white card */}
-      <div className="flex bg-white rounded shadow-sm border border-gray-200 overflow-hidden" style={{ minHeight: '420px' }}>
-        {/* Left: vertical tab list — gray panel, active = white + blue left border */}
-        <div className="flex-shrink-0 border-r border-gray-200 overflow-y-auto bg-gray-100" style={{ width: '220px' }}>
+      {/* Two-panel card matching screenshot */}
+      <div className="flex bg-white rounded-md border border-gray-200/90 shadow-2xs overflow-hidden" style={{ minHeight: '520px' }}>
+        {/* Left: vertical tab list — gray background with white active tab */}
+        <div className="flex-shrink-0 border-r border-gray-200 overflow-y-scroll bg-gray-100" style={{ width: '270px', maxHeight: '560px' }}>
           {visibleTabs.map(tab => {
             const isActive = tab.id === activeTab?.id;
             return (
               <button
                 key={tab.id}
+                type="button"
                 onClick={() => setActiveTabId(tab.id)}
-                className={`w-full text-left px-4 py-3.5 text-sm border-b border-gray-200 transition-colors ${
+                className={`w-full text-left px-5 py-3.5 text-sm border-b border-gray-200 transition-colors cursor-pointer ${
                   isActive
-                    ? 'bg-white border-l-4 border-l-blue-600 font-bold text-gray-900 pl-3'
-                    : 'bg-gray-100 border-l-4 border-l-transparent text-gray-700 hover:bg-gray-200 font-medium'
+                    ? 'bg-white border-l-4 border-l-blue-600 font-bold text-gray-900 pl-4'
+                    : 'bg-gray-100 border-l-4 border-l-transparent text-gray-700 hover:bg-gray-200/80 font-medium'
                 }`}
               >
                 {tab.label}
@@ -503,7 +555,7 @@ export const DepartmentContentManager: React.FC<DepartmentContentManagerProps> =
         </div>
 
         {/* Right: content panel */}
-        <div className="flex-1 p-6 min-w-0">
+        <div className="flex-1 p-8 min-w-0 bg-white">
           {activeTab ? (
             activeTab.type === 'staff' ? (
               <DepartmentStaffManager
@@ -539,3 +591,4 @@ export const DepartmentContentManager: React.FC<DepartmentContentManagerProps> =
     </div>
   );
 };
+

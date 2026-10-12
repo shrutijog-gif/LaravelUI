@@ -196,7 +196,7 @@ export const PageList: React.FC<PageListProps> = ({
                                     <span>Duplicate Page</span>
                                   </button>
 
-                                  {/* 2. Edit details */}
+                                  {/* 2. Edit Details */}
                                   <button
                                     type="button"
                                     onClick={() => {
@@ -206,7 +206,7 @@ export const PageList: React.FC<PageListProps> = ({
                                     className="w-full px-3.5 py-2 text-left text-gray-700 hover:bg-gray-50 flex items-center gap-2.5 transition-colors cursor-pointer"
                                   >
                                     <Edit3 className="w-4 h-4 text-gray-600" />
-                                    <span>Edit details</span>
+                                    <span>Edit Details</span>
                                   </button>
 
                                   {/* 3. Delete */}

@@ -50,8 +50,79 @@ export interface DepartmentStaffMember {
   order: number;
 }
 
-// 21 Predefined Tabs matching requirement (No "Members" tab)
+// Predefined Tabs matching user screenshot
 export const INITIAL_DEPARTMENT_TABS: DepartmentTab[] = [
+  {
+    id: 'tab-teaching-staff',
+    label: 'Teaching Staff',
+    type: 'staff',
+    staffCategory: 'teaching',
+    visible: true,
+    content: '',
+  },
+  {
+    id: 'tab-career-courses',
+    label: 'Career Oriented Courses',
+    type: 'static',
+    visible: true,
+    content: '',
+  },
+  {
+    id: 'tab-syllabus-courses',
+    label: 'Syllabus & Courses',
+    type: 'static',
+    visible: true,
+    content: '',
+  },
+  {
+    id: 'tab-activities',
+    label: 'Activities',
+    type: 'static',
+    visible: true,
+    content: '',
+  },
+  {
+    id: 'tab-events',
+    label: 'Events',
+    type: 'static',
+    visible: true,
+    content: '',
+  },
+  {
+    id: 'tab-time-table',
+    label: 'Time Table',
+    type: 'static',
+    visible: true,
+    content: `Department Class Timetables for Academic Year 2025–2026 (Odd & Even Semesters).\n\n• Odd Semester: Mon – Fri, 9:00 AM – 4:30 PM\n• Even Semester: Mon – Fri, 9:00 AM – 4:30 PM`,
+  },
+  {
+    id: 'tab-mou',
+    label: 'MoU/ Linkages',
+    type: 'static',
+    visible: true,
+    content: '',
+  },
+  {
+    id: 'tab-eminent-alumni',
+    label: 'Eminent Alumni',
+    type: 'static',
+    visible: true,
+    content: '',
+  },
+  {
+    id: 'tab-photo-gallery',
+    label: 'Photo Gallery',
+    type: 'dynamic',
+    visible: true,
+    content: '',
+  },
+  {
+    id: 'tab-dept-site',
+    label: 'Departmental Site',
+    type: 'static',
+    visible: true,
+    content: '',
+  },
   {
     id: 'tab-overview',
     label: 'Overview',
@@ -74,28 +145,6 @@ export const INITIAL_DEPARTMENT_TABS: DepartmentTab[] = [
     content: `• M1: Impart high-quality undergraduate and postgraduate education through modern pedagogical methods.\n• M2: Foster state-of-the-art research and development through active industry-academia collaborations.\n• M3: Inculcate professional ethics, leadership qualities, and an entrepreneurial mindset among students.`,
   },
   {
-    id: 'tab-objectives',
-    label: 'Objectives',
-    type: 'static',
-    visible: true,
-    content: `1. Ensure a minimum 90% graduation and placement rate for undergraduate and postgraduate students.\n2. Encourage interdisciplinary research and publications in indexed international journals.\n3. Organize international conferences, seminars, and faculty development programs regularly.\n4. Facilitate continuous professional upskilling and industrial internship opportunities.`,
-  },
-  {
-    id: 'tab-courses-offered',
-    label: 'Courses Offered',
-    type: 'static',
-    visible: true,
-    content: `• B.Sc. (Honours) - 3 Years\n• M.Sc. - 2 Years\n• Ph.D. Program - Full Time / Part Time`,
-  },
-  {
-    id: 'tab-teaching-staff',
-    label: 'Teaching Staff',
-    type: 'staff',
-    staffCategory: 'teaching',
-    visible: true,
-    content: '',
-  },
-  {
     id: 'tab-non-teaching-staff',
     label: 'Non Teaching Staff',
     type: 'staff',
@@ -112,32 +161,11 @@ export const INITIAL_DEPARTMENT_TABS: DepartmentTab[] = [
     content: '',
   },
   {
-    id: 'tab-time-table',
-    label: 'Time Table',
-    type: 'static',
-    visible: true,
-    content: `Department Class Timetables for Academic Year 2025–2026 (Odd & Even Semesters).\n\n• Odd Semester (Sem I, III, V): Mon – Fri, 9:00 AM – 4:30 PM\n• Even Semester (Sem II, IV, VI): Mon – Fri, 9:00 AM – 4:30 PM\n• Weekly Tutorial & Mentorship Session: Friday 3:30 PM – 4:30 PM`,
-  },
-  {
     id: 'tab-placements-internships',
     label: 'Placements & Internships',
     type: 'static',
     visible: true,
     content: `The Department maintains an outstanding placement track record with eligible students placed in premier research organizations and industries.`,
-  },
-  {
-    id: 'tab-annual-calendar',
-    label: 'Annual Calendar',
-    type: 'static',
-    visible: true,
-    content: `• July: Academic Session Commences & Orientation Program\n• August: Departmental Seminar Series\n• September: Mid-Term Internal Assessments & Industry Visit\n• October: Department Festival & Competitions\n• November: End-Semester Practical & Theory Examinations\n• January: Even Semester Resumption & National Conference`,
-  },
-  {
-    id: 'tab-departmental-activities',
-    label: 'Departmental Activities',
-    type: 'static',
-    visible: true,
-    content: `• Annual Department Symposium\n• Guest Lecture Series with Eminent Scholars\n• Community Outreach and Hands-on Science Exhibits`,
   },
   {
     id: 'tab-research-publication',
@@ -206,6 +234,7 @@ export const INITIAL_DEPARTMENT_TABS: DepartmentTab[] = [
 
 // Clean seed departments matching the system's clean look
 export const SEED_DEPARTMENTS: Department[] = [
+  { id: 'dept-mcom', name: 'MASTER OF COMMERCE (ADVANCED ACCOUNTANCY)', stream: 'Commerce', faculty: 'Commerce' },
   { id: 'dept-1', name: 'Physics', stream: 'Science', faculty: 'Science' },
   { id: 'dept-2', name: 'Chemistry', stream: 'Science', faculty: 'Science' },
   { id: 'dept-3', name: 'Mathematics', stream: 'Science', faculty: 'Science' },
@@ -313,6 +342,9 @@ export const getStoredDepartments = (): Department[] => {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0 && parsed.every(p => p.stream)) {
+        if (!parsed.some((p: Department) => p.name.includes('MASTER OF COMMERCE'))) {
+          return [SEED_DEPARTMENTS[0], ...parsed];
+        }
         return parsed;
       }
     }
@@ -336,7 +368,11 @@ export const getDepartmentTabs = (deptId: string): DepartmentTab[] => {
     const raw = localStorage.getItem(`${DEPT_TABS_PREFIX}${deptId}`);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        if (parsed.some((t: DepartmentTab) => t.id === 'tab-mou')) {
+          return parsed;
+        }
+      }
     }
   } catch (e) {
     console.error('Error reading department tabs from localStorage', e);

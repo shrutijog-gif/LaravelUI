@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Check, LayoutGrid, Table } from 'lucide-react';
+import { X, Check, LayoutGrid, Table, List, FileText, ArrowUpRight } from 'lucide-react';
 import { TimetableBlock } from '../storefront/blocks/TimetableBlock';
 import { getStoredCardPresets } from '../../utils/cardPresets';
 import { CardPresetView } from '../modules/developer/CardPresetView';
@@ -89,6 +89,24 @@ const iconBadgeStylesList = [
   },
 ];
 
+const listStylesList = [
+  {
+    id: 'list-1',
+    name: 'Link List 1 (Classic Chevron » Links)',
+    description: 'Classic university document list with » chevron bullets and underlined links that open the PDF in a new tab.',
+  },
+  {
+    id: 'list-2',
+    name: 'Link List 2 (Card-Row Document List)',
+    description: 'Modern structured row list with PDF file badge, document title, and direct download action.',
+  },
+  {
+    id: 'list-3',
+    name: 'Link List 3 (Numbered Document Index)',
+    description: 'Numbered ordered list pills with document title, academic year, and direct document link.',
+  },
+];
+
 export const StylePickerModal: React.FC<StylePickerModalProps> = ({
   isOpen,
   onClose,
@@ -156,9 +174,11 @@ export const StylePickerModal: React.FC<StylePickerModalProps> = ({
     };
   });
 
-  const [activeTab, setActiveTab] = useState<'card' | 'table' | 'icon'>((
+  const [activeTab, setActiveTab] = useState<'card' | 'table' | 'icon' | 'list'>((
     selectedStyle?.startsWith('table-')
       ? 'table'
+      : selectedStyle?.startsWith('list-')
+      ? 'list'
       : (selectedStyle?.startsWith('icon-') || selectedStyle?.startsWith('quicklink-'))
       ? 'icon'
       : 'card'
@@ -166,7 +186,13 @@ export const StylePickerModal: React.FC<StylePickerModalProps> = ({
 
   if (!isOpen) return null;
 
-  const currentList = activeTab === 'card' ? cardStylesList : activeTab === 'table' ? tableStylesList : iconBadgeStylesList;
+  const currentList = activeTab === 'card' 
+    ? cardStylesList 
+    : activeTab === 'table' 
+    ? tableStylesList 
+    : activeTab === 'list'
+    ? listStylesList
+    : iconBadgeStylesList;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/50 backdrop-blur-sm overflow-y-auto">
@@ -215,8 +241,20 @@ export const StylePickerModal: React.FC<StylePickerModalProps> = ({
             </button>
             <button
               type="button"
+              onClick={() => setActiveTab('list')}
+              className={`flex items-center justify-center gap-1.5 px-3 py-1 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
+                activeTab === 'list'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <List className="w-3.5 h-3.5" />
+              Link List ({listStylesList.length})
+            </button>
+            <button
+              type="button"
               onClick={() => setActiveTab('icon')}
-              className={`flex items-center justify-center gap-1.5 px-3 py-1 rounded-lg text-xs font-extrabold transition-all ${
+              className={`flex items-center justify-center gap-1.5 px-3 py-1 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
                 activeTab === 'icon'
                   ? 'bg-white text-blue-600 shadow-sm'
                   : 'text-gray-600 hover:text-gray-900'
@@ -338,6 +376,61 @@ export const StylePickerModal: React.FC<StylePickerModalProps> = ({
                           </>
                         )}
                       </div>
+                    ) : activeTab === 'list' ? (
+                      styleItem.id === 'list-1' ? (
+                        <div className="w-full bg-white rounded-xl border border-gray-200 p-4 space-y-2.5 text-left shadow-2xs">
+                          <div className="flex items-baseline gap-2 text-xs font-semibold text-blue-700">
+                            <span className="text-blue-600 font-extrabold text-sm">»</span>
+                            <span className="underline decoration-blue-400">FYBSC PRN NO LIST 2022-2023</span>
+                          </div>
+                          <div className="flex items-baseline gap-2 text-xs font-semibold text-blue-700">
+                            <span className="text-blue-600 font-extrabold text-sm">»</span>
+                            <span className="underline decoration-blue-400">FYBCOM PRN NO LIST 2022-2023</span>
+                          </div>
+                          <div className="flex items-baseline gap-2 text-xs font-semibold text-blue-700">
+                            <span className="text-blue-600 font-extrabold text-sm">»</span>
+                            <span className="underline decoration-blue-400">FYBA PRN NO LIST 2022-2023</span>
+                          </div>
+                        </div>
+                      ) : styleItem.id === 'list-2' ? (
+                        <div className="w-full space-y-2 text-left">
+                          <div className="p-2.5 bg-white border border-gray-200 rounded-lg flex items-center justify-between gap-3 shadow-2xs">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="w-7 h-7 rounded bg-red-50 text-red-700 flex items-center justify-center border border-red-200 shrink-0">
+                                <FileText className="w-3.5 h-3.5" />
+                              </div>
+                              <span className="text-xs font-bold text-gray-800 truncate">FYBSC PRN NO LIST 2022-2023</span>
+                            </div>
+                            <span className="text-[10px] bg-[#781d0d] text-white font-bold px-2 py-0.5 rounded shrink-0">PDF</span>
+                          </div>
+                          <div className="p-2.5 bg-white border border-gray-200 rounded-lg flex items-center justify-between gap-3 shadow-2xs">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="w-7 h-7 rounded bg-red-50 text-red-700 flex items-center justify-center border border-red-200 shrink-0">
+                                <FileText className="w-3.5 h-3.5" />
+                              </div>
+                              <span className="text-xs font-bold text-gray-800 truncate">FYBCOM PRN NO LIST 2022-2023</span>
+                            </div>
+                            <span className="text-[10px] bg-[#781d0d] text-white font-bold px-2 py-0.5 rounded shrink-0">PDF</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="w-full bg-white rounded-lg border border-gray-200 divide-y divide-gray-100 text-left shadow-2xs">
+                          <div className="p-2.5 flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold flex items-center justify-center shrink-0">1</span>
+                              <span className="text-xs font-semibold text-gray-800 truncate">FYBSC PRN NO LIST 2022-2023</span>
+                            </div>
+                            <ArrowUpRight className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                          </div>
+                          <div className="p-2.5 flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold flex items-center justify-center shrink-0">2</span>
+                              <span className="text-xs font-semibold text-gray-800 truncate">FYBCOM PRN NO LIST 2022-2023</span>
+                            </div>
+                            <ArrowUpRight className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                          </div>
+                        </div>
+                      )
                     ) : activeTab === 'card' ? (
                       (() => {
                         const matchedPreset = cardPresets.find(p => p.id === styleItem.id) || cardPresets[0];

@@ -4,8 +4,9 @@ import { getStoredStudioTemplates, getStoredEntitiesBySlug, saveStoredEntitiesBy
 import { getActiveTenant } from '../../../../data/tenantData';
 import { naacCriteriaList } from '../../../../data/naacCriteriaData';
 import { Drawer } from '../../../common/Drawer';
-import { Plus, Search, Trash2, Edit, Eye, EyeOff, Check, X, ShieldCheck, Download, Award, Trophy, BookOpen, GraduationCap, FileText, Layers, Upload, ExternalLink, Globe } from 'lucide-react';
+import { Plus, Search, Trash2, Edit, Eye, EyeOff, Check, X, ShieldCheck, Download, Award, Trophy, BookOpen, GraduationCap, FileText, Layers, Upload, ExternalLink, Globe, Home, MoreHorizontal } from 'lucide-react';
 import { openFileInNewTab } from '../../../../utils/fileHelper';
+import { CompositeWorkspaceManager } from './CompositeWorkspaceManager';
 
 interface DynamicEntityManagerProps {
   moduleSlug?: string;
@@ -24,6 +25,8 @@ export const DynamicEntityManager: React.FC<DynamicEntityManagerProps> = ({ modu
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<DynamicEntityItem | null>(null);
+  const [managingItem, setManagingItem] = useState<DynamicEntityItem | null>(null);
+  const [actionMenuOpenId, setActionMenuOpenId] = useState<string | null>(null);
 
   // Form State
   const [formData, setFormData] = useState<Record<string, any>>({});
@@ -81,8 +84,14 @@ export const DynamicEntityManager: React.FC<DynamicEntityManagerProps> = ({ modu
       for (const f of selectedTemplate.schema.fields) {
         const fn = f.name.toLowerCase();
         const fl = f.label.toLowerCase();
-        const isPdfField = f.type === 'file_pdf' || fn.includes('pdf') || fl.includes('pdf') || fn.includes('file') || fl.includes('file') || fn.includes('doc');
+        const isPdfField = f.type === 'file_pdf' || f.type === 'document_link' || fn.includes('pdf') || fl.includes('pdf') || fn.includes('file') || fl.includes('file') || fn.includes('doc');
         const val = finalData[f.name];
+        if (f.type === 'document_link') {
+          // If record does not have a separate title field filled, fall back to this document link title
+          if (finalData[`${f.name}_title`] && !finalData.title) {
+            finalData.title = finalData[`${f.name}_title`];
+          }
+        }
         if (isPdfField && val && typeof val === 'string' && val.trim() !== '' && val !== '#') {
           detectedFileUrl = val;
           detectedFileName = finalData[`${f.name}_filename`] || detectedFileName;
@@ -162,74 +171,105 @@ export const DynamicEntityManager: React.FC<DynamicEntityManagerProps> = ({ modu
   if (!selectedTemplate) return null;
 
   const { schema } = selectedTemplate;
+
+  // Composite Tabbed Manage Content Workspace (Screenshots 5 & 6)
+  if (managingItem && schema.archetype === 'tabbed_composite') {
+    return (
+      <CompositeWorkspaceManager
+        entity={managingItem}
+        schema={schema}
+        onBack={() => setManagingItem(null)}
+        onUpdateEntity={(updated) => {
+          const updatedList = items.map(it => it.id === updated.id ? updated : it);
+          setItems(updatedList);
+          saveStoredEntitiesBySlug(schema.slug, updatedList, activeTenant.id);
+          setManagingItem(updated);
+        }}
+      />
+    );
+  }
+
   const filteredItems = items.filter(item => {
     if (!searchQuery.trim()) return true;
     const query = searchQuery.toLowerCase();
     return Object.values(item.data).join(' ').toLowerCase().includes(query);
   });
 
-  // Filter to valid named modules only
-  const validTemplates = templates.filter(t => t.schema.name && t.schema.name.trim() !== '');
-
   return (
-    <div className="space-y-6">
-      {/* Clean Page Title Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-gray-900">{schema?.name || 'Module Manager'}</h1>
+    <div className="space-y-4">
+      {/* Breadcrumb Header */}
+      <div className="flex items-center gap-2 text-xs text-gray-500">
+        <Home className="w-3.5 h-3.5 text-gray-400" />
+        <span>/</span>
+        <span className="font-medium text-gray-800">{schema.slug === 'departments' ? 'Department' : schema.name}</span>
       </div>
 
-      {/* Controls & Action Bar */}
-      <div className="bg-white rounded-2xl p-5 border border-gray-200 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="relative flex-1 max-w-md">
-          <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder={`Search ${schema.name}...`}
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white focus:outline-none"
-          />
-        </div>
-
+      {/* Clean Page Title Header & Add Button */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-bold text-gray-900">{schema.name}</h1>
         <button
           onClick={handleOpenAddModal}
-          className="inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all shadow-xs shrink-0"
+          className="inline-flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-5 py-2.5 rounded-lg transition-all shadow-xs"
         >
-          <Plus className="w-4 h-4" /> Add New
+          <Plus className="w-4 h-4" />
+          {schema.slug === 'departments' ? 'Add Department' : `Add ${schema.name.replace(/s$/, '')}`}
         </button>
       </div>
 
+      {/* Controls & Action Bar matching Screenshot 1 & 3 */}
+      <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-2 text-xs text-gray-500">
+          <span>Show :</span>
+          <select className="border border-gray-300 rounded px-2.5 py-1 text-xs font-medium text-gray-700 bg-white focus:outline-none">
+            <option value="10">10</option>
+            <option value="25">25</option>
+            <option value="50">50</option>
+          </select>
+        </div>
+
+        <div className="relative w-full sm:w-64">
+          <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            placeholder="Search.."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="w-full pl-9 pr-3 py-1.5 text-xs bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none placeholder:text-gray-400"
+          />
+        </div>
+      </div>
+
       {/* Data Table */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-2xs overflow-hidden">
-        <div className="overflow-x-auto">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-2xs">
+        <div className="overflow-x-auto min-h-[240px] pb-12 rounded-xl">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-gray-50 text-gray-700 text-xs font-bold uppercase border-b border-gray-200">
+              <tr className="bg-gray-50 text-gray-600 text-xs font-bold uppercase tracking-wider border-b border-gray-200">
                 {schema.fields.map(f => {
                   const headerText = (f.label.toLowerCase() === 'choose file' || f.name.toLowerCase() === 'choose_file')
                     ? 'File Name'
-                    : f.label;
+                    : f.label.toUpperCase();
                   return (
-                    <th key={f.id} className="py-3.5 px-4">{headerText}</th>
+                    <th key={f.id} className="py-3 px-5">{headerText}</th>
                   );
                 })}
-                <th className="py-3.5 px-5 text-right">Actions</th>
+                <th className="py-3 px-5 text-right">ACTION</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 text-xs">
               {filteredItems.length === 0 ? (
                 <tr>
                   <td colSpan={schema.fields.length + 1} className="py-12 text-center text-gray-400 font-medium">
-                    No records found for {schema.name}. Click "+ Add New" to create one.
+                    No records available
                   </td>
                 </tr>
               ) : (
                 filteredItems.map(item => (
-                  <tr key={item.id} className="hover:bg-gray-50/80 transition-colors group">
+                  <tr key={item.id} className="hover:bg-gray-50/70 transition-colors group">
                     {schema.fields.map(f => {
                       const val = item.data[f.name];
                       return (
-                        <td key={f.id} className="py-3.5 px-4 max-w-xs truncate font-medium text-gray-800">
+                        <td key={f.id} className="py-3.5 px-5 max-w-xs truncate font-medium text-gray-800">
                           {f.type === 'image' && val ? (
                             <img src={val} alt="Thumbnail" className="w-10 h-10 object-cover rounded-lg border border-gray-200" />
                           ) : f.type === 'icon' && val ? (
@@ -245,6 +285,17 @@ export const DynamicEntityManager: React.FC<DynamicEntityManagerProps> = ({ modu
                                val === 'external-link' ? '🔗' :
                                '📄'}
                             </span>
+                          ) : f.type === 'document_link' ? (
+                            <button
+                              type="button"
+                              onClick={() => openFileInNewTab(val, item.data[`${f.name}_filename`])}
+                              className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline underline-offset-2 transition-colors cursor-pointer text-left"
+                              title="Click to view/open document PDF"
+                            >
+                              <FileText className="w-3.5 h-3.5 text-red-600 shrink-0" />
+                              <span className="font-bold text-gray-900">{item.data[`${f.name}_title`] || item.data.title || 'Untitled Document'}</span>
+                              <span className="text-[10px] font-bold bg-red-50 text-red-700 border border-red-200 px-1.5 py-0.2 rounded ml-1">PDF</span>
+                            </button>
                           ) : (
                             f.type === 'file_pdf' || 
                             f.name.toLowerCase().includes('file') || 
@@ -272,21 +323,76 @@ export const DynamicEntityManager: React.FC<DynamicEntityManagerProps> = ({ modu
                       );
                     })}
 
-                    <td className="py-3.5 px-5 text-right whitespace-nowrap space-x-2">
-                      <button
-                        onClick={() => handleOpenEditModal(item)}
-                        className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        title="Edit Record"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteItem(item.id)}
-                        className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Delete Record"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                    <td className="py-3.5 px-5 text-right whitespace-nowrap">
+                      {schema.archetype === 'tabbed_composite' ? (
+                        <div className="flex items-center justify-end gap-3 relative">
+                          <button
+                            type="button"
+                            onClick={() => setManagingItem(item)}
+                            className="text-blue-600 hover:text-blue-800 font-semibold text-xs hover:underline cursor-pointer"
+                          >
+                            Manage Content
+                          </button>
+                          <div className="relative inline-block text-left">
+                            <button
+                              type="button"
+                              onClick={() => setActionMenuOpenId(actionMenuOpenId === item.id ? null : item.id)}
+                              className="p-1 text-gray-500 hover:text-gray-900 rounded hover:bg-gray-100 transition-colors"
+                              title="Actions"
+                            >
+                              <MoreHorizontal className="w-4 h-4" />
+                            </button>
+
+                            {actionMenuOpenId === item.id && (
+                              <>
+                                <div
+                                  className="fixed inset-0 z-40"
+                                  onClick={() => setActionMenuOpenId(null)}
+                                />
+                                <div className="absolute right-0 mt-1 w-36 bg-white rounded-xl shadow-xl border border-gray-200 py-1.5 z-50 animate-in fade-in zoom-in-95 text-left">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setActionMenuOpenId(null);
+                                      handleOpenEditModal(item);
+                                    }}
+                                    className="w-full px-3 py-2 text-xs text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2 font-medium"
+                                  >
+                                    <Edit className="w-3.5 h-3.5 text-gray-400" /> Edit Details
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setActionMenuOpenId(null);
+                                      handleDeleteItem(item.id);
+                                    }}
+                                    className="w-full px-3 py-2 text-xs text-red-600 hover:bg-red-50 flex items-center gap-2 font-medium"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5 text-red-500" /> Delete
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-x-2">
+                          <button
+                            onClick={() => handleOpenEditModal(item)}
+                            className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Edit Record"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteItem(item.id)}
+                            className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Delete Record"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))
@@ -512,6 +618,116 @@ export const DynamicEntityManager: React.FC<DynamicEntityManagerProps> = ({ modu
                         onChange={e => setFormData({ ...formData, [field.name]: e.target.value })}
                         className="w-full text-xs pl-9 pr-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white font-mono text-blue-600"
                       />
+                    </div>
+                  ) : field.type === 'document_link' ? (
+                    <div className="space-y-3 p-3.5 bg-gray-50/70 rounded-xl border border-gray-200">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-gray-700 mb-1">
+                          Document Title / Link Text <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          placeholder={field.placeholder || "Enter Title..."}
+                          value={formData[`${field.name}_title`] ?? (field.name === 'title' ? (formData.title || '') : (formData[`${field.name}_text`] || ''))}
+                          onChange={e => {
+                            const val = e.target.value;
+                            setFormData(prev => ({
+                              ...prev,
+                              [`${field.name}_title`]: val,
+                              ...(field.name === 'title' ? { title: val } : {}),
+                            }));
+                          }}
+                          className="w-full text-xs px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white font-medium text-gray-900 shadow-2xs"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-semibold text-gray-700 mb-1">
+                          PDF Document File <span className="text-red-500">*</span>
+                        </label>
+                        <div className="space-y-2">
+                          <div className="flex items-center w-full bg-white border border-gray-300 rounded-lg overflow-hidden shadow-2xs focus-within:ring-2 focus-within:ring-blue-500">
+                            <label className="px-3.5 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 text-xs font-bold border-r border-gray-300 cursor-pointer shrink-0 transition-colors">
+                              Choose Local PDF
+                              <input
+                                type="file"
+                                accept=".pdf,application/pdf"
+                                className="hidden"
+                                onChange={e => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    const reader = new FileReader();
+                                    reader.onload = (evt) => {
+                                      const dataUrl = evt.target?.result as string;
+                                      setFormData(prev => ({
+                                        ...prev,
+                                        [field.name]: dataUrl,
+                                        [`${field.name}_filename`]: file.name,
+                                        fileUrl: dataUrl,
+                                        pdf_url: dataUrl,
+                                        file: dataUrl,
+                                        fileName: file.name,
+                                        file_pdf_filename: file.name,
+                                        choose_file_filename: file.name,
+                                      }));
+                                    };
+                                    reader.readAsDataURL(file);
+                                  }
+                                }}
+                              />
+                            </label>
+                            <span className="px-3 text-xs text-gray-500 truncate flex-1 font-sans">
+                              {formData[`${field.name}_filename`] || (formData[field.name] ? (formData[field.name].startsWith('data:') ? 'Local PDF File Attached' : formData[field.name]) : 'No local file chosen')}
+                            </span>
+                            {formData[field.name] && (
+                              <div className="flex items-center gap-1 mr-2 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => openFileInNewTab(formData[field.name], formData[`${field.name}_filename`])}
+                                  className="px-2 py-0.5 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded hover:bg-emerald-100 shrink-0 cursor-pointer"
+                                >
+                                  View PDF
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setFormData(prev => {
+                                      const nextData = { ...prev };
+                                      delete nextData[field.name];
+                                      delete nextData[`${field.name}_filename`];
+                                      return nextData;
+                                    });
+                                  }}
+                                  className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors cursor-pointer"
+                                  title="Remove PDF File"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="relative">
+                            <Globe className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                            <input
+                              type="text"
+                              placeholder="Or paste external PDF URL (e.g. https://...)"
+                              value={formData[field.name] && !formData[field.name].startsWith('data:') ? formData[field.name] : ''}
+                              onChange={e => {
+                                const val = e.target.value;
+                                setFormData(prev => ({
+                                  ...prev,
+                                  [field.name]: val,
+                                  fileUrl: val,
+                                  pdf_url: val,
+                                  file: val,
+                                }));
+                              }}
+                              className="w-full text-xs pl-8 pr-3 py-1.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white font-mono text-gray-600 placeholder:text-gray-400"
+                            />
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   ) : (field.type === 'file_pdf' || field.name.toLowerCase().includes('pdf') || field.label.toLowerCase().includes('pdf')) ? (
                     <div className="space-y-2">

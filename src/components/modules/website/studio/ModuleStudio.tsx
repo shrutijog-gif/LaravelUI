@@ -4,18 +4,20 @@ import { StudioTemplate, ModuleSchema } from '../../../../types/moduleStudio';
 import { getStoredStudioTemplates, saveStudioTemplates } from '../../../../data/mockStudioData';
 import { naacCriteriaList } from '../../../../data/naacCriteriaData';
 import { StudioFieldsEditor } from './StudioFieldsEditor';
+import { StudioTabsEditor } from './StudioTabsEditor';
 import { StudioLayoutCanvas } from './StudioLayoutCanvas';
 import { DynamicModuleBlock } from '../../../storefront/blocks/DynamicModuleBlock';
 import {
   Plus, Search, Edit3, Settings2, Trash2, Copy, Eye, X, Check, Layers,
-  Award, Calendar, FileText, Sparkles, ShieldCheck, ArrowRight
+  Award, Calendar, FileText, Sparkles, ShieldCheck, ArrowRight, LayoutTemplate,
+  GraduationCap
 } from 'lucide-react';
 
 export const ModuleStudio: React.FC = () => {
   const [templates, setTemplates] = useState<StudioTemplate[]>(() => getStoredStudioTemplates());
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'fields' | 'accreditation'>('fields');
+  const [activeTab, setActiveTab] = useState<'fields' | 'tabsBlueprint' | 'accreditation'>('fields');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSavedNotice, setIsSavedNotice] = useState(false);
 
@@ -203,9 +205,20 @@ export const ModuleStudio: React.FC = () => {
                     {/* Column 1: Module Name */}
                     <td className="py-4 px-6">
                       <div>
-                        <h3 className="font-extrabold text-sm text-gray-900 group-hover:text-blue-600 transition-colors">
-                          {schema.name || <span className="text-gray-400 italic font-normal">(Untitled Module)</span>}
-                        </h3>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-extrabold text-sm text-gray-900 group-hover:text-blue-600 transition-colors">
+                            {schema.name || <span className="text-gray-400 italic font-normal">(Untitled Module)</span>}
+                          </h3>
+                          {schema.archetype === 'tabbed_composite' ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
+                              📑 Composite Tabbed Content
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                              📋 Standard Records
+                            </span>
+                          )}
+                        </div>
                         <p className="text-xs text-gray-500 mt-1 max-w-sm line-clamp-1">
                           {schema.description}
                         </p>
@@ -217,7 +230,14 @@ export const ModuleStudio: React.FC = () => {
                       <div className="space-y-1">
                         <div className="flex items-center gap-1.5 text-xs text-gray-800 font-medium">
                           <Layers className="w-3.5 h-3.5 text-gray-500 shrink-0" />
-                          <span>{schema.fields.length} Configured Fields:</span>
+                          <span>
+                            {schema.fields.length} Parent Fields
+                            {schema.archetype === 'tabbed_composite' && (
+                              <span className="text-indigo-600 font-bold ml-1">
+                                • {schema.tabsConfig?.defaultTabs?.length || 0} Content Tabs
+                              </span>
+                            )}
+                          </span>
                         </div>
                         <p className="text-xs text-gray-500 font-normal truncate max-w-md">
                           {fieldNames}
@@ -308,7 +328,7 @@ export const ModuleStudio: React.FC = () => {
 
             {/* Basic Info Header Bar */}
             <div className="px-6 py-3.5 bg-white border-b border-gray-200 shrink-0">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block text-[11px] font-semibold text-gray-500 mb-0.5">
                     Module Title <span className="text-red-500 font-bold">*</span>
@@ -320,6 +340,37 @@ export const ModuleStudio: React.FC = () => {
                     placeholder="Enter Module Title (e.g. Awards, Timetables)..."
                     className="w-full text-xs font-medium px-2.5 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none placeholder:font-normal placeholder:text-gray-400"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-500 mb-0.5">
+                    Module Type <span className="text-red-500 font-bold">*</span>
+                  </label>
+                  <select
+                    value={selectedTemplate.schema.archetype || 'standard'}
+                    onChange={e => {
+                      const newArch = e.target.value as 'standard' | 'tabbed_composite';
+                      const updates: Partial<ModuleSchema> = { archetype: newArch };
+                      if (newArch === 'tabbed_composite' && !selectedTemplate.schema.tabsConfig?.defaultTabs?.length) {
+                        updates.tabsConfig = {
+                          allowRuntimeCustomTabs: true,
+                          allowedElementTypes: ['ui_section', 'faculty_grid', 'media_gallery', 'document_list'],
+                          defaultTabs: [
+                            { id: 'tab-overview', label: 'Overview', slug: 'overview', componentType: 'ui_section', required: true },
+                            { id: 'tab-vision', label: 'Vision', slug: 'vision', componentType: 'ui_section' },
+                            { id: 'tab-mission', label: 'Mission', slug: 'mission', componentType: 'ui_section' },
+                            { id: 'tab-teaching-staff', label: 'Teaching Staff', slug: 'teaching-staff', componentType: 'faculty_grid' },
+                            { id: 'tab-courses-offered', label: 'Courses Offered', slug: 'courses-offered', componentType: 'ui_section' },
+                          ],
+                        };
+                      }
+                      handleUpdateCurrentSchema(updates);
+                    }}
+                    className="w-full text-xs font-bold px-2.5 py-1.5 bg-blue-50/50 border border-blue-200 text-blue-900 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  >
+                    <option value="standard">📋 Standard Records</option>
+                    <option value="tabbed_composite">📑 Composite Tabbed Content</option>
+                  </select>
                 </div>
 
                 <div>
@@ -344,8 +395,22 @@ export const ModuleStudio: React.FC = () => {
                     activeTab === 'fields' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-800'
                   }`}
                 >
-                  📋 Module Fields ({selectedTemplate.schema.fields.length})
+                  📋 Parent Fields ({selectedTemplate.schema.fields.length})
                 </button>
+
+                {selectedTemplate.schema.archetype === 'tabbed_composite' && (
+                  <button
+                    onClick={() => setActiveTab('tabsBlueprint')}
+                    className={`py-3 border-b-2 transition-colors flex items-center gap-1.5 ${
+                      activeTab === 'tabsBlueprint' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-800'
+                    }`}
+                  >
+                    <span>📑 Tabs and Elements</span>
+                    <span className="text-[10px] bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded-full font-bold">
+                      {selectedTemplate.schema.tabsConfig?.defaultTabs?.length || 0}
+                    </span>
+                  </button>
+                )}
 
                 <button
                   onClick={() => setActiveTab('accreditation')}
@@ -364,6 +429,13 @@ export const ModuleStudio: React.FC = () => {
                 <StudioFieldsEditor
                   fields={selectedTemplate.schema.fields}
                   onChange={updatedFields => handleUpdateCurrentSchema({ fields: updatedFields })}
+                />
+              )}
+
+              {activeTab === 'tabsBlueprint' && (
+                <StudioTabsEditor
+                  tabsConfig={selectedTemplate.schema.tabsConfig}
+                  onChange={updatedTabsConfig => handleUpdateCurrentSchema({ tabsConfig: updatedTabsConfig })}
                 />
               )}
 
