@@ -13,6 +13,10 @@ export default defineConfig({
       },
     },
   },
+  preview: {
+    host: '0.0.0.0',
+    allowedHosts: true,
+  },
   esbuild: {
     sourcemap: false,
   },
