@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StudioTemplate, DynamicEntityItem, ModuleSchema } from '../../../types/moduleStudio';
+import { StudioTemplate, DynamicEntityItem, ModuleSchema, DisplayBlockConfig } from '../../../types/moduleStudio';
 import { getStoredStudioTemplates, getStoredEntitiesBySlug } from '../../../data/mockStudioData';
 import { getActiveTenant } from '../../../data/tenantData';
 import { Search, ArrowUpRight, FileText, Calendar, Award, Trophy, BookOpen, ExternalLink, ShieldCheck, Layers, Globe, Download } from 'lucide-react';
@@ -120,7 +120,7 @@ export const DynamicModuleBlock: React.FC<DynamicModuleBlockProps> = ({
   }
 
   const fields = schema.fields || [];
-  const displayConfig = schema.displayConfig || {};
+  const displayConfig: Partial<DisplayBlockConfig> = (schema.displayConfig || {}) as Partial<DisplayBlockConfig>;
 
   const headerTitle = titleOverride || schema.name;
   const headerDescription = descriptionOverride || schema.description;

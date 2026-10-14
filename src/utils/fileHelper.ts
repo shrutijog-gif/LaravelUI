@@ -18,7 +18,7 @@ export const dataUrlToBlob = (dataUrl: string): Blob => {
     }
     byteArrays.push(new Uint8Array(byteNumbers));
   }
-  return new Blob(byteArrays, { type: contentType });
+  return new Blob(byteArrays as any, { type: contentType });
 };
 
 /**

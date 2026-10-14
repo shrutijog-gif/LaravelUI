@@ -71,6 +71,7 @@ export interface CardSlotConfig {
   detailLineMode?: 'label_and_value' | 'value_only' | 'custom_label';
   customDetailLabel?: string;
   htmlTemplate?: string;
+  isPublished?: boolean;
 }
 
 export interface ModuleSchema {
@@ -83,6 +84,7 @@ export interface ModuleSchema {
     title: string;
     recipient: string;
     pdf_url: string;
+    [key: string]: any;
   };
 }
 

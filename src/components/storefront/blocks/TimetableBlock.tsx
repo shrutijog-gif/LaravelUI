@@ -8,7 +8,7 @@ import { CardPresetView } from '../../modules/developer/CardPresetView';
 export interface TimetableBlockProps {
   title?: string;
   description?: string;
-  view?: 'card' | 'grid' | 'table';
+  view?: 'card' | 'grid' | 'table' | 'list';
   cardStyle?: string;
   tableStyle?: string;
   columns?: 2 | 3 | 4;
