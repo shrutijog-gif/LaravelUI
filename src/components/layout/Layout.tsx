@@ -21,9 +21,10 @@ import { NirfShowcaseAdmin } from '../modules/website/nirf/NirfShowcaseAdmin';
 
 interface LayoutProps {
   onToggleViewMode?: () => void;
+  onLogout?: () => void;
 }
 
-export const Layout: React.FC<LayoutProps> = ({ onToggleViewMode }) => {
+export const Layout: React.FC<LayoutProps> = ({ onToggleViewMode, onLogout }) => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [portalRole, setPortalRole] = useState<'superadmin' | 'collegeadmin'>('collegeadmin');
   const [activeModuleId, setActiveModuleId] = useState('dashboard');
@@ -73,6 +74,7 @@ export const Layout: React.FC<LayoutProps> = ({ onToggleViewMode }) => {
         onSelectModule={handleSelectMenuItem}
         portalRole={portalRole}
         onSwitchPortalRole={handleSwitchPortalRole}
+        onLogout={onLogout}
       />
 
       {/* Main Body Area (Sidebar + Content) */}

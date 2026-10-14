@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Layout } from './components/layout/Layout';
 import CollegeStorefront from './components/storefront/CollegeStorefront';
 import PublicStoreApp from './components/storefront/PublicStoreApp';
+import { LoginPage } from './components/auth/LoginPage';
+import { isAuthenticated, logout } from './services/authService';
 
 export function App() {
   const isDirectPagePath = () => {
@@ -16,6 +18,8 @@ export function App() {
       : 'admin';
   });
 
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => isAuthenticated());
+
   const isEcommerceStorefront = window.location.search.includes('view=ecommerce');
 
   useEffect(() => {
@@ -26,8 +30,18 @@ export function App() {
         setViewMode('admin');
       }
     };
+
+    const handleAuthChange = () => {
+      setIsLoggedIn(isAuthenticated());
+    };
+
     window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
+    window.addEventListener('auth-changed', handleAuthChange);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener('auth-changed', handleAuthChange);
+    };
   }, []);
 
   const openStorefrontInNewTab = () => {
@@ -43,6 +57,11 @@ export function App() {
     }
   };
 
+  const handleLogout = () => {
+    logout();
+    setIsLoggedIn(false);
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
       <div className="flex-1">
@@ -52,8 +71,16 @@ export function App() {
           ) : (
             <CollegeStorefront onToggleViewMode={returnToAdmin} />
           )
+        ) : !isLoggedIn ? (
+          <LoginPage 
+            onLoginSuccess={() => setIsLoggedIn(true)} 
+            onVisitStorefront={openStorefrontInNewTab} 
+          />
         ) : (
-          <Layout onToggleViewMode={openStorefrontInNewTab} />
+          <Layout 
+            onToggleViewMode={openStorefrontInNewTab} 
+            onLogout={handleLogout}
+          />
         )}
       </div>
     </div>

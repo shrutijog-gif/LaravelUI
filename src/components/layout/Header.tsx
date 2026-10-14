@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { Menu, Globe, Building2, ChevronDown, ShieldCheck, Layers, FileText, Wrench, FileSpreadsheet } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Menu, Globe, Building2, ChevronDown, ShieldCheck, Layers, FileText, Wrench, FileSpreadsheet, LogOut, User } from 'lucide-react';
 import { collegeTenantsList, getActiveTenant, setActiveTenantId, CollegeTenant } from '../../data/tenantData';
+import { logout, getStoredAuthUser } from '../../services/authService';
 
 interface HeaderProps {
   toggleSidebar: () => void;
@@ -10,6 +11,7 @@ interface HeaderProps {
   onSwitchPortalRole?: (role: 'superadmin' | 'collegeadmin') => void;
   collegeSubRole?: 'tech_configurator' | 'data_entry';
   onSwitchCollegeSubRole?: (role: 'tech_configurator' | 'data_entry') => void;
+  onLogout?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -20,8 +22,12 @@ export const Header: React.FC<HeaderProps> = ({
   onSwitchPortalRole,
   collegeSubRole = 'tech_configurator',
   onSwitchCollegeSubRole,
+  onLogout,
 }) => {
   const [currentTenant, setCurrentTenant] = useState<CollegeTenant>(getActiveTenant());
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
+  const currentUser = getStoredAuthUser();
   const isSuperadmin = portalRole === 'superadmin';
 
   useEffect(() => {
@@ -30,6 +36,16 @@ export const Header: React.FC<HeaderProps> = ({
     };
     window.addEventListener('tenant-changed', handleTenantChange);
     return () => window.removeEventListener('tenant-changed', handleTenantChange);
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
+        setIsProfileOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const handleSelectTenant = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -179,11 +195,56 @@ export const Header: React.FC<HeaderProps> = ({
           </span>
         </button>
 
-        {/* User Avatar Circle */}
-        <div 
-          className="w-9 h-9 rounded-full bg-[#0f2748] text-white flex items-center justify-center text-sm font-semibold shadow-xs select-none cursor-pointer hover:opacity-95 transition-opacity"
-        >
-          SJ
+        {/* User Avatar Circle & Dropdown */}
+        <div className="relative" ref={profileMenuRef}>
+          <button 
+            type="button"
+            onClick={() => setIsProfileOpen(!isProfileOpen)}
+            className="w-9 h-9 rounded-full bg-[#0f2748] text-white flex items-center justify-center text-sm font-semibold shadow-xs select-none cursor-pointer hover:ring-2 hover:ring-blue-500/50 hover:opacity-95 transition-all"
+            title="Account Menu"
+          >
+            SJ
+          </button>
+
+          {isProfileOpen && (
+            <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 z-50 animate-in fade-in zoom-in-95 duration-150">
+              <div className="px-4 py-2.5 border-b border-gray-100">
+                <p className="text-xs font-bold text-gray-900">{currentUser?.name || 'Shruti Jog'}</p>
+                <p className="text-[11px] text-gray-500 font-mono truncate">{currentUser?.email || 'admin@college.edu'}</p>
+                <span className="inline-block mt-1 text-[10px] font-extrabold uppercase px-2 py-0.5 bg-blue-50 text-blue-700 rounded-md">
+                  {currentUser?.role || 'Administrator'}
+                </span>
+              </div>
+
+              <div className="py-1">
+                {onToggleViewMode && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsProfileOpen(false);
+                      onToggleViewMode();
+                    }}
+                    className="w-full px-4 py-2 text-left text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2 cursor-pointer transition-colors"
+                  >
+                    <Globe className="w-3.5 h-3.5 text-gray-500" />
+                    <span>Visit Public Website</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsProfileOpen(false);
+                    logout();
+                    if (onLogout) onLogout();
+                  }}
+                  className="w-full px-4 py-2 text-left text-xs font-bold text-red-600 hover:bg-red-50 flex items-center gap-2 cursor-pointer transition-colors"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Sign Out</span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </header>
