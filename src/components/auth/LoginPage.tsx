@@ -1,14 +1,22 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, Lock, User, AlertCircle, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { Eye, EyeOff, Lock, User, AlertCircle, ArrowLeft, Globe, CheckCircle2, Building2, GraduationCap, ShieldCheck } from 'lucide-react';
 import { login } from '../../services/authService';
 import { getActiveTenant } from '../../data/tenantData';
+import { PortalType } from './PortalLandingPage';
 
 interface LoginPageProps {
-  onLoginSuccess: () => void;
+  portalType?: PortalType;
+  onLoginSuccess: (portal?: PortalType) => void;
+  onBackToPortals?: () => void;
   onVisitStorefront?: () => void;
 }
 
-export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onVisitStorefront }) => {
+export const LoginPage: React.FC<LoginPageProps> = ({ 
+  portalType = 'college', 
+  onLoginSuccess, 
+  onBackToPortals,
+  onVisitStorefront 
+}) => {
   const activeTenant = getActiveTenant();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -16,6 +24,60 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onVisitSto
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showForgotModal, setShowForgotModal] = useState(false);
+
+  const isSuperadmin = portalType === 'superadmin';
+  const isSociety = portalType === 'society';
+
+  const getPortalInfo = () => {
+    if (isSuperadmin) {
+      return {
+        parentTitle: 'WHITECODE TECHNOLOGIES',
+        parentClass: 'text-amber-600',
+        title: 'WhiteCode Master Console',
+        subtitle: 'Sign in to access platform operations.',
+        iconBg: 'bg-gradient-to-br from-gray-900 via-indigo-950 to-slate-900 text-amber-400',
+        renderIcon: () => (
+          <ShieldCheck className="w-9 h-9 text-amber-400" />
+        ),
+      };
+    }
+    if (isSociety) {
+      return {
+        parentTitle: 'CENTRAL TRUST GOVERNANCE',
+        parentClass: 'text-indigo-600',
+        title: 'Elite Multi-College Educational Society',
+        subtitle: 'Sign in to access society administration.',
+        iconBg: 'bg-gradient-to-br from-indigo-950 to-blue-900 text-white',
+        renderIcon: () => (
+          <Building2 className="w-9 h-9 text-white" />
+        ),
+      };
+    }
+    return {
+      parentTitle: 'ELITE MULTI-COLLEGE EDUCATIONAL SOCIETY',
+      parentClass: 'text-blue-600',
+      title: 'Elite College of Arts, Science and Commerce (Autonomous)',
+      subtitle: 'Sign in to continue.',
+      iconBg: 'bg-[#0f2748] text-white',
+      renderIcon: () => (
+        <svg 
+          viewBox="0 0 24 24" 
+          fill="none" 
+          stroke="currentColor" 
+          strokeWidth="2" 
+          strokeLinecap="round" 
+          strokeLinejoin="round" 
+          className="w-9 h-9 text-white"
+        >
+          <path d="M12 2L2 7l10 5 10-5-10-5z" />
+          <path d="M2 17l10 5 10-5" />
+          <path d="M2 12l10 5 10-5" />
+        </svg>
+      ),
+    };
+  };
+
+  const portalInfo = getPortalInfo();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,7 +88,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onVisitSto
       const result = login(username, password);
       setIsLoading(false);
       if (result.success) {
-        onLoginSuccess();
+        onLoginSuccess(portalType);
       } else {
         setError(result.error || 'Invalid credentials');
       }
@@ -37,51 +99,54 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onVisitSto
     <div 
       className="min-h-screen w-full relative flex items-center justify-center p-4 bg-cover bg-center bg-no-repeat font-sans"
       style={{
-        backgroundImage: `linear-gradient(rgba(15, 23, 42, 0.45), rgba(15, 23, 42, 0.55)), url('https://images.unsplash.com/photo-1562774053-701939374585?q=80&w=1920&auto=format&fit=crop')`,
+               backgroundImage: `linear-gradient(rgba(15, 23, 42, 0.45), rgba(15, 23, 42, 0.55)), url('https://images.unsplash.com/photo-1562774053-701939374585?q=80&w=1920&auto=format&fit=crop')`,
+
       }}
     >
-      {/* Top Bar Quick Link */}
-      {onVisitStorefront && (
-        <button
-          onClick={onVisitStorefront}
-          className="absolute top-5 left-5 inline-flex items-center gap-1.5 text-xs font-semibold text-white/90 hover:text-white bg-black/40 hover:bg-black/60 backdrop-blur-md px-3.5 py-2 rounded-xl transition-all shadow-md cursor-pointer"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          <span>Public Website</span>
-        </button>
-      )}
+      {/* Top Bar Quick Links */}
+      <div className="absolute top-5 left-5 flex items-center gap-2 z-20">
+        {onBackToPortals && (
+          <button
+            onClick={onBackToPortals}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-white/90 hover:text-white bg-black/40 hover:bg-black/60 backdrop-blur-md px-3.5 py-2 rounded-xl transition-all shadow-md cursor-pointer border border-white/10"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Select Portal</span>
+          </button>
+        )}
+        {onVisitStorefront && (
+          <a
+            href="?mode=storefront"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-white/90 hover:text-white bg-black/40 hover:bg-black/60 backdrop-blur-md px-3.5 py-2 rounded-xl transition-all shadow-md cursor-pointer border border-white/10 no-underline"
+            title="Visit Website"
+          >
+            <Globe className="w-3.5 h-3.5 text-blue-300" />
+            <span>Visit Website</span>
+          </a>
+        )}
+      </div>
 
       {/* Main Login Card */}
-      <div className="w-full max-w-[420px] bg-white rounded-3xl shadow-2xl p-8 sm:p-9 border border-gray-100/80 backdrop-blur-sm relative z-10 animate-in fade-in zoom-in-95 duration-200">
+      <div className="w-full max-w-[440px] bg-white rounded-3xl shadow-2xl p-8 sm:p-9 border border-gray-100/80 backdrop-blur-sm relative z-10 animate-in fade-in zoom-in-95 duration-200">
         {/* Emblem / Logo */}
         <div className="flex justify-center mb-4">
-          <div className="w-16 h-16 rounded-2xl bg-[#0f2748] text-white flex items-center justify-center shadow-md p-3 transition-transform hover:scale-105">
-            <svg 
-              viewBox="0 0 24 24" 
-              fill="none" 
-              stroke="currentColor" 
-              strokeWidth="2" 
-              strokeLinecap="round" 
-              strokeLinejoin="round" 
-              className="w-10 h-10 text-white"
-            >
-              <path d="M12 2L2 7l10 5 10-5-10-5z" />
-              <path d="M2 17l10 5 10-5" />
-              <path d="M2 12l10 5 10-5" />
-            </svg>
+          <div className={`w-16 h-16 rounded-2xl ${portalInfo.iconBg} flex items-center justify-center shadow-md p-3 transition-transform hover:scale-105`}>
+            {portalInfo.renderIcon()}
           </div>
         </div>
 
-        {/* Institution Title */}
+        {/* Institution Title with Society Name First */}
         <div className="text-center mb-6">
-          <p className="text-[11px] font-black uppercase tracking-wider text-blue-600 mb-1">
-            Elite Multi-College Educational Society
+          <p className={`text-[11px] font-black uppercase tracking-wider mb-1 ${portalInfo.parentClass}`}>
+            {portalInfo.parentTitle}
           </p>
           <h1 className="text-base sm:text-lg font-extrabold text-gray-900 tracking-tight leading-snug px-2">
-            Elite College of Arts, Science and Commerce (Autonomous)
+            {portalInfo.title}
           </h1>
           <p className="text-xs text-gray-500 mt-1 font-medium">
-            Sign in to continue.
+            {portalInfo.subtitle}
           </p>
         </div>
 

@@ -20,15 +20,26 @@ import { CareersAdmin } from '../modules/website/careers/CareersAdmin';
 import { NirfShowcaseAdmin } from '../modules/website/nirf/NirfShowcaseAdmin';
 
 interface LayoutProps {
+  initialPortalRole?: 'superadmin' | 'collegeadmin';
   onToggleViewMode?: () => void;
   onLogout?: () => void;
 }
 
-export const Layout: React.FC<LayoutProps> = ({ onToggleViewMode, onLogout }) => {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [portalRole, setPortalRole] = useState<'superadmin' | 'collegeadmin'>('collegeadmin');
-  const [activeModuleId, setActiveModuleId] = useState('dashboard');
-  const [activeModuleLabel, setActiveModuleLabel] = useState('Dashboard');
+export const Layout: React.FC<LayoutProps> = ({ 
+  initialPortalRole = 'collegeadmin',
+  onToggleViewMode, 
+  onLogout 
+}) => {
+  const [sidebarOpen, setSidebarOpen] = useState(() => 
+    typeof window !== 'undefined' ? window.innerWidth >= 1024 : true
+  );
+  const [portalRole, setPortalRole] = useState<'superadmin' | 'collegeadmin'>(initialPortalRole);
+  const [activeModuleId, setActiveModuleId] = useState(() => 
+    initialPortalRole === 'superadmin' ? 'module-studio' : 'dashboard'
+  );
+  const [activeModuleLabel, setActiveModuleLabel] = useState(() => 
+    initialPortalRole === 'superadmin' ? 'Module Studio' : 'Dashboard'
+  );
 
   const toggleSidebar = () => {
     setSidebarOpen(prev => !prev);
@@ -78,10 +89,20 @@ export const Layout: React.FC<LayoutProps> = ({ onToggleViewMode, onLogout }) =>
       />
 
       {/* Main Body Area (Sidebar + Content) */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden relative">
+        {/* Mobile Backdrop Overlay */}
+        {sidebarOpen && (
+          <div 
+            className="fixed inset-0 bg-black/60 backdrop-blur-xs z-40 lg:hidden transition-opacity cursor-pointer"
+            onClick={() => setSidebarOpen(false)}
+            aria-hidden="true"
+          />
+        )}
+
         {/* Left Sidebar with Dynamic Superadmin / Collegeadmin Styling */}
         <Sidebar 
           isOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
           activeItem={activeModuleId}
           onSelectMenuItem={handleSelectMenuItem}
           portalRole={portalRole}
@@ -89,7 +110,7 @@ export const Layout: React.FC<LayoutProps> = ({ onToggleViewMode, onLogout }) =>
 
         {/* Right Main Content Area */}
         <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
-          <main className="flex-1 p-6">
+          <main className="flex-1 p-3.5 sm:p-6 min-w-0 w-full overflow-x-hidden">
             {activeModuleId === 'card-builder-studio' ? (
               <CardBuilderStudio />
             ) : activeModuleId === 'design-settings' ? (

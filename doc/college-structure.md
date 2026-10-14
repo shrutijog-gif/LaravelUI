@@ -1,44 +1,68 @@
-# Elite Multi-College Educational Society — Architecture & Demo Structure
+# Elite Multi-College Educational Society — Architecture & 3-Tier SaaS Model
 
 ## 1. Overview & Business Purpose
-This document outlines the institutional naming architecture and multi-tier organizational model for **Elite Multi-College Educational Society**. 
+This document outlines the institutional naming architecture, role-based access model, and multi-tier organizational structure for **Elite Multi-College Educational Society**.
 
-This structure is specifically tailored for **business and sales demonstration teams** to pitch the CMS/ERP platform to educational trusts, university boards, deans, and autonomous college leadership.
+This blueprint is specifically designed for **business and sales demonstration teams** to pitch the CMS/ERP platform to educational trusts, university boards, deans, and autonomous college leadership.
 
 ---
 
-## 2. Institutional Hierarchy & Roles
+## 2. 3-Tier Role & Persona Architecture
 
 ```mermaid
 graph TD
-    Superadmin["🏛️ Superadmin Level: Elite Multi-College Educational Society<br/>(Central Governing Body & Trust Board)"]
-    Superadmin --> CampusA["🎓 Elite College of Arts, Science & Commerce (Autonomous)"]
-    Superadmin --> CampusB["⚡ Elite Institute of Technology & Engineering"]
-    Superadmin --> CampusC["🌿 Elite Institute of Agricultural & Environmental Sciences"]
+    Tier3["🛡️ Level 3: Whitecode Platform Superadmin<br/>(Core Product & SaaS Engineering — Controls Everything)"]
+    Tier3 --> Tier2A["🏛️ Level 2: Society / Trust Admin (e.g. Elite Multi-College Educational Society)<br/>(Trustees, Secretary, Multi-College Governance)"]
+    Tier3 --> Tier2B["🏛️ Level 2: Other Client Societies & Universities..."]
+    Tier2A --> Tier1A["🎓 Level 1: College Admin A (Arts, Science & Commerce)"]
+    Tier2A --> Tier1B["⚡ Level 1: College Admin B (Technology & Engineering)"]
+    Tier2A --> Tier1C["🌿 Level 1: College Admin C (Agricultural Sciences)"]
 ```
 
-### Tier 1: Governing Trust Level (Superadmin Portal)
-* **Official Name:** **Elite Multi-College Educational Society**
-* **Subtext:** *Central Governing Body & Multi-Campus Administration*
-* **Scope:** 
-  * Oversees central educational trust policies, system modules, dynamic schemas, and multi-college deployment.
-  * Controls the **Module Studio**, **Card Builder Studio**, design tokens, and trust-wide security credentials.
+---
 
-### Tier 2: Flagship College (Default Login Screen & Main Public Website)
-* **Official Name:** **Elite College of Arts, Science and Commerce (Autonomous)**
-* **Accreditation / Status:** *Autonomous Senior College — NAAC Grade A++*
-* **Scope:** 
-  * The primary operational showcase for academic features: Academic Timetables, NIRF, Committees, Departments, Notices, and Alumni Spotlight.
+### Level 1: 🎓 College Admin (Single Institution Scope)
+* **Target Personas:** College Principal, Registrar, HODs, Department Coordinators, or Faculty Data Entry staff.
+* **Scope & Access:**
+  * **Strictly limited to their own college** (e.g., *Elite College of Arts, Science and Commerce*).
+  * No visibility or editing rights to sister campuses or parent society settings.
+* **Functional Modules:**
+  * Academic Timetables & Exam Schedules.
+  * Department Profiles & Faculty directories.
+  * Committees, Cells, and Statutory Bodies.
+  * NAAC Criterion Reports (Criteria 1–7) & AQAR metric attachments.
+  * Local Notices, Circulars, and Events.
+* **Client Value Proposition:** Keeps day-to-day staff focused on their own college data without risking cross-institution data leaks or accidental misconfigurations.
 
-### Tier 3: Multi-Tenant Demo Switcher (1-Click Live Switching)
-In the top navigation bar, the business team can demonstrate instant switching between distinct institutions under the same society:
+---
 
-1. **Elite College of Arts, Science & Commerce (Autonomous)**
-   * *Focus:* Arts, Pure Sciences, Commerce, NAAC Criteria 1–7, Academic Timetables.
-2. **Elite Institute of Technology & Engineering**
-   * *Focus:* B.Tech AI & Data Science, CSE, Mechanical, NBA Accreditation, Lab Manuals.
-3. **Elite Institute of Agricultural & Environmental Sciences**
-   * *Focus:* Agronomy, Soil Science, Sustainable Farming Workshops, KVK Extension.
+### Level 2: 🏛️ Society / Trust Admin (Multi-College Trust Scope)
+* **Target Personas:** Trust President, Board of Trustees, Central Registrar, or Group Executive Director.
+* **Scope & Access:**
+  * **Central Society Dashboard** governing all campuses under the trust.
+  * **1-Click Tenant Switcher** to jump into any campus with full administrative authority.
+* **Flagship Campuses for Demo:**
+  1. 🎓 **Elite College of Arts, Science & Commerce (Autonomous)** — Arts, Pure Sciences, Commerce, NAAC Criteria 1–7.
+  2. ⚡ **Elite Institute of Technology & Engineering** — B.Tech AI & Data Science, CSE, NBA Accreditation.
+  3. 🌿 **Elite Institute of Agricultural & Environmental Sciences** — Agronomy, Soil Testing, KVK Extension.
+* **Functional Modules:**
+  * Society-wide circulars and central policy enforcement.
+  * Cross-campus analytics (consolidated student strength, accreditation status across all campuses).
+  * Institution provisioning under the trust.
+* **Client Value Proposition:** Eliminates the headache of managing 5 or 10 separate college CMS logins—trustees get one unified executive dashboard.
+
+---
+
+### Level 3: 🛡️ WhiteCode Master Console (Superadmin)
+* **Target Personas:** Whitecode Product, Engineering, and Implementation teams.
+* **Scope & Access:**
+  * **Platform-Wide Master Control** across all client societies, trusts, and colleges.
+* **Functional Modules:**
+  * **Module Studio**: Create, customize, and publish new dynamic modules (e.g., NIRF, Scholarships, Grievance Cell) to all institutions with zero redeployments.
+  * **Card Builder Studio & Design System**: Configure card styles, CSS tokens, Figma design importers, and master layouts.
+  * **Tenant Provisioning**: Spin up new colleges or trusts in under 60 seconds.
+  * License tiering, security monitoring, and global AI workflow orchestration.
+* **Business Value Proposition:** Zero-code onboarding of new institutional clients and central rollout of features across the entire customer base.
 
 ---
 
@@ -53,10 +77,10 @@ In the top navigation bar, the business team can demonstrate instant switching b
 
 ---
 
-## 4. Implementation Reference (When Ready to Apply)
+## 4. Implementation Checklist
 
-When scheduled for implementation in code:
-1. **`src/data/tenantData.ts`**: Update college tenant profiles and logos to the *Elite Group of Institutions* presets.
-2. **`src/components/auth/LoginPage.tsx`**: Update the card title to **Elite College of Arts, Science and Commerce (Autonomous)** under **Elite Multi-College Educational Society**.
-3. **`src/components/layout/Header.tsx`**: Update the central governance label for Superadmin mode.
-4. **`src/components/storefront/CollegeStorefront.tsx`**: Update the homepage hero banner emblem, header title, and footer copyright.
+1. **`src/data/tenantData.ts`**: College tenant profiles and branding presets for the *Elite Group of Institutions*.
+2. **`src/components/auth/LoginPage.tsx`**: Login screen displaying **Elite Multi-College Educational Society** with **Elite College of Arts, Science and Commerce (Autonomous)**.
+3. **`src/components/layout/Header.tsx`**: Role indicator showing Superadmin vs. College Admin with tenant switcher.
+4. **`src/components/storefront/CollegeStorefront.tsx`**: Public storefront campus branding and accreditation footer.
+5. **`src/services/authService.ts`**: Multi-role credential checks for College Admin, Trust Admin, and Whitecode Superadmin.

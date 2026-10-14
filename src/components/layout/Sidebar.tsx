@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Home, 
   ChevronDown, 
@@ -9,14 +9,17 @@ import {
   ShoppingBag,
   Code2,
   Layers,
-  Briefcase
+  Briefcase,
+  X
 } from 'lucide-react';
 import { MenuItem } from '../../types/navigation';
+import { getActiveTenant, CollegeTenant } from '../../data/tenantData';
 
 export interface SidebarProps {
   activeItem: string;
   onSelectMenuItem: (id: string, label: string) => void;
   isOpen: boolean;
+  onClose?: () => void;
   portalRole?: 'superadmin' | 'collegeadmin';
 }
 
@@ -208,9 +211,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
   activeItem, 
   onSelectMenuItem,
   isOpen,
+  onClose,
   portalRole = 'superadmin'
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentTenant, setCurrentTenant] = useState<CollegeTenant>(getActiveTenant());
+
+  useEffect(() => {
+    const handleTenantChange = () => {
+      setCurrentTenant(getActiveTenant());
+    };
+    window.addEventListener('tenant-changed', handleTenantChange);
+    return () => window.removeEventListener('tenant-changed', handleTenantChange);
+  }, []);
+
   const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({
     'developers-area': false,
     'dynamic-modules-group': false,
@@ -232,6 +246,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }));
   };
 
+  const handleItemClick = (id: string, label: string) => {
+    onSelectMenuItem(id, label);
+    if (onClose && typeof window !== 'undefined' && window.innerWidth < 1024) {
+      onClose();
+    }
+  };
+
   const filteredMenuItems = menuList.filter(item => {
     if (!searchQuery.trim()) return true;
     const query = searchQuery.toLowerCase();
@@ -244,18 +265,37 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <aside 
-      className={`text-white flex-shrink-0 flex flex-col transition-all duration-300 z-20 ${
+      className={`fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] h-full lg:h-auto lg:static lg:flex-shrink-0 flex flex-col text-white transition-all duration-300 shadow-2xl lg:shadow-none ${
         isSuperAdmin ? 'bg-[#0f172a] border-r border-amber-500/20' : 'bg-[#1d4ed8]'
       } ${
-        isOpen ? 'w-64' : 'w-0 overflow-hidden'
+        isOpen 
+          ? 'translate-x-0 lg:w-64' 
+          : '-translate-x-full lg:translate-x-0 lg:w-0 lg:overflow-hidden pointer-events-none lg:pointer-events-auto'
       }`}
       style={{ minHeight: 'calc(100vh - 4rem)' }}
     >
-
+      {/* Mobile Drawer Header with Close Button (Displays active College Name or Superadmin title) */}
+      <div className="flex items-center justify-between px-4 py-3.5 border-b border-white/10 lg:hidden shrink-0">
+        <div className="flex items-center gap-2 min-w-0 pr-2">
+          <div className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center font-black text-xs text-white shrink-0">
+            {isSuperAdmin ? '⚡' : '🏛️'}
+          </div>
+          <span className="font-bold text-sm text-white truncate">
+            {isSuperAdmin ? 'WhiteCode Master Console' : currentTenant.name}
+          </span>
+        </div>
+        <button 
+          onClick={onClose}
+          className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer shrink-0"
+          title="Close Navigation"
+          aria-label="Close Navigation"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      </div>
 
       {/* Module Search Input */}
-      {/* Module Search Input */}
-      <div className="p-4">
+      <div className="p-4 shrink-0">
         <div className="relative">
           <input
             type="text"
@@ -282,27 +322,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   if (hasChildren) {
                     toggleSubmenu(item.id);
                   } else {
-                    onSelectMenuItem(item.id, item.label);
+                    handleItemClick(item.id, item.label);
                   }
                 }}
-                className={`w-full text-left px-3 py-2.5 rounded-lg flex items-center justify-between text-sm font-medium transition-colors ${
+                className={`w-full text-left px-3 py-2.5 rounded-lg flex items-center justify-between text-sm font-medium transition-colors cursor-pointer ${
                   isActive 
                     ? 'bg-[#2563eb] text-white shadow-xs font-semibold' 
                     : 'text-white/90 hover:bg-white/10'
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  {item.icon === 'home' && <Home className="w-4 h-4" />}
-                  {item.icon === 'shopping-bag' && <ShoppingBag className="w-4 h-4" />}
-                  {item.icon === 'database' && <Database className="w-4 h-4" />}
-                  {item.icon === 'code' && <Code2 className="w-4 h-4" />}
-                  {item.icon === 'circle' && <Circle className="w-4 h-4 stroke-[2]" />}
-                  {item.icon === 'layers' && <Layers className="w-4 h-4" />}
-                  {item.icon === 'briefcase' && <Briefcase className="w-4 h-4" />}
-                  <span>{item.label}</span>
+                  {item.icon === 'home' && <Home className="w-4 h-4 shrink-0" />}
+                  {item.icon === 'shopping-bag' && <ShoppingBag className="w-4 h-4 shrink-0" />}
+                  {item.icon === 'database' && <Database className="w-4 h-4 shrink-0" />}
+                  {item.icon === 'code' && <Code2 className="w-4 h-4 shrink-0" />}
+                  {item.icon === 'circle' && <Circle className="w-4 h-4 stroke-[2] shrink-0" />}
+                  {item.icon === 'layers' && <Layers className="w-4 h-4 shrink-0" />}
+                  {item.icon === 'briefcase' && <Briefcase className="w-4 h-4 shrink-0" />}
+                  <span className="truncate">{item.label}</span>
                 </div>
                 {hasChildren && (
-                  <span>
+                  <span className="shrink-0 ml-1">
                     {isSubOpen ? (
                       <ChevronDown className="w-4 h-4 text-white/70" />
                     ) : (
@@ -320,15 +360,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     return (
                       <button
                         key={child.id}
-                        onClick={() => onSelectMenuItem(child.id, child.label)}
-                        className={`w-full text-left px-3 py-2 rounded-md text-xs font-medium flex items-center gap-2 transition-colors ${
+                        onClick={() => handleItemClick(child.id, child.label)}
+                        className={`w-full text-left px-3 py-2 rounded-md text-xs font-medium flex items-center gap-2 transition-colors cursor-pointer ${
                           isChildActive
                             ? 'bg-white/20 text-white font-semibold'
                             : 'text-white/80 hover:text-white hover:bg-white/10'
                         }`}
                       >
-                        <span className="w-1.5 h-1.5 rounded-full bg-white/70 inline-block"></span>
-                        <span>{child.label}</span>
+                        <span className="w-1.5 h-1.5 rounded-full bg-white/70 inline-block shrink-0"></span>
+                        <span className="truncate">{child.label}</span>
                       </button>
                     );
                   })}

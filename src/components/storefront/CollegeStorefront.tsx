@@ -166,14 +166,14 @@ export const CollegeStorefront: React.FC<CollegeStorefrontProps> = ({ onToggleVi
                     <div 
                       className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${tenant.badgeGradient} p-2 flex items-center justify-center text-white shadow-md`}
                     >
-                      {tenant.logoType === 'lady-irwin' && (
+                      {(tenant.logoType === 'elite-crest' || tenant.logoType === 'lady-irwin') && (
                         <GraduationCap className="w-7 h-7 text-white" />
                       )}
-                      {tenant.logoType === 'kvk-leaf' && (
-                        <Sparkles className="w-7 h-7 text-white" />
-                      )}
-                      {tenant.logoType === 'university-crest' && (
+                      {(tenant.logoType === 'elite-tech' || tenant.logoType === 'university-crest') && (
                         <Building2 className="w-7 h-7 text-white" />
+                      )}
+                      {(tenant.logoType === 'elite-agri' || tenant.logoType === 'kvk-leaf') && (
+                        <Sparkles className="w-7 h-7 text-white" />
                       )}
                     </div>
                     <div>
