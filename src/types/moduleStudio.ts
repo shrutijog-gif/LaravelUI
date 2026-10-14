@@ -12,7 +12,8 @@ export type FieldType =
   | 'url'
   | 'date' 
   | 'boolean' 
-  | 'badge';
+  | 'badge'
+  | 'document_link';
 
 export interface FieldOption {
   label: string;
@@ -65,17 +66,60 @@ export interface ModuleSchema {
   version: string;
   iconName?: string; // Lucide icon name
   fields: FieldDefinition[];
-  displayConfig: DisplayBlockConfig;
+  displayConfig?: DisplayBlockConfig;
   behaviors?: ModuleBehaviors;
+  archetype?: ModuleArchetype; // 'standard' (flat table/card) or 'tabbed_composite' (parent entity with tabs)
+  tabsConfig?: TabsConfig; // Configuration for default tabs and allowed component types
   createdAt: string;
   updatedAt: string;
+}
+
+export type ModuleArchetype = 'standard' | 'tabbed_composite';
+
+export type TabComponentType = 
+  | 'ui_section'      // UI Content Section (Editor chooses Text Block WYSIWYG or Accordion via +)
+  | 'rich_text'       // WYSIWYG editor (Text Block)
+  | 'accordion'       // Collapsible FAQ / panel list
+  | 'faculty_grid'    // Staff / Faculty cards grid
+  | 'media_gallery'   // Photo / video album
+  | 'document_list';  // Downloadable timetables, circulars, PDFs
+
+export interface TabBlueprint {
+  id: string;
+  label: string;
+  slug: string;
+  componentType: TabComponentType;
+  defaultContent?: any;
+  required?: boolean;
+  visible?: boolean;
+  allowRuntimeAdd?: boolean;
+  options?: Record<string, any>;
+}
+
+export type CompositeLayoutStyle = 'horizontal_tabs' | 'vertical_tabs' | 'runny_page';
+
+export interface TabsConfig {
+  defaultTabs: TabBlueprint[];
+  allowRuntimeCustomTabs?: boolean;
+  allowedElementTypes?: TabComponentType[];
+  defaultLayoutStyle?: CompositeLayoutStyle;
+}
+
+export interface DynamicTabItemData {
+  id: string;
+  label: string;
+  componentType: TabComponentType;
+  content: any; // HTML string for rich_text, array for accordion or faculty, etc.
+  visible?: boolean;
+  order?: number;
 }
 
 export interface DynamicEntityItem {
   id: string;
   tenantId: string;
   moduleSlug: string;
-  data: Record<string, any>; // Dynamic field key-value pairs
+  data: Record<string, any>; // Dynamic parent field key-value pairs
+  tabsData?: Record<string, DynamicTabItemData>; // Dynamic tabs data for tabbed_composite archetype
   showOnWebsite?: boolean;
   createdAt: string;
   updatedAt: string;
@@ -85,3 +129,4 @@ export interface StudioTemplate {
   schema: ModuleSchema;
   sampleItems: DynamicEntityItem[];
 }
+

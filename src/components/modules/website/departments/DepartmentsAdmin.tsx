@@ -8,9 +8,13 @@ import { DepartmentContentManager } from './DepartmentContentManager';
 type ViewMode = 'list' | 'manage';
 
 export const DepartmentsAdmin: React.FC = () => {
-  const [view, setView] = useState<ViewMode>('list');
   const [departments, setDepartments] = useState<Department[]>(getStoredDepartments);
-  const [selectedDepartment, setSelectedDepartment] = useState<Department | null>(null);
+  const [view, setView] = useState<ViewMode>('manage');
+  const [selectedDepartment, setSelectedDepartment] = useState<Department | null>(() => {
+    const list = getStoredDepartments();
+    const mcom = list.find(d => d.name.includes('MASTER OF COMMERCE'));
+    return mcom || list[0] || null;
+  });
 
   // Keep state in sync with custom events
   useEffect(() => {

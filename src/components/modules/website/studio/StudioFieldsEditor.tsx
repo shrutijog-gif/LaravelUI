@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FieldDefinition, FieldType } from '../../../../types/moduleStudio';
 import { getStoredStudioTemplates } from '../../../../data/mockStudioData';
-import { Plus, Trash2, GripVertical, Check, Layers, AlertCircle, Link2 } from 'lucide-react';
+import { Plus, Trash2, GripVertical, Check, Layers, AlertCircle, Link2, FileText } from 'lucide-react';
 
 export const systemPicklists = [
   {
@@ -282,12 +282,25 @@ export const StudioFieldsEditor: React.FC<StudioFieldsEditorProps> = ({ fields, 
                   <option value="radio">Radio Buttons (Single Pick)</option>
                   <option value="checkbox">Checkbox Group (Multi Pick)</option>
                   <option value="badge">Badge Tag</option>
+                  <option value="document_link">Document Link</option>
                   <option value="file_pdf">Document PDF Upload / URL</option>
                   <option value="image">Image Photo URL</option>
                   <option value="icon">Vector Icon Picker / Symbol</option>
                   <option value="date">Date Picker</option>
                 </select>
               </div>
+
+              {newType === 'document_link' && (
+                <div className="sm:col-span-2 bg-gray-50 border border-gray-200 rounded-xl p-3.5 flex items-start gap-2.5 text-xs text-gray-800 animate-in fade-in duration-200">
+                  <FileText className="w-4 h-4 text-gray-600 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold text-gray-900">Captures Document Title & PDF File:</span>
+                    <p className="text-[11px] text-gray-600 mt-0.5 leading-relaxed">
+                      While adding records, this field captures both the <strong>Title / Link Text</strong> (e.g. <em>FYBSC PRN NO LIST 2022-2023</em>) and the <strong>PDF File</strong>. On the website storefront, it displays as the title which opens the PDF document in a new window when clicked.
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {(newType === 'select' || newType === 'multiselect' || newType === 'radio' || newType === 'checkbox' || newType === 'badge') && (
                 <div className="sm:col-span-2 bg-gray-50/80 p-3.5 rounded-xl border border-gray-200 space-y-2.5">
@@ -458,12 +471,25 @@ export const StudioFieldsEditor: React.FC<StudioFieldsEditorProps> = ({ fields, 
                   <option value="radio">Radio Buttons (Single Pick)</option>
                   <option value="checkbox">Checkbox Group (Multi Pick)</option>
                   <option value="badge">Badge Tag</option>
+                  <option value="document_link">Document Link</option>
                   <option value="file_pdf">Document PDF Upload / URL</option>
                   <option value="image">Image Photo URL</option>
                   <option value="icon">Vector Icon Picker / Symbol</option>
                   <option value="date">Date Picker</option>
                 </select>
               </div>
+
+              {selectedField.type === 'document_link' && (
+                <div className="sm:col-span-2 bg-gray-50 border border-gray-200 rounded-xl p-3.5 flex items-start gap-2.5 text-xs text-gray-800 animate-in fade-in duration-200">
+                  <FileText className="w-4 h-4 text-gray-600 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold text-gray-900">Captures Document Title & PDF File:</span>
+                    <p className="text-[11px] text-gray-600 mt-0.5 leading-relaxed">
+                      While adding records, this field captures both the <strong>Title / Link Text</strong> (e.g. <em>FYBSC PRN NO LIST 2022-2023</em>) and the <strong>PDF File</strong>. On the website storefront, it displays as the title which opens the PDF document in a new window when clicked.
+                    </p>
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1">Placeholder Text</label>

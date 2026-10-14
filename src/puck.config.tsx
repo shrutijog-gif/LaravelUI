@@ -30,6 +30,16 @@ export const getDynamicPuckConfig = (): Config<Props> => {
   const createDynamicModulePuckFields = (template: any) => {
     const schema = template.schema;
     const fields = schema.fields || [];
+    const isComposite = schema.archetype === 'tabbed_composite';
+    const defaultTabs = schema.tabsConfig?.defaultTabs || [];
+
+    const facultyTabs = defaultTabs.filter((t: any) => t.componentType === 'faculty_grid');
+    const docTabs = defaultTabs.filter((t: any) => t.componentType === 'document_list');
+    const galleryTabs = defaultTabs.filter((t: any) => t.componentType === 'media_gallery');
+
+    const hasFaculty = isComposite && (facultyTabs.length > 0 || defaultTabs.length === 0);
+    const hasDocuments = isComposite && docTabs.length > 0;
+    const hasGallery = isComposite && galleryTabs.length > 0;
 
     return {
       /* 1. Header Controller Box */
@@ -82,7 +92,14 @@ export const getDynamicPuckConfig = (): Config<Props> => {
         render: ({ value = { cardStyle: 'style-1', columns: 3 }, onChange }: any) => {
           const [isExpanded, setIsExpanded] = useState(true);
           const [isModalOpen, setIsModalOpen] = useState(false);
+          const isComposite = schema.archetype === 'tabbed_composite';
           
+          const activeLayoutStyle = typeof value === 'object' && value?.layoutStyle
+            ? value.layoutStyle
+            : (typeof value === 'string' && (value === 'horizontal_tabs' || value === 'vertical_tabs' || value === 'runny_page')
+                ? value
+                : (schema.tabsConfig?.defaultLayoutStyle || 'vertical_tabs'));
+
           const activeStyle = typeof value === 'string' ? value : (value?.cardStyle || 'style-1');
           const activeColumns = typeof value === 'object' && value?.columns ? value.columns : 3;
           const isTable = activeStyle.startsWith('table-');
@@ -94,86 +111,132 @@ export const getDynamicPuckConfig = (): Config<Props> => {
                 onClick={() => setIsExpanded(!isExpanded)}
                 className="w-full bg-gray-100 px-3 py-2 border-b border-gray-200 flex items-center justify-between hover:bg-gray-200/80 transition-colors text-left"
               >
-                <span className="text-xs font-semibold text-gray-700">Style Controller</span>
+                <span className="text-xs font-semibold text-gray-700">Style Settings</span>
                 <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
               </button>
 
               {isExpanded && (
                 <div className="p-3 bg-white space-y-3">
-                  {/* 1-Click Layout View Switcher: Cards vs Table */}
-                  <div className="flex items-center gap-1 p-1 bg-gray-100 border border-gray-200 rounded-lg">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const currentObj = typeof value === 'object' ? value : { columns: 3 };
-                        const prevStyle = currentObj.cardStyle || 'style-1';
-                        const newStyle = prevStyle.startsWith('table-') ? 'style-1' : prevStyle;
-                        onChange({ ...currentObj, cardStyle: newStyle });
-                      }}
-                      className={`flex-1 py-1.5 px-2 rounded-md text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                        !isTable 
-                          ? 'bg-white text-blue-600 shadow-2xs border border-gray-200/80 font-extrabold' 
-                          : 'text-gray-600 hover:text-gray-900'
-                      }`}
-                    >
-                      <span>🎴 Cards</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const currentObj = typeof value === 'object' ? value : { columns: 3 };
-                        onChange({ ...currentObj, cardStyle: 'table-1' });
-                      }}
-                      className={`flex-1 py-1.5 px-2 rounded-md text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                        isTable 
-                          ? 'bg-white text-blue-600 shadow-2xs border border-gray-200/80 font-extrabold' 
-                          : 'text-gray-600 hover:text-gray-900'
-                      }`}
-                    >
-                      <span>📋 Table</span>
-                    </button>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setIsModalOpen(true)}
-                    className="w-full py-1.5 px-3 bg-gray-100 hover:bg-gray-200 border border-gray-300 active:bg-gray-300 rounded-md font-semibold text-xs text-gray-700 transition-colors flex items-center justify-between cursor-pointer"
-                  >
-                    <span>Select Style Preset</span>
-                    <span className="text-[11px] bg-white border border-gray-200 px-2 py-0.5 rounded font-mono text-blue-600 uppercase font-bold">
-                      {activeStyle}
-                    </span>
-                  </button>
-
-                  {!isTable && (
-                    <div className="w-full py-1.5 px-3 bg-gray-100 border border-gray-300 rounded-md font-semibold text-xs text-gray-700 flex items-center justify-between">
-                      <span>Cards Per Row</span>
+                  {isComposite ? (
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                        Layout Style
+                      </label>
                       <select
-                        value={activeColumns}
+                        value={activeLayoutStyle}
                         onChange={(e) => {
-                          const currentObj = typeof value === 'object' ? value : { cardStyle: value };
-                          onChange({ ...currentObj, columns: Number(e.target.value) });
+                          const currentObj = typeof value === 'object' ? value : {};
+                          onChange({
+                            ...currentObj,
+                            layoutStyle: e.target.value,
+                            cardStyle: e.target.value,
+                          });
                         }}
-                        className="bg-white border border-gray-200 px-2 py-0.5 rounded font-mono text-blue-600 font-bold text-[11px] outline-none cursor-pointer hover:border-blue-400 transition-colors"
+                        className="w-full bg-white border border-gray-300 rounded-md px-3 py-2 text-xs font-semibold text-gray-800 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 cursor-pointer shadow-2xs"
                       >
-                        <option value={2}>2 Cards</option>
-                        <option value={3}>3 Cards</option>
-                        <option value={4}>4 Cards</option>
+                        <option value="horizontal_tabs">Horizontal Tabs</option>
+                        <option value="vertical_tabs">Vertical Tabs</option>
+                        <option value="runny_page">Runny Page</option>
                       </select>
-                    </div>
-                  )}
 
-                  <StylePickerModal
-                    isOpen={isModalOpen}
-                    onClose={() => setIsModalOpen(false)}
-                    selectedStyle={activeStyle}
-                    moduleId={schema.slug || schema.id}
-                    moduleTitle={schema.name}
-                    onSelectStyle={(newStyle) => {
-                      const currentObj = typeof value === 'object' ? value : { columns: 3 };
-                      onChange({ ...currentObj, cardStyle: newStyle });
-                    }}
-                  />
+                      {activeLayoutStyle === 'runny_page' && (
+                        <div className="mt-3 pt-2.5 border-t border-gray-100">
+                          <label className="flex items-center gap-2 text-xs font-medium cursor-pointer text-gray-700 select-none">
+                            <input
+                              type="checkbox"
+                              checked={value?.showJumpStrip !== false}
+                              onChange={(e) => {
+                                 const currentObj = typeof value === 'object' ? value : {};
+                                onChange({
+                                  ...currentObj,
+                                  showJumpStrip: e.target.checked,
+                                });
+                              }}
+                              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                            />
+                            <span>Show Jump to strip</span>
+                          </label>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <>
+                      {/* 1-Click Layout View Switcher: Cards vs Table */}
+                      <div className="flex items-center gap-1 p-1 bg-gray-100 border border-gray-200 rounded-lg">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const currentObj = typeof value === 'object' ? value : { columns: 3 };
+                            const prevStyle = currentObj.cardStyle || 'style-1';
+                            const newStyle = prevStyle.startsWith('table-') ? 'style-1' : prevStyle;
+                            onChange({ ...currentObj, cardStyle: newStyle });
+                          }}
+                          className={`flex-1 py-1.5 px-2 rounded-md text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                            !isTable 
+                              ? 'bg-white text-blue-600 shadow-2xs border border-gray-200/80 font-extrabold' 
+                              : 'text-gray-600 hover:text-gray-900'
+                          }`}
+                        >
+                          <span>🎴 Cards</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const currentObj = typeof value === 'object' ? value : { columns: 3 };
+                            onChange({ ...currentObj, cardStyle: 'table-1' });
+                          }}
+                          className={`flex-1 py-1.5 px-2 rounded-md text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                            isTable 
+                              ? 'bg-white text-blue-600 shadow-2xs border border-gray-200/80 font-extrabold' 
+                              : 'text-gray-600 hover:text-gray-900'
+                          }`}
+                        >
+                          <span>📋 Table</span>
+                        </button>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setIsModalOpen(true)}
+                        className="w-full py-1.5 px-3 bg-gray-100 hover:bg-gray-200 border border-gray-300 active:bg-gray-300 rounded-md font-semibold text-xs text-gray-700 transition-colors flex items-center justify-between cursor-pointer"
+                      >
+                        <span>Select Style Preset</span>
+                        <span className="text-[11px] bg-white border border-gray-200 px-2 py-0.5 rounded font-mono text-blue-600 uppercase font-bold">
+                          {activeStyle}
+                        </span>
+                      </button>
+
+                      {!isTable && (
+                        <div className="w-full py-1.5 px-3 bg-gray-100 border border-gray-300 rounded-md font-semibold text-xs text-gray-700 flex items-center justify-between">
+                          <span>Cards Per Row</span>
+                          <select
+                            value={activeColumns}
+                            onChange={(e) => {
+                              const currentObj = typeof value === 'object' ? value : { cardStyle: value };
+                              onChange({ ...currentObj, columns: Number(e.target.value) });
+                            }}
+                            className="bg-white border border-gray-200 px-2 py-0.5 rounded font-mono text-blue-600 font-bold text-[11px] outline-none cursor-pointer hover:border-blue-400 transition-colors"
+                          >
+                            <option value={2}>2 Cards</option>
+                            <option value={3}>3 Cards</option>
+                            <option value={4}>4 Cards</option>
+                          </select>
+                        </div>
+                      )}
+
+                      <StylePickerModal
+                        isOpen={isModalOpen}
+                        onClose={() => setIsModalOpen(false)}
+                        selectedStyle={activeStyle}
+                        moduleId={schema.slug || schema.id}
+                        moduleTitle={schema.name}
+                        onSelectStyle={(newStyle) => {
+                          const currentObj = typeof value === 'object' ? value : { columns: 3 };
+                          onChange({ ...currentObj, cardStyle: newStyle });
+                        }}
+                      />
+                    </>
+                  )}
                 </div>
               )}
             </div>
@@ -181,135 +244,379 @@ export const getDynamicPuckConfig = (): Config<Props> => {
         },
       },
 
-      /* 3. Card Fields Controller Box (Per-Entry Elements) */
-      showFields: {
-        type: 'custom',
-        render: ({ value, onChange }: any) => {
-          const [isExpanded, setIsExpanded] = useState(true);
+      ...(isComposite ? {
+        ...(hasFaculty ? {
+          /* Dynamic Component Controller: Faculty & Staff */
+          facultyConfig: {
+            type: 'custom',
+            render: ({ value, onChange }: any) => {
+              const [isExpanded, setIsExpanded] = useState(true);
 
-          const initialValues: Record<string, boolean> = {
-            download: true,
-            icon: true,
-          };
-          fields.forEach((f: any) => { initialValues[f.name] = true; });
+              const activeObj = typeof value === 'object' && value !== null ? value : {
+                viewMode: 'card',
+                columns: 3,
+                showPhoto: true,
+                showDesignation: true,
+                showDepartment: true,
+                showProfileLink: true,
+              };
 
-          const activeValue = value || initialValues;
+              const viewMode = activeObj.viewMode || 'card';
+              const columns = activeObj.columns || 3;
+              const boxTitle = facultyTabs.length === 1 ? `${facultyTabs[0].label} Settings` : 'Faculty & Staff Settings';
 
-          const toggle = (fieldKey: string) => {
-            onChange({ ...activeValue, [fieldKey]: !activeValue[fieldKey] });
-          };
+              return (
+                <div className="border border-gray-200 rounded-lg overflow-hidden my-1 bg-white shadow-2xs">
+                  <button
+                    type="button"
+                    onClick={() => setIsExpanded(!isExpanded)}
+                    className="w-full bg-gray-100 px-3 py-2 border-b border-gray-200 flex items-center justify-between hover:bg-gray-200/80 transition-colors text-left cursor-pointer"
+                  >
+                    <span className="text-xs font-semibold text-gray-700">{boxTitle}</span>
+                    <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                  </button>
 
-          const cardUiElements = [
-            { key: 'download', label: 'View / Download button' },
-            { key: 'icon', label: 'Icon / Image Header' },
-          ];
+                  {isExpanded && (
+                    <div className="p-3 bg-white space-y-2.5">
+                      {/* Display View: Card View vs List View */}
+                      <div className="w-full py-1.5 px-3 bg-gray-100 border border-gray-300 rounded-md font-semibold text-xs text-gray-700 flex items-center justify-between">
+                        <span>Display View</span>
+                        <select
+                          value={viewMode}
+                          onChange={(e) => onChange({ ...activeObj, viewMode: e.target.value })}
+                          className="bg-white border border-gray-200 px-2 py-0.5 rounded text-blue-600 font-bold text-xs outline-none cursor-pointer hover:border-blue-400 transition-colors"
+                        >
+                          <option value="card">Card View</option>
+                          <option value="list">List View</option>
+                        </select>
+                      </div>
 
-          return (
-            <div className="border border-gray-200 rounded-lg overflow-hidden my-1 bg-white shadow-2xs">
-              <button
-                type="button"
-                onClick={() => setIsExpanded(!isExpanded)}
-                className="w-full bg-gray-100 px-3 py-2 border-b border-gray-200 flex items-center justify-between hover:bg-gray-200/80 transition-colors text-left"
-              >
-                <span className="text-xs font-semibold text-gray-700">Module Fields Controller</span>
-                <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
-              </button>
+                      {/* Columns / Cards Per Row (when Card View) */}
+                      {viewMode === 'card' && (
+                        <div className="w-full py-1.5 px-3 bg-gray-100 border border-gray-300 rounded-md font-semibold text-xs text-gray-700 flex items-center justify-between">
+                          <span>Cards Per Row</span>
+                          <select
+                            value={columns}
+                            onChange={(e) => onChange({ ...activeObj, columns: Number(e.target.value) })}
+                            className="bg-white border border-gray-200 px-2 py-0.5 rounded font-mono text-blue-600 font-bold text-[11px] outline-none cursor-pointer hover:border-blue-400 transition-colors"
+                          >
+                            <option value={2}>2 Cards</option>
+                            <option value={3}>3 Cards</option>
+                            <option value={4}>4 Cards</option>
+                          </select>
+                        </div>
+                      )}
 
-              {isExpanded && (
-                <div className="p-2 flex flex-col gap-0.5 bg-white">
-                  {/* Core Module Schema Fields */}
-                  {fields.map((f: any) => (
-                    <label key={f.name} className="flex items-center gap-2.5 text-xs font-medium cursor-pointer hover:bg-gray-50 p-1.5 rounded transition-colors select-none text-gray-700">
+                      {/* Visual Element Checkboxes */}
+                      <div className="pt-1 flex flex-col gap-0.5 border-t border-gray-100">
+                        <label className="flex items-center gap-2.5 text-xs font-medium cursor-pointer hover:bg-gray-50 p-1.5 rounded transition-colors select-none text-gray-700">
+                          <input
+                            type="checkbox"
+                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                            checked={activeObj.showPhoto !== false}
+                            onChange={(e) => onChange({ ...activeObj, showPhoto: e.target.checked })}
+                          />
+                          <span>Photo / Avatar</span>
+                        </label>
+
+                        <label className="flex items-center gap-2.5 text-xs font-medium cursor-pointer hover:bg-gray-50 p-1.5 rounded transition-colors select-none text-gray-700">
+                          <input
+                            type="checkbox"
+                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                            checked={activeObj.showDesignation !== false}
+                            onChange={(e) => onChange({ ...activeObj, showDesignation: e.target.checked })}
+                          />
+                          <span>Designation</span>
+                        </label>
+
+                        <label className="flex items-center gap-2.5 text-xs font-medium cursor-pointer hover:bg-gray-50 p-1.5 rounded transition-colors select-none text-gray-700">
+                          <input
+                            type="checkbox"
+                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                            checked={activeObj.showDepartment !== false}
+                            onChange={(e) => onChange({ ...activeObj, showDepartment: e.target.checked })}
+                          />
+                          <span>Department / Stream</span>
+                        </label>
+
+                        <label className="flex items-center gap-2.5 text-xs font-medium cursor-pointer hover:bg-gray-50 p-1.5 rounded transition-colors select-none text-gray-700">
+                          <input
+                            type="checkbox"
+                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                            checked={activeObj.showProfileLink !== false}
+                            onChange={(e) => onChange({ ...activeObj, showProfileLink: e.target.checked })}
+                          />
+                          <span>View Profile Link</span>
+                        </label>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            },
+          },
+        } : {}),
+
+        ...(hasDocuments ? {
+          /* Dynamic Component Controller: Document Downloads */
+          documentsConfig: {
+            type: 'custom',
+            render: ({ value, onChange }: any) => {
+              const [isExpanded, setIsExpanded] = useState(true);
+
+              const activeObj = typeof value === 'object' && value !== null ? value : {
+                viewMode: 'list',
+                showDownloadBtn: true,
+                showIcon: true,
+              };
+
+              const viewMode = activeObj.viewMode || 'list';
+              const boxTitle = docTabs.length === 1 ? `${docTabs[0].label} Settings` : 'Document Downloads Settings';
+
+              return (
+                <div className="border border-gray-200 rounded-lg overflow-hidden my-1 bg-white shadow-2xs">
+                  <button
+                    type="button"
+                    onClick={() => setIsExpanded(!isExpanded)}
+                    className="w-full bg-gray-100 px-3 py-2 border-b border-gray-200 flex items-center justify-between hover:bg-gray-200/80 transition-colors text-left cursor-pointer"
+                  >
+                    <span className="text-xs font-semibold text-gray-700">{boxTitle}</span>
+                    <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {isExpanded && (
+                    <div className="p-3 bg-white space-y-2.5">
+                      <div className="w-full py-1.5 px-3 bg-gray-100 border border-gray-300 rounded-md font-semibold text-xs text-gray-700 flex items-center justify-between">
+                        <span>Display View</span>
+                        <select
+                          value={viewMode}
+                          onChange={(e) => onChange({ ...activeObj, viewMode: e.target.value })}
+                          className="bg-white border border-gray-200 px-2 py-0.5 rounded text-blue-600 font-bold text-xs outline-none cursor-pointer hover:border-blue-400 transition-colors"
+                        >
+                          <option value="list">List View</option>
+                          <option value="grid">Grid View</option>
+                        </select>
+                      </div>
+
+                      <div className="pt-1 flex flex-col gap-0.5 border-t border-gray-100">
+                        <label className="flex items-center gap-2.5 text-xs font-medium cursor-pointer hover:bg-gray-50 p-1.5 rounded transition-colors select-none text-gray-700">
+                          <input
+                            type="checkbox"
+                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                            checked={activeObj.showDownloadBtn !== false}
+                            onChange={(e) => onChange({ ...activeObj, showDownloadBtn: e.target.checked })}
+                          />
+                          <span>Download Button</span>
+                        </label>
+
+                        <label className="flex items-center gap-2.5 text-xs font-medium cursor-pointer hover:bg-gray-50 p-1.5 rounded transition-colors select-none text-gray-700">
+                          <input
+                            type="checkbox"
+                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                            checked={activeObj.showIcon !== false}
+                            onChange={(e) => onChange({ ...activeObj, showIcon: e.target.checked })}
+                          />
+                          <span>File Type Icon</span>
+                        </label>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            },
+          },
+        } : {}),
+
+        ...(hasGallery ? {
+          /* Dynamic Component Controller: Photo Gallery */
+          galleryConfig: {
+            type: 'custom',
+            render: ({ value, onChange }: any) => {
+              const [isExpanded, setIsExpanded] = useState(true);
+
+              const activeObj = typeof value === 'object' && value !== null ? value : {
+                columns: 3,
+                showCaption: true,
+              };
+
+              const columns = activeObj.columns || 3;
+              const boxTitle = galleryTabs.length === 1 ? `${galleryTabs[0].label} Settings` : 'Photo Gallery Settings';
+
+              return (
+                <div className="border border-gray-200 rounded-lg overflow-hidden my-1 bg-white shadow-2xs">
+                  <button
+                    type="button"
+                    onClick={() => setIsExpanded(!isExpanded)}
+                    className="w-full bg-gray-100 px-3 py-2 border-b border-gray-200 flex items-center justify-between hover:bg-gray-200/80 transition-colors text-left cursor-pointer"
+                  >
+                    <span className="text-xs font-semibold text-gray-700">{boxTitle}</span>
+                    <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {isExpanded && (
+                    <div className="p-3 bg-white space-y-2.5">
+                      <div className="w-full py-1.5 px-3 bg-gray-100 border border-gray-300 rounded-md font-semibold text-xs text-gray-700 flex items-center justify-between">
+                        <span>Columns Per Row</span>
+                        <select
+                          value={columns}
+                          onChange={(e) => onChange({ ...activeObj, columns: Number(e.target.value) })}
+                          className="bg-white border border-gray-200 px-2 py-0.5 rounded font-mono text-blue-600 font-bold text-[11px] outline-none cursor-pointer hover:border-blue-400 transition-colors"
+                        >
+                          <option value={2}>2 Columns</option>
+                          <option value={3}>3 Columns</option>
+                          <option value={4}>4 Columns</option>
+                        </select>
+                      </div>
+
+                      <div className="pt-1 flex flex-col gap-0.5 border-t border-gray-100">
+                        <label className="flex items-center gap-2.5 text-xs font-medium cursor-pointer hover:bg-gray-50 p-1.5 rounded transition-colors select-none text-gray-700">
+                          <input
+                            type="checkbox"
+                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                            checked={activeObj.showCaption !== false}
+                            onChange={(e) => onChange({ ...activeObj, showCaption: e.target.checked })}
+                          />
+                          <span>Photo Caption</span>
+                        </label>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            },
+          },
+        } : {}),
+      } : {
+        /* 3. Card Fields Controller Box (Per-Entry Elements for Flat Modules) */
+        showFields: {
+          type: 'custom',
+          render: ({ value, onChange }: any) => {
+            const [isExpanded, setIsExpanded] = useState(true);
+
+            const initialValues: Record<string, boolean> = {
+              download: true,
+              icon: true,
+            };
+            fields.forEach((f: any) => { initialValues[f.name] = true; });
+
+            const activeValue = value || initialValues;
+
+            const toggle = (fieldKey: string) => {
+              onChange({ ...activeValue, [fieldKey]: !activeValue[fieldKey] });
+            };
+
+            const cardUiElements = [
+              { key: 'download', label: 'View / Download button' },
+              { key: 'icon', label: 'Icon / Image Header' },
+            ];
+
+            return (
+              <div className="border border-gray-200 rounded-lg overflow-hidden my-1 bg-white shadow-2xs">
+                <button
+                  type="button"
+                  onClick={() => setIsExpanded(!isExpanded)}
+                  className="w-full bg-gray-100 px-3 py-2 border-b border-gray-200 flex items-center justify-between hover:bg-gray-200/80 transition-colors text-left"
+                >
+                  <span className="text-xs font-semibold text-gray-700">Module Fields Settings</span>
+                  <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                </button>
+
+                {isExpanded && (
+                  <div className="p-2 flex flex-col gap-0.5 bg-white">
+                    {/* Core Module Schema Fields */}
+                    {fields.map((f: any) => (
+                      <label key={f.name} className="flex items-center gap-2.5 text-xs font-medium cursor-pointer hover:bg-gray-50 p-1.5 rounded transition-colors select-none text-gray-700">
+                        <input 
+                          type="checkbox" 
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                          checked={activeValue[f.name] !== false} 
+                          onChange={() => toggle(f.name)} 
+                        />
+                        <span>{f.label}</span>
+                      </label>
+                    ))}
+
+                    {/* Divider */}
+                    <div className="border-t border-gray-100 my-1 mx-1" />
+
+                    {/* Per-Card UI Action Elements */}
+                    {cardUiElements.map(f => (
+                      <label key={f.key} className="flex items-center gap-2.5 text-xs font-medium cursor-pointer hover:bg-gray-50 p-1.5 rounded transition-colors select-none text-gray-700">
+                        <input 
+                          type="checkbox" 
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                          checked={activeValue[f.key] !== false} 
+                          onChange={() => toggle(f.key)} 
+                        />
+                        <span>{f.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          }
+        },
+
+        /* 4. Block Features Controller Box (Whole-Block Features for Flat Modules) */
+        toolbarConfig: {
+          type: 'custom',
+          render: ({ value = { search: true, categoryFilter: true }, onChange }: any) => {
+            const [isExpanded, setIsExpanded] = useState(true);
+
+            const toggle = (featureKey: string) => {
+              onChange({ ...value, [featureKey]: !value[featureKey] });
+            };
+
+            return (
+              <div className="border border-gray-200 rounded-lg overflow-hidden my-1 bg-white shadow-2xs">
+                <button
+                  type="button"
+                  onClick={() => setIsExpanded(!isExpanded)}
+                  className="w-full bg-gray-100 px-3 py-2 border-b border-gray-200 flex items-center justify-between hover:bg-gray-200/80 transition-colors text-left"
+                >
+                  <span className="text-xs font-semibold text-gray-700">Block Features Settings</span>
+                  <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                </button>
+
+                {isExpanded && (
+                  <div className="p-2 flex flex-col gap-0.5 bg-white">
+                    <label className="flex items-center gap-2.5 text-xs font-medium cursor-pointer hover:bg-gray-50 p-1.5 rounded transition-colors select-none text-gray-700">
                       <input 
                         type="checkbox" 
                         className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
-                        checked={activeValue[f.name] !== false} 
-                        onChange={() => toggle(f.name)} 
+                        checked={value?.search !== false} 
+                        onChange={() => toggle('search')} 
                       />
-                      <span>{f.label}</span>
+                      <span>Search Bar</span>
                     </label>
-                  ))}
 
-                  {/* Divider */}
-                  <div className="border-t border-gray-100 my-1 mx-1" />
-
-                  {/* Per-Card UI Action Elements */}
-                  {cardUiElements.map(f => (
-                    <label key={f.key} className="flex items-center gap-2.5 text-xs font-medium cursor-pointer hover:bg-gray-50 p-1.5 rounded transition-colors select-none text-gray-700">
+                    <label className="flex items-center gap-2.5 text-xs font-medium cursor-pointer hover:bg-gray-50 p-1.5 rounded transition-colors select-none text-gray-700">
                       <input 
                         type="checkbox" 
                         className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
-                        checked={activeValue[f.key] !== false} 
-                        onChange={() => toggle(f.key)} 
+                        checked={value?.categoryFilter !== false} 
+                        onChange={() => toggle('categoryFilter')} 
                       />
-                      <span>{f.label}</span>
+                      <span>Category Filter</span>
                     </label>
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        }
-      },
 
-      /* 4. Block Features Controller Box (Whole-Block Features) */
-      toolbarConfig: {
-        type: 'custom',
-        render: ({ value = { search: true, categoryFilter: true }, onChange }: any) => {
-          const [isExpanded, setIsExpanded] = useState(true);
-
-          const toggle = (featureKey: string) => {
-            onChange({ ...value, [featureKey]: !value[featureKey] });
-          };
-
-          return (
-            <div className="border border-gray-200 rounded-lg overflow-hidden my-1 bg-white shadow-2xs">
-              <button
-                type="button"
-                onClick={() => setIsExpanded(!isExpanded)}
-                className="w-full bg-gray-100 px-3 py-2 border-b border-gray-200 flex items-center justify-between hover:bg-gray-200/80 transition-colors text-left"
-              >
-                <span className="text-xs font-semibold text-gray-700">Block Features Controller</span>
-                <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
-              </button>
-
-              {isExpanded && (
-                <div className="p-2 flex flex-col gap-0.5 bg-white">
-                  <label className="flex items-center gap-2.5 text-xs font-medium cursor-pointer hover:bg-gray-50 p-1.5 rounded transition-colors select-none text-gray-700">
-                    <input 
-                      type="checkbox" 
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
-                      checked={value?.search !== false} 
-                      onChange={() => toggle('search')} 
-                    />
-                    <span>Search Bar</span>
-                  </label>
-
-                  <label className="flex items-center gap-2.5 text-xs font-medium cursor-pointer hover:bg-gray-50 p-1.5 rounded transition-colors select-none text-gray-700">
-                    <input 
-                      type="checkbox" 
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
-                      checked={value?.categoryFilter !== false} 
-                      onChange={() => toggle('categoryFilter')} 
-                    />
-                    <span>Category Filter</span>
-                  </label>
-
-                  <label className="flex items-center gap-2.5 text-xs font-medium cursor-pointer hover:bg-gray-50 p-1.5 rounded transition-colors select-none text-gray-700">
-                    <input 
-                      type="checkbox" 
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
-                      checked={value?.pagination !== false} 
-                      onChange={() => toggle('pagination')} 
-                    />
-                    <span>Pagination</span>
-                  </label>
-                </div>
-              )}
-            </div>
-          );
-        }
-      },
+                    <label className="flex items-center gap-2.5 text-xs font-medium cursor-pointer hover:bg-gray-50 p-1.5 rounded transition-colors select-none text-gray-700">
+                      <input 
+                        type="checkbox" 
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                        checked={value?.pagination !== false} 
+                        onChange={() => toggle('pagination')} 
+                      />
+                      <span>Pagination</span>
+                    </label>
+                  </div>
+                )}
+              </div>
+            );
+          }
+        },
+      }),
 
       /* 4. Advanced Controller Box */
       advancedConfig: {
@@ -326,7 +633,7 @@ export const getDynamicPuckConfig = (): Config<Props> => {
                 onClick={() => setIsExpanded(!isExpanded)}
                 className="w-full bg-gray-100 px-3 py-2 border-b border-gray-200 flex items-center justify-between hover:bg-gray-200/80 transition-colors text-left"
               >
-                <span className="text-xs font-semibold text-gray-700">Advanced Controller</span>
+                <span className="text-xs font-semibold text-gray-700">Advanced Settings</span>
                 <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
               </button>
 
@@ -385,16 +692,38 @@ export const getDynamicPuckConfig = (): Config<Props> => {
           description: t.schema.description,
         },
         styleConfig: {
-          cardStyle: 'style-1',
+          cardStyle: t.schema.archetype === 'tabbed_composite' ? 'vertical_tabs' : 'style-1',
+          layoutStyle: t.schema.archetype === 'tabbed_composite' ? (t.schema.tabsConfig?.defaultLayoutStyle || 'vertical_tabs') : undefined,
           columns: 3,
         },
+        ...(t.schema.archetype === 'tabbed_composite' ? {
+          facultyConfig: {
+            viewMode: 'card',
+            columns: 3,
+            showPhoto: true,
+            showDesignation: true,
+            showDepartment: true,
+            showProfileLink: true,
+          },
+          documentsConfig: {
+            viewMode: 'list',
+            showDownloadBtn: true,
+            showIcon: true,
+          },
+          galleryConfig: {
+            columns: 3,
+            showCaption: true,
+          },
+        } : {}),
         advancedConfig: {
           anchorId: '',
           className: '',
         },
       },
-      render: ({ headerConfig, styleConfig, showFields, toolbarConfig, advancedConfig }: any) => {
-        const resolvedStyle = (typeof styleConfig === 'object' ? styleConfig?.cardStyle : styleConfig) ?? 'style-1';
+      render: ({ headerConfig, styleConfig, showFields, toolbarConfig, advancedConfig, facultyConfig, documentsConfig, galleryConfig }: any) => {
+        const isComposite = t.schema.archetype === 'tabbed_composite';
+        const resolvedLayoutStyle = (typeof styleConfig === 'object' ? (styleConfig?.layoutStyle || styleConfig?.cardStyle) : styleConfig) ?? (isComposite ? 'vertical_tabs' : 'style-1');
+        const resolvedStyle = (typeof styleConfig === 'object' ? styleConfig?.cardStyle : styleConfig) ?? (isComposite ? 'vertical_tabs' : 'style-1');
         const resolvedColumns = (typeof styleConfig === 'object' ? styleConfig?.columns : 3) ?? 3;
         const resolvedClass = (typeof advancedConfig === 'object' ? advancedConfig?.className : '') ?? '';
         const resolvedAnchorId = (typeof advancedConfig === 'object' ? advancedConfig?.anchorId : '') ?? '';
@@ -406,6 +735,28 @@ export const getDynamicPuckConfig = (): Config<Props> => {
           pagination: toolbarConfig?.pagination,
         };
 
+        const resolvedShowJumpStrip = typeof styleConfig === 'object' ? (styleConfig?.showJumpStrip !== false) : true;
+
+        const resolvedFacultyConfig = {
+          viewMode: facultyConfig?.viewMode || 'card',
+          columns: facultyConfig?.columns || 3,
+          showPhoto: facultyConfig?.showPhoto !== false,
+          showDesignation: facultyConfig?.showDesignation !== false,
+          showDepartment: facultyConfig?.showDepartment !== false,
+          showProfileLink: facultyConfig?.showProfileLink !== false,
+        };
+
+        const resolvedDocumentsConfig = {
+          viewMode: documentsConfig?.viewMode || 'list',
+          showDownloadBtn: documentsConfig?.showDownloadBtn !== false,
+          showIcon: documentsConfig?.showIcon !== false,
+        };
+
+        const resolvedGalleryConfig = {
+          columns: galleryConfig?.columns || 3,
+          showCaption: galleryConfig?.showCaption !== false,
+        };
+
         return (
           <DynamicModuleBlock
             moduleSlug={slug}
@@ -414,10 +765,17 @@ export const getDynamicPuckConfig = (): Config<Props> => {
             descriptionOverride={headerConfig?.description}
             headerAlign={headerConfig?.align || 'left'}
             cardStyle={resolvedStyle as any}
+            layoutStyle={resolvedLayoutStyle as any}
+            showJumpStrip={resolvedShowJumpStrip}
             columns={resolvedColumns as any}
             className={resolvedClass}
             anchorId={resolvedAnchorId}
             showFields={combinedShowFields}
+            dynamicTabSettings={{
+              faculty: resolvedFacultyConfig,
+              documents: resolvedDocumentsConfig,
+              gallery: resolvedGalleryConfig,
+            }}
           />
         );
       },
@@ -538,7 +896,7 @@ export const getDynamicPuckConfig = (): Config<Props> => {
                     onClick={() => setIsExpanded(!isExpanded)}
                     className="w-full bg-gray-100 px-3 py-2 border-b border-gray-200 flex items-center justify-between hover:bg-gray-200/80 transition-colors text-left"
                   >
-                    <span className="text-xs font-semibold text-gray-700">Advanced Controller</span>
+                    <span className="text-xs font-semibold text-gray-700">Advanced Settings</span>
                     <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
                   </button>
 
@@ -866,7 +1224,7 @@ export const getDynamicPuckConfig = (): Config<Props> => {
                     onClick={() => setIsExpanded(!isExpanded)}
                     className="w-full bg-gray-100 px-3 py-2 border-b border-gray-200 flex items-center justify-between hover:bg-gray-200/80 transition-colors text-left"
                   >
-                    <span className="text-xs font-semibold text-gray-700">Advanced Controller</span>
+                    <span className="text-xs font-semibold text-gray-700">Advanced Settings</span>
                     <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
                   </button>
 
@@ -1480,7 +1838,7 @@ export const getDynamicPuckConfig = (): Config<Props> => {
                   onClick={() => setIsExpanded(!isExpanded)}
                   className="w-full bg-gray-100 px-3 py-2 border-b border-gray-200 flex items-center justify-between hover:bg-gray-200/80 transition-colors text-left"
                 >
-                  <span className="text-xs font-semibold text-gray-700">Style Controller</span>
+                  <span className="text-xs font-semibold text-gray-700">Style Settings</span>
                   <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
                 </button>
 
@@ -1594,7 +1952,7 @@ export const getDynamicPuckConfig = (): Config<Props> => {
                   onClick={() => setIsExpanded(!isExpanded)}
                   className="w-full bg-gray-100 px-3 py-2 border-b border-gray-200 flex items-center justify-between hover:bg-gray-200/80 transition-colors text-left"
                 >
-                  <span className="text-xs font-semibold text-gray-700">Module Fields Controller</span>
+                  <span className="text-xs font-semibold text-gray-700">Module Fields Settings</span>
                   <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
                 </button>
 
@@ -1650,7 +2008,7 @@ export const getDynamicPuckConfig = (): Config<Props> => {
                   onClick={() => setIsExpanded(!isExpanded)}
                   className="w-full bg-gray-100 px-3 py-2 border-b border-gray-200 flex items-center justify-between hover:bg-gray-200/80 transition-colors text-left"
                 >
-                  <span className="text-xs font-semibold text-gray-700">Advanced Controller</span>
+                  <span className="text-xs font-semibold text-gray-700">Advanced Settings</span>
                   <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
                 </button>
 
@@ -1775,7 +2133,7 @@ export const getDynamicPuckConfig = (): Config<Props> => {
             <div className="border border-gray-200 rounded-lg overflow-hidden my-1 bg-white shadow-2xs">
               <button type="button" onClick={() => setIsExpanded(!isExpanded)}
                 className="w-full bg-gray-100 px-3 py-2 border-b border-gray-200 flex items-center justify-between hover:bg-gray-200/80 transition-colors text-left">
-                <span className="text-xs font-semibold text-gray-700">Advanced Controller</span>
+                <span className="text-xs font-semibold text-gray-700">Advanced Settings</span>
                 <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
               </button>
               {isExpanded && (

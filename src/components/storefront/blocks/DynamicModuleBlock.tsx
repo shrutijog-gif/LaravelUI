@@ -6,6 +6,7 @@ import { Search, ArrowUpRight, FileText, Calendar, Award, Trophy, BookOpen, Exte
 import { CardPresetView } from '../../modules/developer/CardPresetView';
 import { getStoredCardPresets, INITIAL_CARD_PRESETS, CardSlotConfig } from '../../../utils/cardPresets';
 import { openFileInNewTab } from '../../../utils/fileHelper';
+import { CompositeStorefrontBlock } from './CompositeStorefrontBlock';
 
 export interface DynamicModuleBlockProps {
   moduleSlug?: string;
@@ -14,10 +15,13 @@ export interface DynamicModuleBlockProps {
   descriptionOverride?: string;
   headerAlign?: 'left' | 'center' | 'right';
   cardStyle?: 'style-1' | 'style-2' | 'style-3' | 'style-4' | 'table-1' | 'table-2' | 'table-3' | 'icon-1' | 'icon-2' | 'icon-3' | 'quicklink-1' | 'quicklink-2' | 'quicklink-3' | string;
+  layoutStyle?: 'horizontal_tabs' | 'vertical_tabs' | 'runny_page' | string;
+  showJumpStrip?: boolean;
   columns?: 2 | 3 | 4;
   className?: string;
   anchorId?: string;
   showFields?: Record<string, boolean>;
+  dynamicTabSettings?: Record<string, any>;
   isPreview?: boolean;
 }
 
@@ -28,10 +32,13 @@ export const DynamicModuleBlock: React.FC<DynamicModuleBlockProps> = ({
   descriptionOverride,
   headerAlign = 'center',
   cardStyle,
+  layoutStyle,
+  showJumpStrip = true,
   columns = 3,
   className = '',
   anchorId = '',
   showFields,
+  dynamicTabSettings,
   isPreview = false,
 }) => {
   const activeTenant = getActiveTenant();
@@ -97,6 +104,21 @@ export const DynamicModuleBlock: React.FC<DynamicModuleBlockProps> = ({
   }
 
   const schema = template?.schema || { name: '', description: '', slug: '', fields: [], displayConfig: {} };
+
+  if (schema.archetype === 'tabbed_composite') {
+    const resolvedLayout = (layoutStyle || cardStyle || (schema.tabsConfig as any)?.defaultLayoutStyle || 'vertical_tabs') as any;
+    return (
+      <CompositeStorefrontBlock
+        items={items}
+        schema={schema}
+        className={className}
+        layoutStyle={resolvedLayout}
+        showJumpStrip={showJumpStrip}
+        dynamicTabSettings={dynamicTabSettings}
+      />
+    );
+  }
+
   const fields = schema.fields || [];
   const displayConfig = schema.displayConfig || {};
 
@@ -162,9 +184,10 @@ export const DynamicModuleBlock: React.FC<DynamicModuleBlockProps> = ({
       }
     }
 
-    // 2. Specific fields with file_pdf or name/label containing pdf/file/doc
+    // 2. Specific fields with file_pdf, document_link or name/label containing pdf/file/doc
     const docFields = schemaFields.filter(f => 
       f.type === 'file_pdf' || 
+      f.type === 'document_link' || 
       f.name.toLowerCase().includes('pdf') || 
       f.label.toLowerCase().includes('pdf') ||
       f.name.toLowerCase().includes('file') || 
@@ -209,6 +232,7 @@ export const DynamicModuleBlock: React.FC<DynamicModuleBlockProps> = ({
 
   const activeStyle = cardStyle || displayConfig.cardStyle || 'style-1';
   const isTableView = activeStyle.startsWith('table-');
+  const isListView = activeStyle.startsWith('list-');
   const gridColsClass = columns === 2 ? 'grid-cols-1 sm:grid-cols-2' : columns === 4 ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3';
 
   const shouldShowSearch = showFields?.search === true;
@@ -274,7 +298,7 @@ export const DynamicModuleBlock: React.FC<DynamicModuleBlockProps> = ({
       )}
 
       {/* Card & Icon Badge View Rendering */}
-      {!isTableView && filteredItems.length > 0 && (
+      {!isTableView && !isListView && filteredItems.length > 0 && (
         <div className={(activeStyle.startsWith('icon-') || activeStyle.startsWith('quicklink-')) ? 'flex flex-wrap items-center justify-center gap-6 sm:gap-8 py-4' : `grid ${gridColsClass} gap-6`}>
           {displayedItems.map(item => {
             const cardFields = fields.filter(f => f.showInCard !== false && (showFields ? showFields[f.name] !== false : true));
@@ -282,10 +306,13 @@ export const DynamicModuleBlock: React.FC<DynamicModuleBlockProps> = ({
             const itemData = item?.data || {};
             const imageUrl = imageField ? itemData[imageField.name] : null;
             const fileUrl = resolveDocFileUrl(itemData, fields);
+            const docLinkField = fields.find((f: any) => f.type === 'document_link');
             const titleField = fields.find(f => f.name === 'title' || f.name === 'name' || f.name.includes('name') || f.name.includes('title')) || fields.find(f => f.type === 'text');
-            const titleVal = (titleField && itemData[titleField.name])
-              ? itemData[titleField.name]
-              : (itemData.title || itemData.name || itemData.timetable_name || itemData.recipient || 'Untitled Record');
+            const titleVal = docLinkField && itemData[`${docLinkField.name}_title`]
+              ? itemData[`${docLinkField.name}_title`]
+              : (titleField && itemData[titleField.name])
+                ? itemData[titleField.name]
+                : (itemData.title || itemData.name || itemData.timetable_name || itemData.recipient || 'Untitled Record');
 
             const yearField = fields.find(f => f.name === 'year' || f.name === 'academic_year' || f.name.includes('year') || f.name.includes('status') || f.name.includes('trimester'));
             const yearVal = (yearField && itemData[yearField.name])
@@ -519,6 +546,160 @@ export const DynamicModuleBlock: React.FC<DynamicModuleBlockProps> = ({
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Link List View Rendering */}
+      {isListView && filteredItems.length > 0 && (
+        <div className="w-full">
+          {activeStyle === 'list-1' ? (
+            /* Classic University » Chevron Link List */
+            <div className="bg-white rounded-xl border border-gray-200/80 p-5 sm:p-6 shadow-xs divide-y divide-gray-100">
+              {displayedItems.map(item => {
+                const itemData = item?.data || {};
+                const fileUrl = resolveDocFileUrl(itemData, fields);
+                const docLinkField = fields.find((f: any) => f.type === 'document_link');
+                const titleField = fields.find(f => f.name === 'title' || f.name === 'name' || f.name.includes('name') || f.name.includes('title')) || fields.find(f => f.type === 'text');
+                const titleVal = docLinkField && itemData[`${docLinkField.name}_title`]
+                  ? itemData[`${docLinkField.name}_title`]
+                  : (titleField && itemData[titleField.name])
+                    ? itemData[titleField.name]
+                    : (itemData.title || itemData.name || itemData.timetable_name || 'Untitled Document');
+                const yearField = fields.find(f => f.name === 'year' || f.name === 'academic_year' || f.name.includes('year'));
+                const yearVal = yearField ? itemData[yearField.name] : null;
+
+                return (
+                  <div key={item.id} className="py-2.5 first:pt-0 last:pb-0">
+                    <a
+                      href={fileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => {
+                        if (fileUrl.startsWith('data:')) {
+                          e.preventDefault();
+                          openFileInNewTab(fileUrl, titleVal);
+                        }
+                      }}
+                      className="inline-flex items-baseline gap-2.5 group cursor-pointer text-left text-sm font-semibold text-blue-700 hover:text-blue-900 transition-colors"
+                    >
+                      <span className="text-blue-600 font-extrabold text-base select-none shrink-0 group-hover:translate-x-0.5 transition-transform">
+                        »
+                      </span>
+                      <span className="underline decoration-blue-400 group-hover:decoration-blue-700 underline-offset-2">
+                        {titleVal}
+                      </span>
+                      {yearVal && (
+                        <span className="text-[11px] font-medium text-gray-500 no-underline ml-1">
+                          ({yearVal})
+                        </span>
+                      )}
+                    </a>
+                  </div>
+                );
+              })}
+            </div>
+          ) : activeStyle === 'list-2' ? (
+            /* Modern Document Row Cards with PDF Badge and Download button */
+            <div className="space-y-3">
+              {displayedItems.map(item => {
+                const itemData = item?.data || {};
+                const fileUrl = resolveDocFileUrl(itemData, fields);
+                const titleField = fields.find(f => f.name === 'title' || f.name === 'name' || f.name.includes('name') || f.name.includes('title')) || fields.find(f => f.type === 'text');
+                const titleVal = (titleField && itemData[titleField.name])
+                  ? itemData[titleField.name]
+                  : (itemData.title || itemData.name || itemData.timetable_name || 'Untitled Document');
+                const yearField = fields.find(f => f.name === 'year' || f.name === 'academic_year' || f.name.includes('year'));
+                const yearVal = yearField ? itemData[yearField.name] : null;
+
+                return (
+                  <div
+                    key={item.id}
+                    className="p-3.5 sm:p-4 bg-white border border-gray-200 rounded-xl hover:border-blue-400 hover:shadow-sm transition-all flex items-center justify-between gap-4 group"
+                  >
+                    <div className="flex items-center gap-3.5 min-w-0">
+                      <div className="w-10 h-10 rounded-lg bg-red-50 text-red-700 flex items-center justify-center shrink-0 border border-red-200 group-hover:bg-red-100 transition-colors">
+                        <FileText className="w-5 h-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <a
+                          href={fileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => {
+                            if (fileUrl.startsWith('data:')) {
+                              e.preventDefault();
+                              openFileInNewTab(fileUrl, titleVal);
+                            }
+                          }}
+                          className="text-xs sm:text-sm font-bold text-gray-900 group-hover:text-blue-600 transition-colors truncate block hover:underline"
+                        >
+                          {titleVal}
+                        </a>
+                        {yearVal && (
+                          <span className="text-[11px] text-gray-400 font-medium">
+                            Academic Year: {yearVal}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <a
+                      href={fileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => {
+                        if (fileUrl.startsWith('data:')) {
+                          e.preventDefault();
+                          openFileInNewTab(fileUrl, titleVal);
+                        }
+                      }}
+                      className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-[#781d0d] hover:bg-[#60170a] text-white rounded-lg transition-colors shadow-2xs"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">Download</span> PDF
+                    </a>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            /* List Style 3: Numbered Index Document Links */
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden divide-y divide-gray-100">
+              {displayedItems.map((item, idx) => {
+                const itemData = item?.data || {};
+                const fileUrl = resolveDocFileUrl(itemData, fields);
+                const titleField = fields.find(f => f.name === 'title' || f.name === 'name' || f.name.includes('name') || f.name.includes('title')) || fields.find(f => f.type === 'text');
+                const titleVal = (titleField && itemData[titleField.name])
+                  ? itemData[titleField.name]
+                  : (itemData.title || itemData.name || itemData.timetable_name || 'Untitled Document');
+
+                return (
+                  <div key={item.id} className="p-3.5 sm:p-4 flex items-center justify-between gap-4 hover:bg-gray-50/70 transition-colors group">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center shrink-0">
+                        {idx + 1}
+                      </span>
+                      <a
+                        href={fileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => {
+                          if (fileUrl.startsWith('data:')) {
+                            e.preventDefault();
+                            openFileInNewTab(fileUrl, titleVal);
+                          }
+                        }}
+                        className="text-xs sm:text-sm font-semibold text-gray-800 group-hover:text-blue-600 group-hover:underline transition-colors truncate"
+                      >
+                        {titleVal}
+                      </a>
+                    </div>
+                    <ArrowUpRight className="w-4 h-4 text-gray-400 group-hover:text-blue-600 shrink-0 transition-colors" />
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 

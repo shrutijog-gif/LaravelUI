@@ -62,6 +62,7 @@ export const TimetableBlock: React.FC<TimetableBlockProps> = ({
   const displayedTimetables = sourceTimetables.filter(t => t.showOnWebsite !== false);
   const selectedStyle = cardStyle || 'style-1';
   const isTableView = view === 'table' || selectedStyle.startsWith('table-');
+  const isListView = view === 'list' || selectedStyle.startsWith('list-');
   const activeTableStyle = selectedStyle.startsWith('table-') 
     ? selectedStyle 
     : (tableStyle || 'table-1');
@@ -255,6 +256,38 @@ export const TimetableBlock: React.FC<TimetableBlockProps> = ({
               ))}
             </tbody>
           </table>
+        </div>
+      );
+    }
+
+    if (isListView) {
+      return (
+        <div className="w-full bg-white rounded-xl border border-gray-200/80 p-5 sm:p-6 shadow-xs divide-y divide-gray-100">
+          {displayedTimetables.map(timetable => {
+            const fileUrl = getValidFileUrl(timetable.fileUrl);
+            return (
+              <div key={timetable.id} className="py-2.5 first:pt-0 last:pb-0">
+                <a
+                  href={fileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-baseline gap-2.5 group cursor-pointer text-left text-sm font-semibold text-blue-700 hover:text-blue-900 transition-colors"
+                >
+                  <span className="text-blue-600 font-extrabold text-base select-none shrink-0 group-hover:translate-x-0.5 transition-transform">
+                    »
+                  </span>
+                  <span className="underline decoration-blue-400 group-hover:decoration-blue-700 underline-offset-2">
+                    {timetable.name}
+                  </span>
+                  {showFields?.year && timetable.year && (
+                    <span className="text-[11px] font-medium text-gray-500 no-underline ml-1">
+                      ({timetable.year})
+                    </span>
+                  )}
+                </a>
+              </div>
+            );
+          })}
         </div>
       );
     }

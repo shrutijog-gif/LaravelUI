@@ -130,7 +130,13 @@ export const getCollegeAdminMenuItems = (): MenuItem[] => {
       icon: 'circle',
       children: [
         { id: 'photo-gallery', label: 'Photo Gallery' },
+        { id: 'events', label: 'Events' },
+        { id: 'activities', label: 'Activities' },
         { id: 'admission-enquiry', label: 'Website Admission Enquiry Form' },
+        { id: 'staff', label: 'Staff' },
+        { id: 'college-research', label: 'College Research' },
+        { id: 'departments', label: 'Department' },
+        { id: 'quick-links', label: 'Quick Links' },
         { id: 'nirf-showcase', label: 'NIRF Showcase' },
       ],
     },

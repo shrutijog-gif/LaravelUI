@@ -292,6 +292,345 @@ export const INITIAL_STUDIO_TEMPLATES: StudioTemplate[] = [
       },
     ],
   },
+  {
+    schema: {
+      id: 'mod-departments',
+      name: 'Academic Departments',
+      slug: 'departments',
+      description: 'Composite department profiles with parent metadata (stream), multi-tab content workspaces, faculty directories, and document lists.',
+      category: 'Academic',
+      status: 'published',
+      version: 'v1 (composite)',
+      iconName: 'GraduationCap',
+      archetype: 'tabbed_composite',
+      fields: [
+        {
+          id: 'dept-f1',
+          name: 'name',
+          label: 'Department Name',
+          type: 'text',
+          required: true,
+          showInTable: true,
+          placeholder: 'e.g. Department of Physics',
+        },
+        {
+          id: 'dept-f2',
+          name: 'stream',
+          label: 'Stream',
+          type: 'select',
+          required: true,
+          showInTable: true,
+          badgeColor: 'blue',
+          options: [
+            { label: 'Science', value: 'Science' },
+            { label: 'Arts', value: 'Arts' },
+            { label: 'Commerce', value: 'Commerce' },
+          ],
+        },
+      ],
+      tabsConfig: {
+        allowRuntimeCustomTabs: true,
+        allowedElementTypes: ['ui_section', 'faculty_grid', 'media_gallery', 'document_list'],
+        defaultTabs: [
+          {
+            id: 'tab-overview',
+            label: 'Overview',
+            slug: 'overview',
+            componentType: 'ui_section',
+            required: true,
+          },
+          {
+            id: 'tab-vision',
+            label: 'Vision',
+            slug: 'vision',
+            componentType: 'ui_section',
+          },
+          {
+            id: 'tab-mission',
+            label: 'Mission',
+            slug: 'mission',
+            componentType: 'ui_section',
+          },
+          {
+            id: 'tab-teaching-staff',
+            label: 'Teaching Staff',
+            slug: 'teaching-staff',
+            componentType: 'faculty_grid',
+          },
+          {
+            id: 'tab-non-teaching-staff',
+            label: 'Non Teaching Staff',
+            slug: 'non-teaching-staff',
+            componentType: 'faculty_grid',
+          },
+          {
+            id: 'tab-photo-gallery',
+            label: 'Photo Gallery',
+            slug: 'photo-gallery',
+            componentType: 'media_gallery',
+          },
+          {
+            id: 'tab-courses-offered',
+            label: 'Courses Offered',
+            slug: 'courses-offered',
+            componentType: 'ui_section',
+          },
+          {
+            id: 'tab-annual-calendar',
+            label: 'Annual Calendar',
+            slug: 'annual-calendar',
+            componentType: 'document_list',
+          },
+          {
+            id: 'tab-time-table',
+            label: 'Time Table',
+            slug: 'time-table',
+            componentType: 'document_list',
+          },
+          {
+            id: 'tab-value-added-courses',
+            label: 'Value Added Courses',
+            slug: 'value-added-courses',
+            componentType: 'ui_section',
+          },
+        ],
+      },
+      displayConfig: {
+        defaultView: 'table',
+        cardStyle: 'style-1',
+        tableStyle: 'table-1',
+        columns: 3,
+        showTitle: true,
+        showSearch: true,
+        showCategoryFilter: true,
+        primaryActionLabel: 'Manage Content',
+      },
+      createdAt: '2026-08-20T10:00:00Z',
+      updatedAt: '2026-08-20T10:00:00Z',
+    },
+    sampleItems: [
+      {
+        id: 'dept-mcom',
+        tenantId: 'st-xaviers',
+        moduleSlug: 'departments',
+        showOnWebsite: true,
+        data: {
+          name: 'MASTER OF COMMERCE (ADVANCED ACCOUNTANCY)',
+          stream: 'Commerce',
+        },
+        tabsData: {
+          'tab-teaching-staff': {
+            id: 'tab-teaching-staff',
+            label: 'Teaching Staff',
+            componentType: 'faculty_grid',
+            visible: true,
+            content: [],
+          },
+          'tab-career-courses': {
+            id: 'tab-career-courses',
+            label: 'Career Oriented Courses',
+            componentType: 'ui_section',
+            visible: true,
+            content: '',
+          },
+          'tab-syllabus': {
+            id: 'tab-syllabus',
+            label: 'Syllabus & Courses',
+            componentType: 'ui_section',
+            visible: true,
+            content: '',
+          },
+          'tab-activities': {
+            id: 'tab-activities',
+            label: 'Activities',
+            componentType: 'ui_section',
+            visible: true,
+            content: '',
+          },
+          'tab-events': {
+            id: 'tab-events',
+            label: 'Events',
+            componentType: 'ui_section',
+            visible: true,
+            content: '',
+          },
+          'tab-time-table': {
+            id: 'tab-time-table',
+            label: 'Time Table',
+            componentType: 'ui_section',
+            visible: true,
+            content: '',
+          },
+          'tab-mou': {
+            id: 'tab-mou',
+            label: 'MoU/ Linkages',
+            componentType: 'ui_section',
+            visible: true,
+            content: '',
+          },
+          'tab-eminent-alumni': {
+            id: 'tab-eminent-alumni',
+            label: 'Eminent Alumni',
+            componentType: 'ui_section',
+            visible: true,
+            content: '',
+          },
+          'tab-photo-gallery': {
+            id: 'tab-photo-gallery',
+            label: 'Photo Gallery',
+            componentType: 'media_gallery',
+            visible: true,
+            content: '',
+          },
+          'tab-dept-site': {
+            id: 'tab-dept-site',
+            label: 'Departmental Site',
+            componentType: 'ui_section',
+            visible: true,
+            content: '',
+          },
+        },
+        createdAt: '2026-08-01T00:00:00Z',
+        updatedAt: '2026-08-01T00:00:00Z',
+      },
+      {
+        id: 'dept-fnft',
+        tenantId: 'st-xaviers',
+        moduleSlug: 'departments',
+        showOnWebsite: true,
+        data: {
+          name: 'Food Nutrition And Food Technology',
+          stream: 'Science',
+        },
+        tabsData: {
+          'tab-overview': {
+            id: 'tab-overview',
+            label: 'Overview',
+            componentType: 'ui_section',
+            visible: true,
+            content: 'The Department of Food and Nutrition was the first Post-Graduate Department of Lady Irwin College. It has come a long way since its inception in 1958 with a high standard of academic and infrastructural development. Today it offers M.Sc. in Food and Nutrition in three areas of specialization, namely, Clinical Nutrition, Public Health Nutrition, and Food Science and Processing and a one-year Post-Graduate Diploma in Dietetics and Public Health Nutrition with a 3-month internship in the Dietetics Department of a hospital. The Master\'s programme is further strengthened by a six-week summer placement in different organizations such as NFI, FRAC, AIIMS, CFTRI, NIPCCD, USAID, NDRI, Public Health Foundation.',
+          },
+          'tab-vision': {
+            id: 'tab-vision',
+            label: 'Vision',
+            componentType: 'ui_section',
+            visible: true,
+            content: 'To be a premier global center for higher learning and research in nutritional sciences, nurturing competent leaders and innovators for health and society.',
+          },
+          'tab-mission': {
+            id: 'tab-mission',
+            label: 'Mission',
+            componentType: 'ui_section',
+            visible: true,
+            content: '• Impart state-of-the-art education in clinical dietetics and food technology.\n• Undertake impactful community nutrition research.\n• Collaborate with leading health institutes and global wellness agencies.',
+          },
+          'tab-teaching-staff': {
+            id: 'tab-teaching-staff',
+            label: 'Teaching Staff',
+            componentType: 'faculty_grid',
+            visible: true,
+            content: [
+              { id: 'f-1', name: 'Mrs. Ravinder Chadha', designation: 'Professor', department: 'FOOD NUTRITION AND F...', imageUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=300&q=80' },
+              { id: 'f-2', name: 'Neena Bhatia', designation: 'Professor', department: 'FOOD NUTRITION AND F...', imageUrl: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=300&q=80' },
+              { id: 'f-3', name: 'Manisha Sabharwal', designation: 'Professor', department: 'FOOD NUTRITION AND F...', imageUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=300&q=80' },
+              { id: 'f-4', name: 'Pulkit Mathur', designation: 'Professor', department: 'FOOD NUTRITION AND F...', imageUrl: 'https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?auto=format&fit=crop&w=300&q=80' },
+              { id: 'f-5', name: 'Dr. Pooja Raizada', designation: 'Associate Professor', department: 'FOOD NUTRITION AND F...', imageUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80' },
+              { id: 'f-6', name: 'Lalita Verma', designation: 'Professor', department: 'FOOD NUTRITION AND F...', imageUrl: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=300&q=80' },
+              { id: 'f-7', name: 'Dr. Prachi Shukla', designation: 'Associate Professor', department: 'FOOD NUTRITION AND F...', imageUrl: 'https://images.unsplash.com/photo-1567532939604-b6b5b0db2604?auto=format&fit=crop&w=300&q=80' },
+              { id: 'f-8', name: 'Anjana Kumari', designation: 'Associate Professor', department: 'FOOD NUTRITION AND F...', imageUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=300&q=80' },
+              { id: 'f-9', name: 'Priti Lal', designation: 'Professor', department: 'FOOD NUTRITION AND F...', imageUrl: 'https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?auto=format&fit=crop&w=300&q=80' },
+              { id: 'f-10', name: 'Dr. Poonam Singh', designation: 'Assistant Professor', department: 'FOOD NUTRITION AND F...', imageUrl: 'https://images.unsplash.com/photo-1594744803329-e58b31de8bf5?auto=format&fit=crop&w=300&q=80' },
+              { id: 'f-11', name: 'Dr. Aparna Agarwal', designation: 'Assistant Professor', department: 'FOOD NUTRITION AND F...', imageUrl: 'https://images.unsplash.com/photo-1581092921461-eab62e97a780?auto=format&fit=crop&w=300&q=80' },
+              { id: 'f-12', name: 'Dr. Nidhi Jaiswal', designation: 'Assistant Professor', department: 'FOOD NUTRITION AND F...', imageUrl: 'https://images.unsplash.com/photo-1573496799652-408c2ac9fe98?auto=format&fit=crop&w=300&q=80' },
+            ],
+          },
+          'tab-courses-offered': {
+            id: 'tab-courses-offered',
+            label: 'Courses Offered',
+            componentType: 'ui_section',
+            visible: true,
+            content: [
+              { id: 'c-1', title: 'B.Sc. (Pass) Home Science with Food Tech Specialization (3 Years)', content: 'Core foundation in biochemistry, human physiology, food micro-biology and preservation technology.' },
+              { id: 'c-2', title: 'M.Sc. Food and Nutrition (2 Years)', content: 'Specializations in Clinical Nutrition, Public Health Nutrition, and Food Science & Processing.' },
+              { id: 'c-3', title: 'PG Diploma in Dietetics and Public Health Nutrition (1 Year)', content: 'Professional hospital-oriented postgraduate training with 3 months clinical internship.' },
+            ],
+          },
+        },
+        createdAt: '2026-08-01T00:00:00Z',
+        updatedAt: '2026-08-01T00:00:00Z',
+      },
+      {
+        id: 'dept-physics',
+        tenantId: 'st-xaviers',
+        moduleSlug: 'departments',
+        showOnWebsite: true,
+        data: {
+          name: 'Department of Physics',
+          stream: 'Science',
+        },
+        tabsData: {
+          'tab-overview': {
+            id: 'tab-overview',
+            label: 'Overview',
+            componentType: 'ui_section',
+            visible: true,
+            content: 'The Department of Physics offers world-class experimental laboratories, computational physics clusters, and theoretical foundations in quantum mechanics and optics.',
+          },
+          'tab-vision': {
+            id: 'tab-vision',
+            label: 'Vision',
+            componentType: 'ui_section',
+            visible: true,
+            content: 'To foster intellectual curiosity and breakthrough scientific discoveries in fundamental physics and material sciences.',
+          },
+        },
+        createdAt: '2026-08-01T00:00:00Z',
+        updatedAt: '2026-08-01T00:00:00Z',
+      },
+      {
+        id: 'dept-english',
+        tenantId: 'st-xaviers',
+        moduleSlug: 'departments',
+        showOnWebsite: true,
+        data: {
+          name: 'Department of English',
+          stream: 'Arts',
+        },
+        tabsData: {
+          'tab-overview': {
+            id: 'tab-overview',
+            label: 'Overview',
+            componentType: 'ui_section',
+            visible: true,
+            content: 'The Department of English explores classical literature, modern criticism, creative writing, and digital humanities.',
+          },
+        },
+        createdAt: '2026-08-05T00:00:00Z',
+        updatedAt: '2026-08-05T00:00:00Z',
+      },
+      {
+        id: 'dept-commerce',
+        tenantId: 'st-xaviers',
+        moduleSlug: 'departments',
+        showOnWebsite: true,
+        data: {
+          name: 'Department of Commerce & Finance',
+          stream: 'Commerce',
+        },
+        tabsData: {
+          'tab-overview': {
+            id: 'tab-overview',
+            label: 'Overview',
+            componentType: 'ui_section',
+            visible: true,
+            content: 'Specializing in financial modeling, fintech, corporate governance, auditing, and international trade.',
+          },
+        },
+        createdAt: '2026-08-08T00:00:00Z',
+        updatedAt: '2026-08-08T00:00:00Z',
+      },
+    ],
+  },
 ];
 
 // Helper functions for template persistence
@@ -299,7 +638,27 @@ export const getStoredStudioTemplates = (): StudioTemplate[] => {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_TEMPLATES);
     if (raw) {
-      return JSON.parse(raw);
+      const parsed: StudioTemplate[] = JSON.parse(raw);
+      // Ensure mod-departments is merged if user had older cached templates
+      const hasDepts = parsed.some(t => t.schema.slug === 'departments' || t.schema.id === 'mod-departments');
+      let merged = parsed.map(t => {
+        if (t.schema.slug === 'departments' || t.schema.id === 'mod-departments') {
+          const fresh = INITIAL_STUDIO_TEMPLATES.find(init => init.schema.slug === 'departments');
+          return fresh || t;
+        }
+        return {
+          ...t,
+          schema: {
+            ...t.schema,
+            archetype: t.schema.archetype || 'standard',
+          },
+        };
+      });
+      if (!hasDepts) {
+        const deptTpl = INITIAL_STUDIO_TEMPLATES.find(t => t.schema.slug === 'departments');
+        if (deptTpl) merged.push(deptTpl);
+      }
+      return merged;
     }
   } catch (e) {
     console.error('Error reading studio templates from localStorage:', e);

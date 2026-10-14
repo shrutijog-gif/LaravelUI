@@ -189,7 +189,7 @@ export const CommitteesList: React.FC<CommitteesListProps> = ({
                               onClick={() => openEdit(committee)}
                               className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
                             >
-                              <Pencil className="w-4 h-4 text-gray-700" /> Edit details
+                              <Pencil className="w-4 h-4 text-gray-700" /> Edit Details
                             </button>
                             <button
                               onClick={() => {
