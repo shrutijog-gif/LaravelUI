@@ -89,10 +89,11 @@ export const getDynamicPuckConfig = (): Config<Props> => {
       /* 2. Style Controller Box */
       styleConfig: {
         type: 'custom',
-        render: ({ value = { cardStyle: 'style-1', columns: 3 }, onChange }: any) => {
+        render: ({ value = { cardStyle: schema.slug !== 'awards' && schema.archetype !== 'tabbed_composite' ? 'table' : 'style-1', columns: 3 }, onChange }: any) => {
           const [isExpanded, setIsExpanded] = useState(true);
           const [isModalOpen, setIsModalOpen] = useState(false);
           const isComposite = schema.archetype === 'tabbed_composite';
+          const isCustomModule = schema.slug !== 'awards' && !isComposite;
           
           const activeLayoutStyle = typeof value === 'object' && value?.layoutStyle
             ? value.layoutStyle
@@ -100,9 +101,13 @@ export const getDynamicPuckConfig = (): Config<Props> => {
                 ? value
                 : (schema.tabsConfig?.defaultLayoutStyle || 'vertical_tabs'));
 
-          const activeStyle = typeof value === 'string' ? value : (value?.cardStyle || 'style-1');
+          let activeStyle = typeof value === 'string' ? value : (value?.cardStyle || (isCustomModule ? 'table' : 'style-1'));
+          if (isCustomModule && !activeStyle.startsWith('table') && !activeStyle.startsWith('list')) {
+            activeStyle = 'table';
+          }
           const activeColumns = typeof value === 'object' && value?.columns ? value.columns : 3;
-          const isTable = activeStyle.startsWith('table-');
+          const isTable = activeStyle.startsWith('table');
+          const isList = activeStyle.startsWith('list');
 
           return (
             <div className="border border-gray-200 rounded-lg overflow-hidden my-1 bg-white shadow-2xs">
@@ -158,6 +163,22 @@ export const getDynamicPuckConfig = (): Config<Props> => {
                           </label>
                         </div>
                       )}
+                    </div>
+                  ) : isCustomModule ? (
+                    /* Display View Dropdown: Table View vs List View for Custom Modules */
+                    <div className="w-full py-1.5 px-3 bg-gray-100 border border-gray-300 rounded-md font-semibold text-xs text-gray-700 flex items-center justify-between">
+                      <span>Display View</span>
+                      <select
+                        value={isTable ? 'table' : 'list'}
+                        onChange={(e) => {
+                          const currentObj = typeof value === 'object' ? value : {};
+                          onChange({ ...currentObj, cardStyle: e.target.value });
+                        }}
+                        className="bg-white border border-gray-200 px-2.5 py-1 rounded text-blue-600 font-bold text-xs outline-none cursor-pointer hover:border-blue-400 transition-colors shadow-2xs"
+                      >
+                        <option value="table">Table View</option>
+                        <option value="list">List View</option>
+                      </select>
                     </div>
                   ) : (
                     <>
@@ -692,7 +713,7 @@ export const getDynamicPuckConfig = (): Config<Props> => {
           description: t.schema.description,
         },
         styleConfig: {
-          cardStyle: t.schema.archetype === 'tabbed_composite' ? 'vertical_tabs' : 'style-1',
+          cardStyle: t.schema.archetype === 'tabbed_composite' ? 'vertical_tabs' : (t.schema.slug !== 'awards' ? 'table' : 'style-1'),
           layoutStyle: t.schema.archetype === 'tabbed_composite' ? (t.schema.tabsConfig?.defaultLayoutStyle || 'vertical_tabs') : undefined,
           columns: 3,
         },
@@ -722,8 +743,13 @@ export const getDynamicPuckConfig = (): Config<Props> => {
       },
       render: ({ headerConfig, styleConfig, showFields, toolbarConfig, advancedConfig, facultyConfig, documentsConfig, galleryConfig }: any) => {
         const isComposite = t.schema.archetype === 'tabbed_composite';
-        const resolvedLayoutStyle = (typeof styleConfig === 'object' ? (styleConfig?.layoutStyle || styleConfig?.cardStyle) : styleConfig) ?? (isComposite ? 'vertical_tabs' : 'style-1');
-        const resolvedStyle = (typeof styleConfig === 'object' ? styleConfig?.cardStyle : styleConfig) ?? (isComposite ? 'vertical_tabs' : 'style-1');
+        const isCustomModule = t.schema.slug !== 'awards' && !isComposite;
+        const defaultStyle = isComposite ? 'vertical_tabs' : (isCustomModule ? 'table' : 'style-1');
+        const resolvedLayoutStyle = (typeof styleConfig === 'object' ? (styleConfig?.layoutStyle || styleConfig?.cardStyle) : styleConfig) ?? defaultStyle;
+        let resolvedStyle = (typeof styleConfig === 'object' ? styleConfig?.cardStyle : styleConfig) ?? defaultStyle;
+        if (isCustomModule && !resolvedStyle.startsWith('table') && !resolvedStyle.startsWith('list')) {
+          resolvedStyle = 'table';
+        }
         const resolvedColumns = (typeof styleConfig === 'object' ? styleConfig?.columns : 3) ?? 3;
         const resolvedClass = (typeof advancedConfig === 'object' ? advancedConfig?.className : '') ?? '';
         const resolvedAnchorId = (typeof advancedConfig === 'object' ? advancedConfig?.anchorId : '') ?? '';
@@ -784,26 +810,8 @@ export const getDynamicPuckConfig = (): Config<Props> => {
     return componentKey;
   });
 
-  return {
-    categories: {
-      'SYSTEM COMPONENTS': {
-        components: ['CodeEditor'],
-      },
-      'UI COMPONENTS': {
-        components: ['RichText'],
-      },
-      '⚡ Module Studio': {
-        components: [...studioComponentKeys, 'DynamicStudioModule'],
-      },
-      '🏛️ University Sections': {
-        components: ['HeroBanner', 'PrincipalMessage'],
-      },
-      '📝 General Components': {
-        components: ['HeadingBlock', 'TimetableBlock', 'CommitteesBlock', 'DepartmentsBlock', 'Careers'],
-      },
-    },
-    components: {
-      ...dynamicModuleComponents,
+  const rawComponents: Record<string, any> = {
+    ...dynamicModuleComponents,
       HeroBanner: {
         label: '🏛️ Hero Campus Banner',
         fields: {
@@ -2176,8 +2184,54 @@ export const getDynamicPuckConfig = (): Config<Props> => {
       );
     },
   },
-  },
 };
+
+  const componentsProxy = new Proxy(rawComponents, {
+    get(target: any, prop: string | symbol) {
+      if (typeof prop === 'string') {
+        if (prop in target) return target[prop];
+        if (prop.startsWith('Studio_')) {
+          const modSlug = prop.replace('Studio_', '');
+          return {
+            label: `⚡ ${modSlug}`,
+            fields: {},
+            render: () => (
+              <div className="py-6 px-4 text-center border-2 border-dashed border-gray-200 rounded-xl bg-gray-50/70 text-gray-500 text-xs">
+                <span className="font-semibold text-gray-700">Module [{modSlug}]</span> is not configured in Module Studio.
+              </div>
+            )
+          };
+        }
+      }
+      return target[prop as string];
+    },
+    has(target: any, prop: string | symbol) {
+      if (prop in target) return true;
+      if (typeof prop === 'string' && prop.startsWith('Studio_')) return true;
+      return false;
+    }
+  });
+
+  return {
+    categories: {
+      'SYSTEM COMPONENTS': {
+        components: ['CodeEditor'],
+      },
+      'UI COMPONENTS': {
+        components: ['RichText'],
+      },
+      '⚡ Module Studio': {
+        components: [...studioComponentKeys, 'DynamicStudioModule'],
+      },
+      '🏛️ University Sections': {
+        components: ['HeroBanner', 'PrincipalMessage'],
+      },
+      '📝 General Components': {
+        components: ['HeadingBlock', 'TimetableBlock', 'CommitteesBlock', 'DepartmentsBlock', 'Careers'],
+      },
+    },
+    components: componentsProxy,
+  };
 };
 
 export const config = getDynamicPuckConfig();

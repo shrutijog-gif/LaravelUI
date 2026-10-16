@@ -60,3 +60,36 @@ export const openFileInNewTab = (url?: string, fileName?: string): void => {
 
   window.open(url, '_blank', 'noopener,noreferrer');
 };
+
+/**
+ * Extracts visible text and clickable document link URL from a row record for document_link fields.
+ */
+export const getDocumentLinkInfo = (rowData: Record<string, any>, field: { name: string; label?: string }): { text: string; url: string } => {
+  let text = '';
+  let url = '';
+
+  const rawVal = rowData[field.name];
+
+  if (rawVal && typeof rawVal === 'object') {
+    text = rawVal.text || rawVal.title || rawVal.label || '';
+    url = rawVal.url || rawVal.link || rawVal.fileUrl || '';
+  } else if (typeof rawVal === 'string') {
+    if (rawVal.startsWith('http://') || rawVal.startsWith('https://') || rawVal.startsWith('data:') || rawVal.toLowerCase().endsWith('.pdf') || rawVal.includes('.pdf?')) {
+      url = rawVal;
+      text = rowData[`${field.name}_title`] || rowData[`${field.name}_text`] || rowData[`${field.name}_label`] || rowData[`${field.name}_filename`] || rowData.title || '';
+    } else {
+      text = rawVal;
+      url = rowData[`${field.name}_url`] || rowData[`${field.name}_link`] || rowData.fileUrl || rowData.pdf_url || '';
+    }
+  }
+
+  if (!text) {
+    text = rowData[`${field.name}_title`] || rowData[`${field.name}_text`] || rowData[`${field.name}_label`] || rowData.title || rowData[`${field.name}_filename`] || field.label || 'View Document';
+  }
+
+  if (!url) {
+    url = rowData[`${field.name}_url`] || rowData.fileUrl || rowData.pdf_url || rowData.file || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf';
+  }
+
+  return { text, url };
+};
