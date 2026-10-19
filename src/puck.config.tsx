@@ -1196,7 +1196,7 @@ export const getDynamicPuckConfig = (): Config<Props> => {
           /* 4. Advanced Controller Box */
           advancedConfig: {
             type: 'custom',
-            render: ({ value = { anchorId: '', className: '' }, onChange }) => {
+            render: ({ value = { anchorId: '', className: '' }, onChange }: any) => {
               const [isExpanded, setIsExpanded] = useState(false);
               const activeAnchorId = typeof value === 'object' && value?.anchorId ? value.anchorId : '';
               const activeClassName = typeof value === 'object' && value?.className ? value.className : (typeof value === 'string' ? value : '');
@@ -1761,7 +1761,7 @@ export const getDynamicPuckConfig = (): Config<Props> => {
         /* 1. Header Controller Box */
         headerConfig: {
           type: 'custom',
-          render: ({ value = { title: 'Academic Timetables', description: 'Download the latest timetables for your academic year.' }, onChange }) => {
+          render: ({ value = { title: 'Academic Timetables', description: 'Download the latest timetables for your academic year.' }, onChange }: any) => {
             const [isExpanded, setIsExpanded] = useState(true);
 
             return (
@@ -1805,7 +1805,7 @@ export const getDynamicPuckConfig = (): Config<Props> => {
         /* 2. Style Controller Box */
         styleConfig: {
           type: 'custom',
-          render: ({ value = { cardStyle: 'style-1', columns: 3, className: '' }, onChange }) => {
+          render: ({ value = { cardStyle: 'style-1', columns: 3, className: '' }, onChange }: any) => {
             const [isExpanded, setIsExpanded] = useState(true);
             const [isModalOpen, setIsModalOpen] = useState(false);
             
@@ -1912,7 +1912,7 @@ export const getDynamicPuckConfig = (): Config<Props> => {
         /* 3. Content Controller Box */
         showFields: {
           type: 'custom',
-          render: ({ value = { title: true, year: true, file: true, branch: true, semester: true }, onChange }) => {
+          render: ({ value = { title: true, year: true, file: true, branch: true, semester: true }, onChange }: any) => {
             const [isExpanded, setIsExpanded] = useState(true);
             const toggle = (field: string) => onChange({ ...value, [field]: !value[field] });
             
@@ -1959,7 +1959,7 @@ export const getDynamicPuckConfig = (): Config<Props> => {
         /* 4. Advanced Controller Box */
         advancedConfig: {
           type: 'custom',
-          render: ({ value = { anchorId: '', className: '' }, onChange }) => {
+          render: ({ value = { anchorId: '', className: '' }, onChange }: any) => {
             const [isExpanded, setIsExpanded] = useState(false);
             const activeAnchorId = typeof value === 'object' && value?.anchorId ? value.anchorId : '';
             const activeClassName = typeof value === 'object' && value?.className ? value.className : (typeof value === 'string' ? value : '');
@@ -2026,7 +2026,7 @@ export const getDynamicPuckConfig = (): Config<Props> => {
         },
         showFields: { title: true, year: true, file: true, branch: true, semester: true },
       },
-      render: ({ headerConfig, styleConfig, advancedConfig, cardStyle, columns, className, anchorId, title, description, showFields }) => {
+      render: ({ headerConfig, styleConfig, advancedConfig, cardStyle, columns, className, anchorId, title, description, showFields }: any) => {
         const resolvedStyle = (typeof styleConfig === 'object' ? styleConfig?.cardStyle : styleConfig) ?? cardStyle ?? 'style-1';
         const resolvedColumns = (typeof styleConfig === 'object' ? styleConfig?.columns : columns) ?? 3;
         const resolvedClass = (typeof advancedConfig === 'object' ? advancedConfig?.className : advancedConfig) ?? className ?? '';
