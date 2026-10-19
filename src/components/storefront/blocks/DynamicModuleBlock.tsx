@@ -230,7 +230,7 @@ export const DynamicModuleBlock: React.FC<DynamicModuleBlockProps> = ({
     return 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf';
   };
 
-  const isCustomModule = targetSlug !== 'awards' && schema.archetype !== 'tabbed_composite';
+  const isCustomModule = targetSlug !== 'awards';
   let activeStyle = cardStyle || displayConfig.cardStyle || (isCustomModule ? 'table' : 'style-1');
 
   // Enforce: For custom modules, cards view is not supported yet -> only table view or list view!
