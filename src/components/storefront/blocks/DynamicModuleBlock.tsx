@@ -499,9 +499,6 @@ export const DynamicModuleBlock: React.FC<DynamicModuleBlockProps> = ({
                     <div className="field-label">{f.label}</div>
                   </th>
                 ))}
-                {(showFields ? showFields.download !== false : true) && (
-                  <th className="field-header field-header-action py-4 px-4 sm:px-6 text-right">Action</th>
-                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 text-sm">
@@ -530,6 +527,44 @@ export const DynamicModuleBlock: React.FC<DynamicModuleBlockProps> = ({
                                 className="field-link font-semibold text-blue-700 hover:text-blue-900 underline hover:no-underline transition-colors cursor-pointer inline-block"
                               >
                                 {docText}
+                              </a>
+                            </div>
+                          </td>
+                        );
+                      }
+                      if (f.type === 'file_pdf' && val) {
+                        return (
+                          <td key={f.id} className={`field-cell field-td-${f.name} py-4 px-4 sm:px-6 text-xs`}>
+                            <div className={`field-value field-value-${f.name}`}>
+                              <a
+                                href={val}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => {
+                                  if (typeof val === 'string' && val.startsWith('data:')) {
+                                    e.preventDefault();
+                                    openFileInNewTab(val, rowData.title || f.label);
+                                  }
+                                }}
+                                className="field-link font-semibold text-blue-700 hover:text-blue-900 underline hover:no-underline transition-colors cursor-pointer inline-flex items-center gap-1"
+                              >
+                                <span>{f.label || 'View Document'}</span>
+                              </a>
+                            </div>
+                          </td>
+                        );
+                      }
+                      if (f.type === 'url' && val) {
+                        return (
+                          <td key={f.id} className={`field-cell field-td-${f.name} py-4 px-4 sm:px-6 text-xs`}>
+                            <div className={`field-value field-value-${f.name}`}>
+                              <a
+                                href={val}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="field-link font-semibold text-blue-700 hover:text-blue-900 underline hover:no-underline transition-colors cursor-pointer inline-flex items-center gap-1"
+                              >
+                                <span>{val}</span>
                               </a>
                             </div>
                           </td>
@@ -572,24 +607,6 @@ export const DynamicModuleBlock: React.FC<DynamicModuleBlockProps> = ({
                         </td>
                       );
                     })}
-                  {(showFields ? showFields.download !== false : true) && (
-                    <td className="field-cell field-cell-action py-4 px-4 sm:px-6 text-right">
-                      <a
-                        href={fileUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => {
-                          if (fileUrl.startsWith('data:')) {
-                            e.preventDefault();
-                            openFileInNewTab(fileUrl, rowData.title);
-                          }
-                        }}
-                        className="inline-flex items-center gap-1 bg-gray-900 group-hover:bg-blue-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors shadow-2xs"
-                      >
-                        {displayConfig.primaryActionLabel || 'View'} <ArrowUpRight className="w-3.5 h-3.5" />
-                      </a>
-                    </td>
-                  )}
                   </tr>
                 );
               })}

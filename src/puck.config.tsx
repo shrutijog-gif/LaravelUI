@@ -514,10 +514,7 @@ export const getDynamicPuckConfig = (): Config<Props> => {
           render: ({ value, onChange }: any) => {
             const [isExpanded, setIsExpanded] = useState(true);
 
-            const initialValues: Record<string, boolean> = {
-              download: true,
-              icon: true,
-            };
+            const initialValues: Record<string, boolean> = {};
             fields.forEach((f: any) => { initialValues[f.name] = true; });
 
             const activeValue = value || initialValues;
@@ -525,11 +522,6 @@ export const getDynamicPuckConfig = (): Config<Props> => {
             const toggle = (fieldKey: string) => {
               onChange({ ...activeValue, [fieldKey]: !activeValue[fieldKey] });
             };
-
-            const cardUiElements = [
-              { key: 'download', label: 'View / Download button' },
-              { key: 'icon', label: 'Icon / Image Header' },
-            ];
 
             return (
               <div className="border border-gray-200 rounded-lg overflow-hidden my-1 bg-white shadow-2xs">
@@ -552,22 +544,6 @@ export const getDynamicPuckConfig = (): Config<Props> => {
                           className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
                           checked={activeValue[f.name] !== false} 
                           onChange={() => toggle(f.name)} 
-                        />
-                        <span>{f.label}</span>
-                      </label>
-                    ))}
-
-                    {/* Divider */}
-                    <div className="border-t border-gray-100 my-1 mx-1" />
-
-                    {/* Per-Card UI Action Elements */}
-                    {cardUiElements.map(f => (
-                      <label key={f.key} className="flex items-center gap-2.5 text-xs font-medium cursor-pointer hover:bg-gray-50 p-1.5 rounded transition-colors select-none text-gray-700">
-                        <input 
-                          type="checkbox" 
-                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
-                          checked={activeValue[f.key] !== false} 
-                          onChange={() => toggle(f.key)} 
                         />
                         <span>{f.label}</span>
                       </label>
@@ -1936,7 +1912,7 @@ export const getDynamicPuckConfig = (): Config<Props> => {
         /* 3. Content Controller Box */
         showFields: {
           type: 'custom',
-          render: ({ value = { title: true, year: true, file: true, branch: true, semester: true, download: true, icon: true }, onChange }) => {
+          render: ({ value = { title: true, year: true, file: true, branch: true, semester: true }, onChange }) => {
             const [isExpanded, setIsExpanded] = useState(true);
             const toggle = (field: string) => onChange({ ...value, [field]: !value[field] });
             
@@ -1946,11 +1922,6 @@ export const getDynamicPuckConfig = (): Config<Props> => {
               { key: 'file', label: 'File Name' },
               { key: 'branch', label: 'Branch' },
               { key: 'semester', label: 'Semester' },
-            ];
-
-            const uiFields = [
-              { key: 'download', label: 'Download button' },
-              { key: 'icon', label: 'Icon' },
             ];
 
             return (
@@ -1968,22 +1939,6 @@ export const getDynamicPuckConfig = (): Config<Props> => {
                   <div className="p-2 flex flex-col gap-0.5 bg-white">
                     {/* Core Data Fields */}
                     {coreFields.map(f => (
-                      <label key={f.key} className="flex items-center gap-2.5 text-xs font-medium cursor-pointer hover:bg-gray-50 p-1.5 rounded transition-colors select-none text-gray-700">
-                        <input 
-                          type="checkbox" 
-                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
-                          checked={value[f.key] !== false} 
-                          onChange={() => toggle(f.key)} 
-                        />
-                        <span>{f.label}</span>
-                      </label>
-                    ))}
-
-                    {/* Divider separating core data fields from UI component elements */}
-                    <div className="border-t border-gray-100 my-1 mx-1" />
-
-                    {/* UI Component Elements */}
-                    {uiFields.map(f => (
                       <label key={f.key} className="flex items-center gap-2.5 text-xs font-medium cursor-pointer hover:bg-gray-50 p-1.5 rounded transition-colors select-none text-gray-700">
                         <input 
                           type="checkbox" 
@@ -2069,7 +2024,7 @@ export const getDynamicPuckConfig = (): Config<Props> => {
           anchorId: '',
           className: '',
         },
-        showFields: { title: true, year: true, file: true, branch: true, semester: true, download: true, icon: true },
+        showFields: { title: true, year: true, file: true, branch: true, semester: true },
       },
       render: ({ headerConfig, styleConfig, advancedConfig, cardStyle, columns, className, anchorId, title, description, showFields }) => {
         const resolvedStyle = (typeof styleConfig === 'object' ? styleConfig?.cardStyle : styleConfig) ?? cardStyle ?? 'style-1';
