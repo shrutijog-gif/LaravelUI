@@ -1770,27 +1770,22 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
         title="Add Supporting Evidence Document"
         maxWidth="max-w-2xl"
         footer={
-          <div className="flex items-center justify-between w-full">
-            <span className="text-[11px] text-gray-500">
-              Attached proof will be compiled in department dossier.
-            </span>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setShowAddModal(false)}
-                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md font-semibold text-xs hover:bg-gray-50 cursor-pointer transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveDocument}
-                className="px-4 py-2 bg-[#2563eb] hover:bg-blue-700 text-white rounded-md font-bold text-xs shadow-xs cursor-pointer transition-colors inline-flex items-center gap-1.5"
-              >
-                <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-                <span>Save & Attach Document</span>
-              </button>
-            </div>
+          <div className="flex items-center justify-end gap-2.5 w-full">
+            <button
+              type="button"
+              onClick={() => setShowAddModal(false)}
+              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md font-semibold text-xs hover:bg-gray-50 cursor-pointer transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveDocument}
+              className="px-4 py-2 bg-[#2563eb] hover:bg-blue-700 text-white rounded-md font-bold text-xs shadow-xs cursor-pointer transition-colors inline-flex items-center gap-1.5"
+            >
+              <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+              <span>Save & Attach Document</span>
+            </button>
           </div>
         }
       >
