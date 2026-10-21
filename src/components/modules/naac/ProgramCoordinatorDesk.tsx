@@ -1794,7 +1794,7 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
           </div>
         }
       >
-        <form onSubmit={handleSaveDocument} className="space-y-4 text-xs">
+        <form onSubmit={handleSaveDocument} className="p-6 space-y-5 text-xs">
           {/* Active Cycle Context Header */}
           <div className="p-3 bg-blue-50/70 border border-blue-200/80 rounded-lg flex items-center justify-between text-xs">
             <div>
