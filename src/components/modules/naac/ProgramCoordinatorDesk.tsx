@@ -1948,30 +1948,6 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
             </div>
           </div>
 
-          {/* Selected Metric Details Banner */}
-          {(() => {
-            const currentMetric = NAAC_METRICS_LIST.find(m => m.code === selectedMetricCode);
-            if (!currentMetric) return null;
-            return (
-              <div className="p-3 bg-gray-50 border border-gray-200/80 rounded-lg text-xs space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-gray-900">
-                    Metric {currentMetric.code}
-                  </span>
-                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                    currentMetric.metricType === 'QnM'
-                      ? 'bg-purple-50 text-purple-700 border border-purple-200'
-                      : 'bg-blue-50 text-blue-700 border border-blue-200'
-                  }`}>
-                    {currentMetric.metricType === 'QnM' ? 'Quantitative Metric (QnM)' : 'Qualitative Metric (QlM)'}
-                  </span>
-                </div>
-                <p className="text-[11px] text-gray-600 leading-relaxed">
-                  {currentMetric.description}
-                </p>
-              </div>
-            );
-          })()}
 
           {/* Evidence File Attachment - Spacious Multiple Document Support */}
           <div className="space-y-3 pt-1">
