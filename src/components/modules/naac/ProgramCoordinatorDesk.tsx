@@ -1836,7 +1836,7 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
         title="Add Supporting Evidence Document"
-        maxWidth="max-w-2xl"
+        maxWidth="max-w-4xl"
         footer={
           <div className="flex items-center justify-end gap-2.5 w-full">
             <button
@@ -1877,36 +1877,37 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
             </div>
           </div>
 
-          {/* Criterion Selector (No Marks) */}
-          <div>
-            <label className="block font-semibold text-gray-700 mb-1.5 text-xs">
-              Criterion
-            </label>
-            <select
-              value={modalCriterionCode}
-              onChange={(e) => {
-                const newCode = e.target.value;
-                setModalCriterionCode(newCode);
-                const kis = KEY_INDICATORS.filter(ki => ki.criterionCode === newCode);
-                if (kis.length > 0) {
-                  setSelectedIndicatorCode(kis[0].code);
-                  if (kis[0].metricCodes[0]) {
-                    setSelectedMetricCode(kis[0].metricCodes[0]);
+          {/* Criterion, Key Indicator & Metric in ONE SINGLE LINE */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {/* 1. Criterion */}
+            <div>
+              <label className="block font-semibold text-gray-700 mb-1.5 text-xs">
+                Criterion
+              </label>
+              <select
+                value={modalCriterionCode}
+                onChange={(e) => {
+                  const newCode = e.target.value;
+                  setModalCriterionCode(newCode);
+                  const kis = KEY_INDICATORS.filter(ki => ki.criterionCode === newCode);
+                  if (kis.length > 0) {
+                    setSelectedIndicatorCode(kis[0].code);
+                    if (kis[0].metricCodes[0]) {
+                      setSelectedMetricCode(kis[0].metricCodes[0]);
+                    }
                   }
-                }
-              }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:outline-hidden font-medium bg-white cursor-pointer shadow-2xs"
-            >
-              {NAAC_CRITERIA_SUMMARY.map(crit => (
-                <option key={crit.id} value={crit.code}>
-                  {crit.code}: {crit.name}
-                </option>
-              ))}
-            </select>
-          </div>
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:outline-hidden font-medium bg-white cursor-pointer shadow-2xs truncate"
+              >
+                {NAAC_CRITERIA_SUMMARY.map(crit => (
+                  <option key={crit.id} value={crit.code}>
+                    {crit.code}: {crit.name}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          {/* Key Indicator & Metric Selectors */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            {/* 2. Key Indicator */}
             <div>
               <label className="block font-semibold text-gray-700 mb-1.5 text-xs">
                 Key Indicator
@@ -1918,7 +1919,7 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
                   const ki = KEY_INDICATORS.find(k => k.code === e.target.value);
                   if (ki && ki.metricCodes[0]) setSelectedMetricCode(ki.metricCodes[0]);
                 }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:outline-hidden font-medium bg-white cursor-pointer shadow-2xs"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:outline-hidden font-medium bg-white cursor-pointer shadow-2xs truncate"
               >
                 {KEY_INDICATORS.filter(ki => ki.criterionCode === modalCriterionCode).map(ki => (
                   <option key={ki.code} value={ki.code}>
@@ -1928,6 +1929,7 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
               </select>
             </div>
 
+            {/* 3. Metric Code */}
             <div>
               <label className="block font-semibold text-gray-700 mb-1.5 text-xs">
                 Metric Code
@@ -1935,7 +1937,7 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
               <select
                 value={selectedMetricCode}
                 onChange={(e) => setSelectedMetricCode(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:outline-hidden font-medium bg-white cursor-pointer shadow-2xs"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:outline-hidden font-medium bg-white cursor-pointer shadow-2xs truncate"
               >
                 {NAAC_METRICS_LIST.filter(m => m.code.startsWith(selectedIndicatorCode)).map(m => (
                   <option key={m.code} value={m.code}>
@@ -2053,9 +2055,9 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
                     )}
                   </div>
 
-                  <div className="border border-gray-200 rounded-xl p-2.5 bg-gray-50/70 min-h-[170px] max-h-[280px] overflow-y-auto space-y-2">
+                  <div className="border border-gray-200 rounded-xl p-2.5 bg-gray-50/70 min-h-[220px] max-h-[380px] overflow-y-auto space-y-2">
                     {uploadedFiles.length === 0 ? (
-                      <div className="h-full min-h-[140px] flex flex-col items-center justify-center text-center p-4 text-gray-400">
+                      <div className="h-full min-h-[180px] flex flex-col items-center justify-center text-center p-4 text-gray-400">
                         <FileText className="w-8 h-8 text-gray-300 mb-2 stroke-[1.5]" />
                         <p className="text-xs font-medium text-gray-600">No documents uploaded yet</p>
                         <p className="text-[11px] text-gray-400 mt-0.5">Files uploaded above will appear here before saving.</p>
@@ -2132,7 +2134,7 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
                   </div>
 
                   {/* Spacious Scrollable Document List Area */}
-                  <div className="border border-gray-200 rounded-xl p-2 bg-white min-h-[240px] max-h-[340px] overflow-y-auto divide-y divide-gray-100 text-xs">
+                  <div className="border border-gray-200 rounded-xl p-2 bg-white min-h-[280px] max-h-[420px] overflow-y-auto divide-y divide-gray-100 text-xs">
                     {filteredRepoFiles.length === 0 ? (
                       <div className="py-12 text-center text-gray-400">
                         <FileText className="w-8 h-8 mx-auto text-gray-300 mb-2 stroke-[1.5]" />
