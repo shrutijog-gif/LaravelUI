@@ -10,7 +10,13 @@ import {
   Code2,
   Layers,
   Briefcase,
-  X
+  X,
+  FileText,
+  Plus,
+  Send,
+  AlertCircle,
+  CheckCircle2,
+  BookOpen
 } from 'lucide-react';
 import { MenuItem } from '../../types/navigation';
 import { getActiveTenant, CollegeTenant } from '../../data/tenantData';
@@ -25,6 +31,71 @@ export interface SidebarProps {
 
 import { getStoredStudioTemplates } from '../../data/mockStudioData';
 
+export const programCoordinatorMenuItems: MenuItem[] = [
+  {
+    id: 'naac-aqar',
+    label: 'AQAR',
+    icon: 'file',
+  },
+  {
+    id: 'naac-ssr',
+    label: 'SSR',
+    icon: 'layers',
+  },
+  {
+    id: 'naac-dvv',
+    label: 'DVV',
+    icon: 'check',
+  },
+];
+
+
+export const schoolCoordinatorMenuItems: MenuItem[] = [
+  {
+    id: 'school-queue',
+    label: 'Department Review Queue',
+    icon: 'layers',
+  },
+  {
+    id: 'school-departments',
+    label: '4 Academic Programs',
+    icon: 'circle',
+  },
+  {
+    id: 'school-revisions',
+    label: 'Revision Requests',
+    icon: 'alert',
+  },
+  {
+    id: 'school-forwarded',
+    label: 'Forwarded to University',
+    icon: 'send',
+  },
+];
+
+export const universityCoordinatorMenuItems: MenuItem[] = [
+  {
+    id: 'univ-dashboard',
+    label: 'Executive Dashboard',
+    icon: 'home',
+  },
+  {
+    id: 'univ-heatmap',
+    label: '5-School Completeness',
+    icon: 'layers',
+  },
+  {
+    id: 'univ-dossier',
+    label: 'Master SSR Evidence',
+    icon: 'database',
+  },
+  {
+    id: 'univ-export',
+    label: 'Export NAAC Dossier',
+    icon: 'briefcase',
+  },
+];
+
 export const superadminMenuItems: MenuItem[] = [
   {
     id: 'platform-overview',
@@ -35,6 +106,16 @@ export const superadminMenuItems: MenuItem[] = [
     id: 'module-studio',
     label: 'Module Studio ⚡',
     icon: 'database',
+  },
+  {
+    id: 'naac-dms',
+    label: 'NAAC Accreditation',
+    icon: 'circle',
+    children: [
+      { id: 'naac-aqar', label: 'AQAR' },
+      { id: 'naac-ssr', label: 'SSR' },
+      { id: 'naac-dvv', label: 'DVV' },
+    ],
   },
   {
     id: 'developers-area',
@@ -100,6 +181,16 @@ export const getCollegeAdminMenuItems = (): MenuItem[] => {
       id: 'dashboard',
       label: 'Dashboard',
       icon: 'home',
+    },
+    {
+      id: 'naac-dms',
+      label: 'NAAC Accreditation',
+      icon: 'circle',
+      children: [
+        { id: 'naac-aqar', label: 'AQAR' },
+        { id: 'naac-ssr', label: 'SSR' },
+        { id: 'naac-dvv', label: 'DVV' },
+      ],
     },
     {
       id: 'dynamic-modules-group',
@@ -226,6 +317,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   }, []);
 
   const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({
+    'naac-dms': true,
     'developers-area': false,
     'dynamic-modules-group': false,
     'setup-config': false,
@@ -236,8 +328,42 @@ export const Sidebar: React.FC<SidebarProps> = ({
     careers: false,
   });
 
+  const portalType = typeof window !== 'undefined' ? localStorage.getItem('college_cms_portal_type') : null;
+  const isNaacProgram = portalType === 'naac-program';
+  const isNaacSchool = portalType === 'naac-school';
+  const isNaacUniversity = portalType === 'naac-university';
+
   const isSuperAdmin = portalRole === 'superadmin';
-  const menuList = isSuperAdmin ? superadminMenuItems : getCollegeAdminMenuItems();
+  const menuList = isNaacProgram
+    ? programCoordinatorMenuItems
+    : isNaacSchool
+    ? schoolCoordinatorMenuItems
+    : isNaacUniversity
+    ? universityCoordinatorMenuItems
+    : isSuperAdmin
+    ? superadminMenuItems
+    : getCollegeAdminMenuItems();
+
+  const sidebarBg = isNaacProgram
+    ? 'bg-[#0f172a] border-r border-slate-800 text-white'
+    : isNaacSchool
+    ? 'bg-[#0c1e36] border-r border-blue-600/30 text-white'
+    : isNaacUniversity
+    ? 'bg-[#2e1065] border-r border-purple-600/30 text-white'
+    : isSuperAdmin
+    ? 'bg-[#0f172a] border-r border-amber-500/20 text-white'
+    : 'bg-[#1d4ed8] text-white';
+
+  const getActiveItemBg = (isActive: boolean) => {
+    if (isNaacProgram) {
+      if (!isActive) return 'text-slate-300 hover:text-white hover:bg-white/10 font-medium';
+      return 'bg-emerald-600 text-white font-bold shadow-xs';
+    }
+    if (!isActive) return 'text-white/90 hover:bg-white/10';
+    if (isNaacSchool) return 'bg-blue-600 text-white shadow-xs font-semibold ring-1 ring-blue-400/40';
+    if (isNaacUniversity) return 'bg-purple-600 text-white shadow-xs font-semibold ring-1 ring-purple-400/40';
+    return 'bg-[#2563eb] text-white shadow-xs font-semibold';
+  };
 
   const toggleSubmenu = (id: string) => {
     setOpenSubmenus(prev => ({
@@ -265,23 +391,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <aside 
-      className={`fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] h-full lg:h-auto lg:static lg:flex-shrink-0 flex flex-col text-white transition-all duration-300 shadow-2xl lg:shadow-none ${
-        isSuperAdmin ? 'bg-[#0f172a] border-r border-amber-500/20' : 'bg-[#1d4ed8]'
-      } ${
+      className={`fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] h-full lg:h-auto lg:static lg:flex-shrink-0 flex flex-col transition-all duration-300 shadow-2xl lg:shadow-none ${sidebarBg} ${
         isOpen 
           ? 'translate-x-0 lg:w-64' 
           : '-translate-x-full lg:translate-x-0 lg:w-0 lg:overflow-hidden pointer-events-none lg:pointer-events-auto'
       }`}
       style={{ minHeight: 'calc(100vh - 4rem)' }}
     >
-      {/* Mobile Drawer Header with Close Button (Displays active College Name or Superadmin title) */}
-      <div className="flex items-center justify-between px-4 py-3.5 border-b border-white/10 lg:hidden shrink-0">
+      {/* Mobile Drawer Header with Close Button */}
+      <div className={`flex items-center justify-between px-4 py-3.5 border-b border-white/10 lg:hidden shrink-0`}>
         <div className="flex items-center gap-2 min-w-0 pr-2">
-          <div className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center font-black text-xs text-white shrink-0">
-            {isSuperAdmin ? '⚡' : '🏛️'}
+          <div className="w-7 h-7 rounded-lg bg-white/10 text-white flex items-center justify-center font-black text-xs shrink-0">
+            {isNaacProgram ? '📋' : isNaacSchool ? '🏫' : isNaacUniversity ? '🏛️' : isSuperAdmin ? '⚡' : '🏛️'}
           </div>
           <span className="font-bold text-sm text-white truncate">
-            {isSuperAdmin ? 'WhiteCode Master Console' : currentTenant.name}
+            {isNaacProgram ? 'Program Coordinator' : isNaacSchool ? 'School Coordinator' : isNaacUniversity ? 'University IQAC' : isSuperAdmin ? 'WhiteCode Master Console' : currentTenant.name}
           </span>
         </div>
         <button 
@@ -294,26 +418,87 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </button>
       </div>
 
+      {/* Role-Specific Institutional Badge Header in Sidebar */}
+      {isNaacProgram && (
+        <div className="p-3.5 pb-0 shrink-0">
+          <div className="bg-slate-800/80 border border-slate-700/80 rounded-xl p-3 flex items-center gap-2.5 shadow-2xs">
+            <div className="w-8 h-8 rounded-lg bg-slate-700 text-emerald-400 flex items-center justify-center font-bold text-xs shrink-0 border border-slate-600">
+              📋
+            </div>
+            <div className="min-w-0">
+              <span className="block text-[10px] font-bold uppercase text-slate-400 tracking-wider">
+                Program Coordinator
+              </span>
+              <span className="block text-xs font-bold text-white truncate">
+                B.Tech CSE Department
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+
+
+      {isNaacSchool && (
+        <div className="p-4 pb-0 shrink-0">
+          <div className="bg-blue-900/60 border border-blue-500/30 rounded-2xl p-3 flex items-center gap-3 shadow-xs">
+            <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black text-sm shrink-0">
+              🏫
+            </div>
+            <div className="min-w-0">
+              <span className="block text-[10px] font-extrabold uppercase text-blue-300 tracking-wider">
+                School Coordinator
+              </span>
+              <span className="block text-xs font-bold text-white truncate">
+                School of Technology
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isNaacUniversity && (
+        <div className="p-4 pb-0 shrink-0">
+          <div className="bg-purple-900/60 border border-purple-500/30 rounded-2xl p-3 flex items-center gap-3 shadow-xs">
+            <div className="w-9 h-9 rounded-xl bg-purple-600 text-white flex items-center justify-center font-black text-sm shrink-0">
+              🏛️
+            </div>
+            <div className="min-w-0">
+              <span className="block text-[10px] font-extrabold uppercase text-purple-300 tracking-wider">
+                University IQAC
+              </span>
+              <span className="block text-xs font-bold text-white truncate">
+                Master SSR Directorate
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Module Search Input */}
-      <div className="p-4 shrink-0">
+      <div className="p-3.5 shrink-0">
         <div className="relative">
           <input
             type="text"
-            placeholder="Search modules..."
+            placeholder={isNaacProgram ? "Search department..." : "Search modules..."}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-white/15 text-white placeholder-white/60 text-sm rounded-lg pl-3 pr-8 py-2 border border-white/10 focus:outline-none focus:ring-2 focus:ring-white/30"
+            className={`w-full text-xs rounded-lg pl-3 pr-8 py-2 border transition-colors ${
+              isNaacProgram
+                ? 'bg-slate-800/80 text-white placeholder-slate-400 border-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500'
+                : 'bg-white/15 text-white placeholder-white/60 border-white/10 focus:outline-none focus:ring-2 focus:ring-white/30'
+            }`}
           />
-          <Search className="w-4 h-4 text-white/50 absolute right-2.5 top-2.5 pointer-events-none" />
+          <Search className="w-3.5 h-3.5 absolute right-2.5 top-2.5 pointer-events-none text-slate-400" />
         </div>
       </div>
 
       {/* Menu items */}
-      <nav className="flex-1 px-3 py-2 space-y-1 overflow-y-auto">
+      <nav className="flex-1 px-3 py-1 space-y-1 overflow-y-auto">
         {filteredMenuItems.map((item) => {
           const hasChildren = Boolean(item.children && item.children.length > 0);
           const isSubOpen = Boolean(openSubmenus[item.id]);
-          const isActive = activeItem === item.id;
+          const isActive = activeItem === item.id || (item.id === 'naac-dms' && activeItem.startsWith('naac-'));
 
           return (
             <div key={item.id} className="space-y-1">
@@ -321,18 +506,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onClick={() => {
                   if (hasChildren) {
                     toggleSubmenu(item.id);
+                    if (item.id === 'naac-dms') {
+                      handleItemClick('naac-aqar', 'AQAR');
+                    }
                   } else {
                     handleItemClick(item.id, item.label);
                   }
                 }}
-                className={`w-full text-left px-3 py-2.5 rounded-lg flex items-center justify-between text-sm font-medium transition-colors cursor-pointer ${
-                  isActive 
-                    ? 'bg-[#2563eb] text-white shadow-xs font-semibold' 
-                    : 'text-white/90 hover:bg-white/10'
-                }`}
+                className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between text-xs font-semibold transition-colors cursor-pointer ${getActiveItemBg(isActive)}`}
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2.5">
                   {item.icon === 'home' && <Home className="w-4 h-4 shrink-0" />}
+                  {item.icon === 'file' && <FileText className="w-4 h-4 shrink-0" />}
+                  {item.icon === 'plus' && <Plus className="w-4 h-4 shrink-0" />}
+                  {item.icon === 'send' && <Send className="w-4 h-4 shrink-0" />}
+                  {item.icon === 'alert' && <AlertCircle className="w-4 h-4 shrink-0 text-amber-400" />}
+                  {item.icon === 'check' && <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />}
+                  {item.icon === 'book' && <BookOpen className="w-4 h-4 shrink-0" />}
                   {item.icon === 'shopping-bag' && <ShoppingBag className="w-4 h-4 shrink-0" />}
                   {item.icon === 'database' && <Database className="w-4 h-4 shrink-0" />}
                   {item.icon === 'code' && <Code2 className="w-4 h-4 shrink-0" />}
@@ -344,13 +534,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {hasChildren && (
                   <span className="shrink-0 ml-1">
                     {isSubOpen ? (
-                      <ChevronDown className="w-4 h-4 text-white/70" />
+                      <ChevronDown className={`w-4 h-4 ${isNaacProgram ? 'text-gray-400' : 'text-white/70'}`} />
                     ) : (
-                      <ChevronRight className="w-4 h-4 text-white/70" />
+                      <ChevronRight className={`w-4 h-4 ${isNaacProgram ? 'text-gray-400' : 'text-white/70'}`} />
                     )}
                   </span>
                 )}
               </button>
+
 
               {/* Submenu render */}
               {hasChildren && isSubOpen && (

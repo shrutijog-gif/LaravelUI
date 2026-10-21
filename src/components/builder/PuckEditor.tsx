@@ -38,8 +38,8 @@ const HeaderActions: React.FC<{
   return (
     <div className="flex items-center gap-3 text-sm ml-auto whitespace-nowrap relative">
       {showToast && (
-        <div className="absolute -bottom-10 right-0 bg-emerald-600 text-white text-xs font-bold px-3 py-1.5 rounded-md shadow-lg flex items-center gap-1.5 z-50 animate-in fade-in duration-150">
-          <CheckCircle className="w-4 h-4" /> Page Saved Successfully!
+        <div className="absolute -bottom-10 right-0 bg-emerald-50 border border-emerald-300 text-emerald-950 text-xs font-semibold px-3 py-1.5 rounded-lg shadow-lg flex items-center gap-1.5 z-50 animate-in fade-in duration-150">
+          <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" /> Page Saved Successfully!
         </div>
       )}
 

@@ -77,13 +77,16 @@ export function App() {
     } else {
       setActivePortalRole('collegeadmin');
     }
+    if (portal) {
+      localStorage.setItem('college_cms_portal_type', portal);
+    }
     setIsLoggedIn(true);
   };
 
   const handleLogout = () => {
     logout();
     setIsLoggedIn(false);
-    setSelectedPortal(activePortalRole === 'superadmin' ? 'superadmin' : 'college');
+    setSelectedPortal(null);
   };
 
   return (

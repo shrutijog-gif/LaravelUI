@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Eye, EyeOff, Lock, User, AlertCircle, ArrowLeft, Globe, CheckCircle2, Building2, GraduationCap, ShieldCheck } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Eye, EyeOff, Lock, User, AlertCircle, ArrowLeft, Globe, CheckCircle2, Building2, GraduationCap, ShieldCheck, School, FileCheck2 } from 'lucide-react';
 import { login } from '../../services/authService';
 import { getActiveTenant } from '../../data/tenantData';
 import { PortalType } from './PortalLandingPage';
@@ -18,17 +18,62 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   onVisitStorefront 
 }) => {
   const activeTenant = getActiveTenant();
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  
+  const getDefaultUsername = () => {
+    if (portalType === 'naac-university') return 'univ.coordinator';
+    if (portalType === 'naac-school') return 'school.coordinator';
+    if (portalType === 'naac-program') return 'program.coordinator';
+    if (portalType === 'society') return 'society.admin';
+    if (portalType === 'superadmin') return 'superadmin';
+    return 'admin';
+  };
+
+  const [username, setUsername] = useState(() => getDefaultUsername());
+  const [password, setPassword] = useState('admin');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showForgotModal, setShowForgotModal] = useState(false);
 
+  useEffect(() => {
+    setUsername(getDefaultUsername());
+    setPassword('admin');
+  }, [portalType]);
+
   const isSuperadmin = portalType === 'superadmin';
   const isSociety = portalType === 'society';
 
   const getPortalInfo = () => {
+    if (portalType === 'naac-university') {
+      return {
+        parentTitle: 'ITM SKILLS UNIVERSITY',
+        parentClass: 'text-purple-600',
+        title: 'University NAAC / IQAC Portal',
+        subtitle: 'Sign in as University Coordinator to monitor all 5 schools and consolidate master SSR records.',
+        iconBg: 'bg-gradient-to-br from-purple-900 to-indigo-900 text-white',
+        renderIcon: () => <Building2 className="w-9 h-9 text-white" />,
+      };
+    }
+    if (portalType === 'naac-school') {
+      return {
+        parentTitle: 'ITM SKILLS UNIVERSITY',
+        parentClass: 'text-blue-600',
+        title: 'School Coordinator Portal',
+        subtitle: 'Sign in as School Coordinator to review and approve submissions across departmental programs.',
+        iconBg: 'bg-gradient-to-br from-blue-900 to-indigo-950 text-white',
+        renderIcon: () => <School className="w-9 h-9 text-white" />,
+      };
+    }
+    if (portalType === 'naac-program') {
+      return {
+        parentTitle: 'ITM SKILLS UNIVERSITY',
+        parentClass: 'text-emerald-600',
+        title: 'Program Coordinator Portal',
+        subtitle: 'Sign in as Program Coordinator to compile and submit Criteria 1–7 evidence proofs.',
+        iconBg: 'bg-gradient-to-br from-emerald-900 to-teal-950 text-white',
+        renderIcon: () => <FileCheck2 className="w-9 h-9 text-white" />,
+      };
+    }
     if (isSuperadmin) {
       return {
         parentTitle: 'WHITECODE TECHNOLOGIES',
@@ -85,7 +130,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     setIsLoading(true);
 
     setTimeout(() => {
-      const result = login(username, password);
+      const result = login(username, password, portalType);
       setIsLoading(false);
       if (result.success) {
         onLoginSuccess(portalType);
