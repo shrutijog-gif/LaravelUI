@@ -520,6 +520,11 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
   // Filtered documents for team table
   const teamDisplayedDocs = selectedFacultyFilter
     ? deptDocs.filter(d => 
+        (selectedFacultyFilter === 'coord-anita-verma' && (
+          d.submittedByFacultyId === 'coord-anita-verma' ||
+          d.uploadedBy?.toLowerCase().includes('anita') ||
+          d.facultyName?.toLowerCase().includes('anita')
+        )) ||
         d.submittedByFacultyId === selectedFacultyFilter || 
         d.uploadedBy?.includes(selectedFacultyFilter) ||
         d.criterionId === selectedFacultyFilter ||
@@ -1412,6 +1417,86 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
                           </div>
                         );
                       })}
+
+                      {/* 8TH BOX: PROF. ANITA VERMA (PROGRAM COORDINATOR) */}
+                      {(() => {
+                        const anitaDocs = deptDocs.filter(d => 
+                          d.uploadedBy?.toLowerCase().includes('anita') || 
+                          d.facultyName?.toLowerCase().includes('anita') || 
+                          d.submittedByFacultyId === 'coord-anita-verma'
+                        );
+                        const isSelected = selectedFacultyFilter === 'coord-anita-verma';
+
+                        return (
+                          <div
+                            onClick={() => setSelectedFacultyFilter(isSelected ? null : 'coord-anita-verma')}
+                            className={`p-3.5 rounded-lg border text-xs cursor-pointer transition-all flex flex-col justify-between ${
+                              isSelected 
+                                ? 'bg-blue-50/80 border-blue-400 shadow-xs ring-1 ring-blue-300' 
+                                : 'bg-white border-gray-200 hover:border-blue-300 hover:shadow-xs shadow-2xs'
+                            }`}
+                          >
+                            <div>
+                              {/* Top Coordinator Tag & Badge */}
+                              <div className="flex items-center justify-between pb-2 mb-2 border-b border-gray-100">
+                                <span className="text-[11px] font-bold text-blue-700 tracking-wide uppercase">
+                                  COORDINATOR
+                                </span>
+                                <span className="text-[10px] font-semibold text-blue-800 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                                  Lead Role
+                                </span>
+                              </div>
+
+                              {/* Title */}
+                              <h4 className="font-bold text-gray-900 text-xs leading-snug line-clamp-2 min-h-[32px]">
+                                Program Dossier & Governance
+                              </h4>
+
+                              {/* Assigned Faculty Lead (Anita Verma) */}
+                              <div className="flex items-center gap-2 mt-2.5">
+                                <div className="w-7 h-7 rounded-full bg-[#0f2748] text-white flex items-center justify-center font-bold text-[10px] shrink-0">
+                                  AV
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <p className="font-bold text-gray-900 text-[11px] truncate">
+                                    Prof. Anita Verma
+                                  </p>
+                                  <p className="text-[10px] text-gray-500 truncate">
+                                    Program Coordinator
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Proofs Status & Quick Upload Action */}
+                            <div className="mt-3 pt-2.5 border-t border-gray-100 flex items-center justify-between text-[11px] gap-2">
+                              {anitaDocs.length > 0 ? (
+                                <span className="inline-flex items-center gap-1 font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded text-[11px]">
+                                  <Check className="w-3 h-3 stroke-[3]" />
+                                  <span>{anitaDocs.length} {anitaDocs.length === 1 ? 'proof' : 'proofs'} uploaded</span>
+                                </span>
+                              ) : (
+                                <span className="text-amber-700 bg-amber-50 border border-amber-200 font-semibold px-2 py-0.5 rounded text-[10px]">
+                                  0 proofs uploaded
+                                </span>
+                              )}
+
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setShowAddModal(true);
+                                }}
+                                className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded font-bold text-[10px] cursor-pointer transition-colors shrink-0 shadow-2xs"
+                                title="Upload document as Program Coordinator"
+                              >
+                                <Plus className="w-3 h-3 stroke-[2.5]" />
+                                <span>Upload</span>
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
 
