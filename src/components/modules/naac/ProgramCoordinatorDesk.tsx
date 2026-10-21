@@ -1949,6 +1949,29 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
           </div>
 
 
+          {/* Compact Metric Summary Strip (Reduced Height) */}
+          {(() => {
+            const currentMetric = NAAC_METRICS_LIST.find(m => m.code === selectedMetricCode);
+            if (!currentMetric) return null;
+            return (
+              <div className="px-3 py-1.5 bg-blue-50/60 border border-blue-200/80 rounded-lg text-xs flex items-center justify-between gap-3 shadow-2xs">
+                <div className="min-w-0 flex items-center gap-2">
+                  <span className="font-bold text-gray-900 shrink-0">Metric {currentMetric.code}:</span>
+                  <span className="font-semibold text-blue-900 truncate">{currentMetric.name}</span>
+                  <span className="text-gray-400 hidden md:inline">•</span>
+                  <span className="text-gray-500 text-[11px] truncate hidden md:inline">{currentMetric.description}</span>
+                </div>
+                <span className={`px-2 py-0.5 rounded text-[10px] font-bold shrink-0 ${
+                  currentMetric.metricType === 'QnM'
+                    ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                    : 'bg-blue-100/70 text-blue-800 border border-blue-200'
+                }`}>
+                  {currentMetric.metricType === 'QnM' ? 'Quantitative (QnM)' : 'Qualitative (QlM)'}
+                </span>
+              </div>
+            );
+          })()}
+
           {/* Evidence File Attachment - Spacious Multiple Document Support */}
           <div className="space-y-3 pt-1">
             <div className="flex items-center justify-between">
