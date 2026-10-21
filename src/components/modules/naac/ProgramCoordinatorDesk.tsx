@@ -1866,9 +1866,9 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
       >
         <form onSubmit={handleSaveDocument} className="p-6 space-y-5 text-xs">
           {/* Active Cycle Context Header */}
-          <div className="p-3 bg-blue-50/70 border border-blue-200/80 rounded-lg flex items-center justify-between text-xs">
+          <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-between text-xs">
             <div>
-              <span className="text-[10px] uppercase font-bold text-blue-700 tracking-wider">Accreditation Cycle</span>
+              <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Accreditation Cycle</span>
               <h4 className="font-bold text-gray-900 text-xs mt-0.5">AQAR {selectedYear || '2025-26'}</h4>
             </div>
             <div className="text-right">
@@ -1897,7 +1897,7 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
                     }
                   }
                 }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:outline-hidden font-medium bg-white cursor-pointer shadow-2xs truncate"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-gray-400 focus:outline-hidden font-medium bg-white cursor-pointer shadow-2xs truncate"
               >
                 {NAAC_CRITERIA_SUMMARY.map(crit => (
                   <option key={crit.id} value={crit.code}>
@@ -1919,7 +1919,7 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
                   const ki = KEY_INDICATORS.find(k => k.code === e.target.value);
                   if (ki && ki.metricCodes[0]) setSelectedMetricCode(ki.metricCodes[0]);
                 }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:outline-hidden font-medium bg-white cursor-pointer shadow-2xs truncate"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-gray-400 focus:outline-hidden font-medium bg-white cursor-pointer shadow-2xs truncate"
               >
                 {KEY_INDICATORS.filter(ki => ki.criterionCode === modalCriterionCode).map(ki => (
                   <option key={ki.code} value={ki.code}>
@@ -1937,7 +1937,7 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
               <select
                 value={selectedMetricCode}
                 onChange={(e) => setSelectedMetricCode(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:outline-hidden font-medium bg-white cursor-pointer shadow-2xs truncate"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-gray-400 focus:outline-hidden font-medium bg-white cursor-pointer shadow-2xs truncate"
               >
                 {NAAC_METRICS_LIST.filter(m => m.code.startsWith(selectedIndicatorCode)).map(m => (
                   <option key={m.code} value={m.code}>
@@ -1949,23 +1949,19 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
           </div>
 
 
-          {/* Compact Metric Summary Strip (Reduced Height) */}
+          {/* Compact Metric Summary Strip (Neutral Gray, Reduced Height) */}
           {(() => {
             const currentMetric = NAAC_METRICS_LIST.find(m => m.code === selectedMetricCode);
             if (!currentMetric) return null;
             return (
-              <div className="px-3 py-1.5 bg-blue-50/60 border border-blue-200/80 rounded-lg text-xs flex items-center justify-between gap-3 shadow-2xs">
+              <div className="px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs flex items-center justify-between gap-3 shadow-2xs">
                 <div className="min-w-0 flex items-center gap-2">
                   <span className="font-bold text-gray-900 shrink-0">Metric {currentMetric.code}:</span>
-                  <span className="font-semibold text-blue-900 truncate">{currentMetric.name}</span>
-                  <span className="text-gray-400 hidden md:inline">•</span>
+                  <span className="font-medium text-gray-800 truncate">{currentMetric.name}</span>
+                  <span className="text-gray-300 hidden md:inline">•</span>
                   <span className="text-gray-500 text-[11px] truncate hidden md:inline">{currentMetric.description}</span>
                 </div>
-                <span className={`px-2 py-0.5 rounded text-[10px] font-bold shrink-0 ${
-                  currentMetric.metricType === 'QnM'
-                    ? 'bg-purple-50 text-purple-700 border border-purple-200'
-                    : 'bg-blue-100/70 text-blue-800 border border-blue-200'
-                }`}>
+                <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-gray-100 text-gray-700 border border-gray-200 shrink-0">
                   {currentMetric.metricType === 'QnM' ? 'Quantitative (QnM)' : 'Qualitative (QlM)'}
                 </span>
               </div>
@@ -2020,14 +2016,14 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
                 />
                 <label 
                   htmlFor="evidence-file-input" 
-                  className="cursor-pointer block border-2 border-dashed border-blue-300 hover:border-blue-500 rounded-xl p-4 text-center transition-all bg-blue-50/30 hover:bg-blue-50/60"
+                  className="cursor-pointer block border-2 border-dashed border-gray-300 hover:border-gray-400 rounded-xl p-4 text-center transition-all bg-gray-50/50 hover:bg-gray-100/60"
                 >
                   <div className="flex items-center justify-center gap-3.5">
-                    <div className="w-10 h-10 rounded-full bg-blue-100 border border-blue-200 text-blue-600 flex items-center justify-center shrink-0 shadow-2xs">
-                      <FolderOpen className="w-5 h-5" />
+                    <div className="w-10 h-10 rounded-full bg-gray-100 border border-gray-200 text-gray-700 flex items-center justify-center shrink-0 shadow-2xs">
+                      <FolderOpen className="w-5 h-5 text-gray-600" />
                     </div>
                     <div className="text-left">
-                      <span className="text-xs font-bold text-blue-700 hover:underline block">
+                      <span className="text-xs font-bold text-gray-800 hover:underline block">
                         Choose files or drag & drop multiple documents
                       </span>
                       <span className="text-[11px] text-gray-500 block mt-0.5">
