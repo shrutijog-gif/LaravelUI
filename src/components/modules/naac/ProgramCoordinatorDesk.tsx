@@ -248,10 +248,11 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
   const [selectedMetricCode, setSelectedMetricCode] = useState('1.1.1');
   const [selectedFacultyId, setSelectedFacultyId] = useState(CSE_DEPARTMENT_FACULTY[0].id);
   const [newTitle, setNewTitle] = useState('');
-  const [activeFileTab, setActiveFileTab] = useState<'existing' | 'new'>('existing');
+  const [activeFileTab, setActiveFileTab] = useState<'existing' | 'new'>('new');
   const [selectedExistingFileName, setSelectedExistingFileName] = useState(REPOSITORY_SAMPLE_FILES[0].name);
   const [uploadedFileName, setUploadedFileName] = useState('');
   const [uploadedFileUrl, setUploadedFileUrl] = useState('');
+  const [uploadedFileSize, setUploadedFileSize] = useState('');
 
   // Sync state with storage
   useEffect(() => {
@@ -369,6 +370,8 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
     setUploadedFileName(file.name);
+    const sizeInMb = (file.size / (1024 * 1024)).toFixed(1);
+    setUploadedFileSize(`${sizeInMb} MB`);
     const reader = new FileReader();
     reader.onload = () => {
       setUploadedFileUrl(reader.result as string);
@@ -377,16 +380,25 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
   };
 
   // Save new supporting document
-  const handleSaveDocument = (e: React.FormEvent) => {
-    e.preventDefault();
-    const finalTitle = newTitle.trim() || `${selectedMetricCode} Supporting Evidence Proof`;
-    const faculty = CSE_DEPARTMENT_FACULTY.find(f => f.id === selectedFacultyId) || CSE_DEPARTMENT_FACULTY[0];
+  const handleSaveDocument = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     const metric = NAAC_METRICS_LIST.find(m => m.code === selectedMetricCode);
+    const faculty = CSE_DEPARTMENT_FACULTY.find(f => f.criterionAssigned.includes(modalCriterionCode)) || CSE_DEPARTMENT_FACULTY[0];
     const fallbackPdf = 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf';
 
     const chosenFileName = activeFileTab === 'new' 
-      ? (uploadedFileName || 'Supporting_Document.pdf')
+      ? (uploadedFileName || `${selectedMetricCode}_Evidence_Proof.pdf`)
       : selectedExistingFileName;
+
+    const finalTitle = activeFileTab === 'new' && uploadedFileName
+      ? uploadedFileName.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ')
+      : `${selectedMetricCode} - ${metric?.name || 'Supporting Evidence'}`;
+
+    const chosenFileSize = activeFileTab === 'new' && uploadedFileSize
+      ? uploadedFileSize
+      : (activeFileTab === 'existing'
+          ? (REPOSITORY_SAMPLE_FILES.find(f => f.name === selectedExistingFileName)?.size || '2.5 MB')
+          : '2.5 MB');
 
     addOrUpdateNaacDocument({
       title: finalTitle,
@@ -402,7 +414,7 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
       metricType: metric?.metricType || 'QlM',
       fileUrl: activeFileTab === 'new' ? (uploadedFileUrl || fallbackPdf) : fallbackPdf,
       fileName: chosenFileName,
-      fileSize: '2.5 MB',
+      fileSize: chosenFileSize,
       uploadedBy: faculty.name,
       status: 'draft',
       submittedByFacultyId: faculty.id,
@@ -415,8 +427,9 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
     setNewTitle('');
     setUploadedFileName('');
     setUploadedFileUrl('');
+    setUploadedFileSize('');
     setShowAddModal(false);
-    showToast(`Document attached to Key Indicator ${selectedIndicatorCode} (Metric ${selectedMetricCode})`);
+    showToast(`Document uploaded successfully for Metric ${selectedMetricCode}`);
   };
 
   // Criterion Card Icon helper
@@ -729,6 +742,22 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
 
                 {/* Breadcrumb & Action */}
                 <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModalCriterionCode('Criterion 1');
+                      setSelectedIndicatorCode('1.1');
+                      setSelectedMetricCode('1.1.1');
+                      const lead = CSE_DEPARTMENT_FACULTY.find(f => f.criterionAssigned.includes('Criterion 1'));
+                      if (lead) setSelectedFacultyId(lead.id);
+                      setShowAddModal(true);
+                    }}
+                    className="px-3.5 py-1.5 bg-[#2563eb] hover:bg-blue-700 text-white font-bold text-xs rounded-md shadow-xs inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                    <span>Add Document</span>
+                  </button>
+
                   {pendingDocs.length === 0 && submittedDocs.length > 0 ? (
                     <span className="inline-flex items-center gap-1.5 text-blue-700 bg-blue-50 border border-blue-200 px-3 py-1.5 rounded text-xs font-semibold">
                       <CheckCircle2 className="w-3.5 h-3.5 text-blue-600" />
@@ -1733,203 +1762,251 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
       )}
 
       {/* =========================================================================
-          MODAL 1: ADD SUPPORTING DOCUMENTS (Matches Screenshot 4)
+          RIGHT SLIDE-OVER DRAWER: ADD SUPPORTING EVIDENCE DOCUMENT
          ========================================================================= */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-2xl border border-gray-200 w-full max-w-xl overflow-hidden animate-in fade-in">
-            {/* Modal Header (Matches Screenshot 4) */}
-            <div className="px-5 py-3.5 border-b border-gray-200 flex items-center justify-between">
-              <div>
-                <h3 className="font-bold text-sm text-gray-900">
-                  Add Supporting Documents
-                </h3>
-                <p className="text-xs font-semibold text-gray-600 mt-0.5">
-                  {modalCriterionCode}: Curricular Aspects
-                </p>
-              </div>
-              <button 
+      <Drawer
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        title="Add Supporting Evidence Document"
+        maxWidth="max-w-2xl"
+        footer={
+          <div className="flex items-center justify-between w-full">
+            <span className="text-[11px] text-gray-500">
+              Attached proof will be compiled in department dossier.
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
                 onClick={() => setShowAddModal(false)}
-                className="text-gray-400 hover:text-gray-700 p-1 rounded-lg"
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md font-semibold text-xs hover:bg-gray-50 cursor-pointer transition-colors"
               >
-                <X className="w-5 h-5" />
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveDocument}
+                className="px-4 py-2 bg-[#2563eb] hover:bg-blue-700 text-white rounded-md font-bold text-xs shadow-xs cursor-pointer transition-colors inline-flex items-center gap-1.5"
+              >
+                <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                <span>Save & Attach Document</span>
               </button>
             </div>
+          </div>
+        }
+      >
+        <form onSubmit={handleSaveDocument} className="space-y-4 text-xs">
+          {/* Active Cycle Context Header */}
+          <div className="p-3 bg-blue-50/70 border border-blue-200/80 rounded-lg flex items-center justify-between text-xs">
+            <div>
+              <span className="text-[10px] uppercase font-bold text-blue-700 tracking-wider">Accreditation Cycle</span>
+              <h4 className="font-bold text-gray-900 text-xs mt-0.5">AQAR {selectedYear || '2025-26'}</h4>
+            </div>
+            <div className="text-right">
+              <span className="text-[10px] text-gray-500 uppercase tracking-wider block">Department Program</span>
+              <span className="font-semibold text-gray-800 text-xs">B.Tech Computer Science & Engg</span>
+            </div>
+          </div>
 
-            <form onSubmit={handleSaveDocument} className="p-5 space-y-4 text-xs">
-              <p className="text-[11px] text-gray-500 italic">
-                (Note- Metrics and key indicator are As per Jan 2023 guidelines)
-              </p>
+          {/* Criterion Selector (No Marks) */}
+          <div>
+            <label className="block font-semibold text-gray-700 mb-1.5 text-xs">
+              Criterion
+            </label>
+            <select
+              value={modalCriterionCode}
+              onChange={(e) => {
+                const newCode = e.target.value;
+                setModalCriterionCode(newCode);
+                const kis = KEY_INDICATORS.filter(ki => ki.criterionCode === newCode);
+                if (kis.length > 0) {
+                  setSelectedIndicatorCode(kis[0].code);
+                  if (kis[0].metricCodes[0]) {
+                    setSelectedMetricCode(kis[0].metricCodes[0]);
+                  }
+                }
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:outline-hidden font-medium bg-white cursor-pointer shadow-2xs"
+            >
+              {NAAC_CRITERIA_SUMMARY.map(crit => (
+                <option key={crit.id} value={crit.code}>
+                  {crit.code}: {crit.name}
+                </option>
+              ))}
+            </select>
+          </div>
 
-              {/* Key Indicator & Metric Dropdowns */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-gray-700 mb-1">
-                    Key Indicator *
-                  </label>
-                  <select
-                    value={selectedIndicatorCode}
-                    onChange={(e) => {
-                      setSelectedIndicatorCode(e.target.value);
-                      const ki = KEY_INDICATORS.find(k => k.code === e.target.value);
-                      if (ki && ki.metricCodes[0]) setSelectedMetricCode(ki.metricCodes[0]);
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-blue-500 focus:outline-hidden"
-                  >
-                    {KEY_INDICATORS.filter(ki => ki.criterionCode === modalCriterionCode).map(ki => (
-                      <option key={ki.code} value={ki.code}>
-                        {ki.code} {ki.name}
-                      </option>
-                    ))}
-                  </select>
+          {/* Key Indicator & Metric Selectors */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div>
+              <label className="block font-semibold text-gray-700 mb-1.5 text-xs">
+                Key Indicator
+              </label>
+              <select
+                value={selectedIndicatorCode}
+                onChange={(e) => {
+                  setSelectedIndicatorCode(e.target.value);
+                  const ki = KEY_INDICATORS.find(k => k.code === e.target.value);
+                  if (ki && ki.metricCodes[0]) setSelectedMetricCode(ki.metricCodes[0]);
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:outline-hidden font-medium bg-white cursor-pointer shadow-2xs"
+              >
+                {KEY_INDICATORS.filter(ki => ki.criterionCode === modalCriterionCode).map(ki => (
+                  <option key={ki.code} value={ki.code}>
+                    {ki.code} - {ki.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block font-semibold text-gray-700 mb-1.5 text-xs">
+                Metric Code
+              </label>
+              <select
+                value={selectedMetricCode}
+                onChange={(e) => setSelectedMetricCode(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:outline-hidden font-medium bg-white cursor-pointer shadow-2xs"
+              >
+                {NAAC_METRICS_LIST.filter(m => m.code.startsWith(selectedIndicatorCode)).map(m => (
+                  <option key={m.code} value={m.code}>
+                    Metric {m.code} ({m.metricType}) - {m.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Selected Metric Details Banner */}
+          {(() => {
+            const currentMetric = NAAC_METRICS_LIST.find(m => m.code === selectedMetricCode);
+            if (!currentMetric) return null;
+            return (
+              <div className="p-3 bg-gray-50 border border-gray-200/80 rounded-lg text-xs space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-gray-900">
+                    Metric {currentMetric.code}
+                  </span>
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                    currentMetric.metricType === 'QnM'
+                      ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                      : 'bg-blue-50 text-blue-700 border border-blue-200'
+                  }`}>
+                    {currentMetric.metricType === 'QnM' ? 'Quantitative Metric (QnM)' : 'Qualitative Metric (QlM)'}
+                  </span>
                 </div>
-
-                <div>
-                  <label className="block font-bold text-gray-700 mb-1">
-                    Metric *
-                  </label>
-                  <select
-                    value={selectedMetricCode}
-                    onChange={(e) => setSelectedMetricCode(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-blue-500 focus:outline-hidden"
-                  >
-                    {NAAC_METRICS_LIST.filter(m => m.code.startsWith(selectedIndicatorCode)).map(m => (
-                      <option key={m.code} value={m.code}>
-                        {m.code} - {m.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <p className="text-[11px] text-gray-600 leading-relaxed">
+                  {currentMetric.description}
+                </p>
               </div>
+            );
+          })()}
 
-              {/* Faculty Author Assignment */}
-              <div>
-                <label className="block font-bold text-gray-700 mb-1">
-                  Document Uploaded By (Department Faculty)
-                </label>
-                <select
-                  value={selectedFacultyId}
-                  onChange={(e) => setSelectedFacultyId(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-blue-500 focus:outline-hidden"
-                >
-                  {CSE_DEPARTMENT_FACULTY.map(f => (
-                    <option key={f.id} value={f.id}>
-                      {f.name} — {f.criterionAssigned}
-                    </option>
-                  ))}
-                </select>
-              </div>
+          {/* Evidence File Attachment */}
+          <div className="space-y-2 pt-1">
+            <div className="flex items-center justify-between">
+              <label className="block font-semibold text-gray-700 text-xs">
+                Evidence Document *
+              </label>
 
-              {/* Document Title */}
-              <div>
-                <label className="block font-bold text-gray-700 mb-1">
-                  Document / Proof Title
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Outcome-Based Education (OBE) Course Attainment Matrix 2025-26"
-                  value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-blue-500 focus:outline-hidden"
-                />
-              </div>
-
-              {/* Two Tabs: File Manager vs Add New File (Matches Screenshot 4) */}
-              <div className="pt-2">
-                <div className="flex items-center gap-1 border-b border-gray-200">
-                  <button
-                    type="button"
-                    onClick={() => setActiveFileTab('existing')}
-                    className={`px-3 py-2 font-bold text-[11px] uppercase transition-colors cursor-pointer rounded-t ${
-                      activeFileTab === 'existing'
-                        ? 'bg-[#2563eb] text-white'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
-                  >
-                    + SELECT FILE FROM EXISTING FILE MANAGER
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setActiveFileTab('new')}
-                    className={`px-3 py-2 font-bold text-[11px] uppercase transition-colors cursor-pointer rounded-t ${
-                      activeFileTab === 'new'
-                        ? 'bg-[#2563eb] text-white'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
-                  >
-                    ADD NEW FILE
-                  </button>
-                </div>
-
-                {/* Tab 1: Existing File Manager Table */}
-                {activeFileTab === 'existing' && (
-                  <div className="border border-t-0 border-gray-200 rounded-b p-3 bg-white">
-                    <div className="max-h-40 overflow-y-auto divide-y divide-gray-100 text-xs">
-                      {REPOSITORY_SAMPLE_FILES.map((file) => (
-                        <label 
-                          key={file.id} 
-                          className="flex items-center gap-3 py-2 px-1 hover:bg-gray-50 cursor-pointer rounded"
-                        >
-                          <input
-                            type="radio"
-                            name="selectedRepoFile"
-                            checked={selectedExistingFileName === file.name}
-                            onChange={() => setSelectedExistingFileName(file.name)}
-                            className="rounded text-blue-600 focus:ring-blue-500"
-                          />
-                          <FileText className="w-4 h-4 text-red-500 shrink-0" />
-                          <div className="min-w-0 flex-1">
-                            <span className="block font-medium text-gray-900 truncate">{file.name}</span>
-                            <span className="block text-[10px] text-gray-400">{file.size} • {file.date}</span>
-                          </div>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Tab 2: Add New File */}
-                {activeFileTab === 'new' && (
-                  <div className="border border-t-0 border-gray-200 rounded-b p-4 bg-white space-y-2">
-                    <label className="block text-xs font-semibold text-gray-700">
-                      Upload PDF from Computer
-                    </label>
-                    <input
-                      type="file"
-                      accept=".pdf"
-                      onChange={handleLocalFileUpload}
-                      className="w-full text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
-                    />
-                    {uploadedFileName && (
-                      <p className="text-[11px] text-emerald-700 font-semibold">
-                        Selected: {uploadedFileName}
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Submit Buttons */}
-              <div className="pt-3 border-t border-gray-100 flex items-center justify-end gap-2">
+              {/* Segmented Switch */}
+              <div className="inline-flex rounded-md p-0.5 bg-gray-100 border border-gray-200 text-[11px]">
                 <button
                   type="button"
-                  onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded font-semibold hover:bg-gray-50"
+                  onClick={() => setActiveFileTab('new')}
+                  className={`px-3 py-1 rounded font-medium transition-all cursor-pointer ${
+                    activeFileTab === 'new'
+                      ? 'bg-white text-blue-700 shadow-2xs font-bold'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
                 >
-                  Cancel
+                  Upload File
                 </button>
                 <button
-                  type="submit"
-                  className="px-4 py-2 bg-[#2563eb] text-white rounded font-bold hover:bg-blue-700 shadow-xs"
+                  type="button"
+                  onClick={() => setActiveFileTab('existing')}
+                  className={`px-3 py-1 rounded font-medium transition-all cursor-pointer ${
+                    activeFileTab === 'existing'
+                      ? 'bg-white text-blue-700 shadow-2xs font-bold'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
                 >
-                  Save & Attach Document
+                  From Repository
                 </button>
               </div>
-            </form>
+            </div>
+
+            {/* Tab: Upload File */}
+            {activeFileTab === 'new' && (
+              <div className="space-y-3">
+                <div className="border-2 border-dashed border-gray-300 hover:border-blue-400 rounded-xl p-6 text-center transition-all bg-gray-50/50 hover:bg-blue-50/20">
+                  <input
+                    type="file"
+                    id="evidence-file-input"
+                    accept=".pdf,.docx,.xlsx,.png,.jpg,.jpeg"
+                    onChange={handleLocalFileUpload}
+                    className="hidden"
+                  />
+                  <label htmlFor="evidence-file-input" className="cursor-pointer block">
+                    <div className="w-11 h-11 rounded-full bg-blue-50 border border-blue-200 text-blue-600 mx-auto flex items-center justify-center mb-2.5 shadow-2xs">
+                      <FolderOpen className="w-5 h-5" />
+                    </div>
+                    <span className="text-xs font-bold text-blue-600 hover:underline block">
+                      Choose file or drag & drop here
+                    </span>
+                    <span className="text-[11px] text-gray-500 block mt-1">
+                      PDF, DOCX, XLSX, Geo-tagged photos (up to 25 MB)
+                    </span>
+                  </label>
+                </div>
+
+                {uploadedFileName && (
+                  <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <FileText className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <div className="min-w-0">
+                        <span className="font-semibold text-emerald-950 block truncate">{uploadedFileName}</span>
+                        {uploadedFileSize && (
+                          <span className="text-[10px] text-emerald-700">{uploadedFileSize}</span>
+                        )}
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded border border-emerald-300 shrink-0">
+                      Ready to Attach
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Tab: Select from Repository */}
+            {activeFileTab === 'existing' && (
+              <div className="border border-gray-200 rounded-lg p-2 bg-white max-h-56 overflow-y-auto divide-y divide-gray-100 text-xs">
+                {REPOSITORY_SAMPLE_FILES.map((file) => (
+                  <label 
+                    key={file.id} 
+                    className={`flex items-center gap-3 py-2 px-2.5 hover:bg-gray-50 cursor-pointer rounded-md transition-colors ${
+                      selectedExistingFileName === file.name ? 'bg-blue-50/70 border border-blue-200' : ''
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="selectedRepoFile"
+                      checked={selectedExistingFileName === file.name}
+                      onChange={() => setSelectedExistingFileName(file.name)}
+                      className="rounded text-blue-600 focus:ring-blue-500"
+                    />
+                    <FileText className="w-4 h-4 text-red-500 shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <span className="block font-medium text-gray-900 truncate">{file.name}</span>
+                      <span className="block text-[10px] text-gray-400">{file.size} • {file.date}</span>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            )}
           </div>
-        </div>
-      )}
+        </form>
+      </Drawer>
 
       {/* =========================================================================
           DRAWER: SUBMIT FOR REVIEW (Version 1: Status Hand-off & Intimating Approver)
