@@ -56,6 +56,7 @@ import {
 } from '../../../data/naacDmsData';
 import { openFileInNewTab } from '../../../utils/fileHelper';
 import { Drawer } from '../../common/Drawer';
+import { getStoredAuthUser } from '../../../services/authService';
 
 // NAAC Key Indicator Mapping
 interface KeyIndicatorDef {
@@ -422,7 +423,9 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
   const handleSaveDocument = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const metric = NAAC_METRICS_LIST.find(m => m.code === selectedMetricCode);
-    const faculty = CSE_DEPARTMENT_FACULTY.find(f => f.criterionAssigned.includes(modalCriterionCode)) || CSE_DEPARTMENT_FACULTY[0];
+    const currentUser = getStoredAuthUser();
+    const uploaderName = currentUser?.name || 'Prof. Anita Verma';
+    const uploaderRole = currentUser?.role || 'Program Coordinator (B.Tech CSE)';
     const fallbackPdf = 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf';
 
     let attachedCount = 0;
@@ -449,11 +452,11 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
           fileUrl: file.url || fallbackPdf,
           fileName: file.name,
           fileSize: file.size,
-          uploadedBy: faculty.name,
+          uploadedBy: uploaderName,
           status: 'draft',
-          submittedByFacultyId: faculty.id,
-          facultyName: faculty.name,
-          facultyDesignation: faculty.designation,
+          submittedByFacultyId: 'coord-anita-verma',
+          facultyName: uploaderName,
+          facultyDesignation: uploaderRole,
           coordinatorReviewStatus: 'compiled',
           compiledAt: new Date().toISOString(),
         });
@@ -483,11 +486,11 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
           fileUrl: fallbackPdf,
           fileName: fileName,
           fileSize: repoFile?.size || '2.5 MB',
-          uploadedBy: faculty.name,
+          uploadedBy: uploaderName,
           status: 'draft',
-          submittedByFacultyId: faculty.id,
-          facultyName: faculty.name,
-          facultyDesignation: faculty.designation,
+          submittedByFacultyId: 'coord-anita-verma',
+          facultyName: uploaderName,
+          facultyDesignation: uploaderRole,
           coordinatorReviewStatus: 'compiled',
           compiledAt: new Date().toISOString(),
         });

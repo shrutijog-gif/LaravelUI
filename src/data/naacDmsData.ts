@@ -540,6 +540,15 @@ export const getStoredNaacDocuments = (): NaacEvidenceDocument[] => {
           updated = true;
         }
       });
+      // Ensure coordinator-uploaded documents show Prof. Anita Verma
+      merged.forEach(d => {
+        if (d.fileName?.toLowerCase().includes('trishna-saraf') || (d.id.startsWith('naac-doc-') && d.uploadedBy === 'Prof. Priyanka Deshmukh')) {
+          d.uploadedBy = 'Prof. Anita Verma';
+          d.facultyName = 'Prof. Anita Verma';
+          d.facultyDesignation = 'Program Coordinator (B.Tech CSE)';
+          updated = true;
+        }
+      });
       if (updated) {
         localStorage.setItem(NAAC_STORAGE_KEY, JSON.stringify(merged));
       }
