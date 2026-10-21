@@ -575,7 +575,7 @@ export const addOrUpdateNaacDocument = (doc: Partial<NaacEvidenceDocument>): Naa
     current[existingIdx] = updatedDoc;
   } else {
     updatedDoc = {
-      id: `naac-doc-${Date.now()}`,
+      id: doc.id || `naac-doc-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       title: doc.title || 'Untitled Evidence Document',
       description: doc.description || '',
       schoolId: doc.schoolId || 'sch-tech',

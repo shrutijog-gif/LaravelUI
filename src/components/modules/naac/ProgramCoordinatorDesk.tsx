@@ -249,10 +249,9 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
   const [selectedFacultyId, setSelectedFacultyId] = useState(CSE_DEPARTMENT_FACULTY[0].id);
   const [newTitle, setNewTitle] = useState('');
   const [activeFileTab, setActiveFileTab] = useState<'existing' | 'new'>('new');
-  const [selectedExistingFileName, setSelectedExistingFileName] = useState(REPOSITORY_SAMPLE_FILES[0].name);
-  const [uploadedFileName, setUploadedFileName] = useState('');
-  const [uploadedFileUrl, setUploadedFileUrl] = useState('');
-  const [uploadedFileSize, setUploadedFileSize] = useState('');
+  const [uploadedFiles, setUploadedFiles] = useState<Array<{ id: string; name: string; size: string; url: string }>>([]);
+  const [selectedRepoFiles, setSelectedRepoFiles] = useState<string[]>([REPOSITORY_SAMPLE_FILES[0].name]);
+  const [repoSearchQuery, setRepoSearchQuery] = useState('');
 
   // Sync state with storage
   useEffect(() => {
@@ -365,71 +364,140 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
     showToast('Revision request sent back to faculty member');
   };
 
-  // Handle local file upload
+  // Handle local file upload (supports multiple files)
   const handleLocalFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploadedFileName(file.name);
-    const sizeInMb = (file.size / (1024 * 1024)).toFixed(1);
-    setUploadedFileSize(`${sizeInMb} MB`);
-    const reader = new FileReader();
-    reader.onload = () => {
-      setUploadedFileUrl(reader.result as string);
-    };
-    reader.readAsDataURL(file);
+    const fileList = e.target.files;
+    if (!fileList || fileList.length === 0) return;
+
+    Array.from(fileList).forEach((file) => {
+      const sizeInMb = (file.size / (1024 * 1024)).toFixed(1);
+      const sizeStr = `${sizeInMb} MB`;
+      const fileId = `upload-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+      const reader = new FileReader();
+      reader.onload = () => {
+        setUploadedFiles(prev => [
+          ...prev,
+          {
+            id: fileId,
+            name: file.name,
+            size: sizeStr,
+            url: reader.result as string,
+          }
+        ]);
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = '';
   };
 
-  // Save new supporting document
+  // Remove individual uploaded file
+  const handleRemoveUploadedFile = (id: string) => {
+    setUploadedFiles(prev => prev.filter(f => f.id !== id));
+  };
+
+  // Toggle selection for repository files
+  const toggleRepoFile = (fileName: string) => {
+    setSelectedRepoFiles(prev =>
+      prev.includes(fileName)
+        ? prev.filter(name => name !== fileName)
+        : [...prev, fileName]
+    );
+  };
+
+  // Select / Deselect all filtered repository files
+  const toggleSelectAllRepo = () => {
+    const filtered = REPOSITORY_SAMPLE_FILES.filter(f =>
+      f.name.toLowerCase().includes(repoSearchQuery.toLowerCase())
+    );
+    const allSelected = filtered.length > 0 && filtered.every(f => selectedRepoFiles.includes(f.name));
+    if (allSelected) {
+      setSelectedRepoFiles(prev => prev.filter(name => !filtered.some(f => f.name === name)));
+    } else {
+      const toAdd = filtered.map(f => f.name).filter(name => !selectedRepoFiles.includes(name));
+      setSelectedRepoFiles(prev => [...prev, ...toAdd]);
+    }
+  };
+
+  // Save new supporting document(s)
   const handleSaveDocument = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const metric = NAAC_METRICS_LIST.find(m => m.code === selectedMetricCode);
     const faculty = CSE_DEPARTMENT_FACULTY.find(f => f.criterionAssigned.includes(modalCriterionCode)) || CSE_DEPARTMENT_FACULTY[0];
     const fallbackPdf = 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf';
 
-    const chosenFileName = activeFileTab === 'new' 
-      ? (uploadedFileName || `${selectedMetricCode}_Evidence_Proof.pdf`)
-      : selectedExistingFileName;
+    let attachedCount = 0;
 
-    const finalTitle = activeFileTab === 'new' && uploadedFileName
-      ? uploadedFileName.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ')
-      : `${selectedMetricCode} - ${metric?.name || 'Supporting Evidence'}`;
-
-    const chosenFileSize = activeFileTab === 'new' && uploadedFileSize
-      ? uploadedFileSize
-      : (activeFileTab === 'existing'
-          ? (REPOSITORY_SAMPLE_FILES.find(f => f.name === selectedExistingFileName)?.size || '2.5 MB')
-          : '2.5 MB');
-
-    addOrUpdateNaacDocument({
-      title: finalTitle,
-      programId: 'prog-cse',
-      programName: 'B.Tech Computer Science & Engineering',
-      schoolId: 'sch-tech',
-      schoolName: 'School of Technology & Computer Engineering',
-      academicYear: selectedYear || '2025-2026',
-      criterionId: metric?.criterionId || 'crit-1',
-      criterionCode: modalCriterionCode,
-      metricCode: selectedMetricCode,
-      metricName: metric?.name || 'Supporting Evidence',
-      metricType: metric?.metricType || 'QlM',
-      fileUrl: activeFileTab === 'new' ? (uploadedFileUrl || fallbackPdf) : fallbackPdf,
-      fileName: chosenFileName,
-      fileSize: chosenFileSize,
-      uploadedBy: faculty.name,
-      status: 'draft',
-      submittedByFacultyId: faculty.id,
-      facultyName: faculty.name,
-      facultyDesignation: faculty.designation,
-      coordinatorReviewStatus: 'compiled',
-      compiledAt: new Date().toISOString(),
-    });
+    if (activeFileTab === 'new') {
+      if (uploadedFiles.length === 0) {
+        showToast('Please upload or drag at least one evidence document');
+        return;
+      }
+      uploadedFiles.forEach((file) => {
+        const cleanTitle = file.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ');
+        addOrUpdateNaacDocument({
+          title: cleanTitle || `${selectedMetricCode} - ${metric?.name || 'Supporting Evidence'}`,
+          programId: 'prog-cse',
+          programName: 'B.Tech Computer Science & Engineering',
+          schoolId: 'sch-tech',
+          schoolName: 'School of Technology & Computer Engineering',
+          academicYear: selectedYear || '2025-2026',
+          criterionId: metric?.criterionId || 'crit-1',
+          criterionCode: modalCriterionCode,
+          metricCode: selectedMetricCode,
+          metricName: metric?.name || 'Supporting Evidence',
+          metricType: metric?.metricType || 'QlM',
+          fileUrl: file.url || fallbackPdf,
+          fileName: file.name,
+          fileSize: file.size,
+          uploadedBy: faculty.name,
+          status: 'draft',
+          submittedByFacultyId: faculty.id,
+          facultyName: faculty.name,
+          facultyDesignation: faculty.designation,
+          coordinatorReviewStatus: 'compiled',
+          compiledAt: new Date().toISOString(),
+        });
+        attachedCount++;
+      });
+      setUploadedFiles([]);
+    } else {
+      if (selectedRepoFiles.length === 0) {
+        showToast('Please select at least one document from the repository');
+        return;
+      }
+      selectedRepoFiles.forEach((fileName) => {
+        const repoFile = REPOSITORY_SAMPLE_FILES.find(f => f.name === fileName);
+        const cleanTitle = fileName.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ');
+        addOrUpdateNaacDocument({
+          title: cleanTitle || `${selectedMetricCode} - ${metric?.name || 'Supporting Evidence'}`,
+          programId: 'prog-cse',
+          programName: 'B.Tech Computer Science & Engineering',
+          schoolId: 'sch-tech',
+          schoolName: 'School of Technology & Computer Engineering',
+          academicYear: selectedYear || '2025-2026',
+          criterionId: metric?.criterionId || 'crit-1',
+          criterionCode: modalCriterionCode,
+          metricCode: selectedMetricCode,
+          metricName: metric?.name || 'Supporting Evidence',
+          metricType: metric?.metricType || 'QlM',
+          fileUrl: fallbackPdf,
+          fileName: fileName,
+          fileSize: repoFile?.size || '2.5 MB',
+          uploadedBy: faculty.name,
+          status: 'draft',
+          submittedByFacultyId: faculty.id,
+          facultyName: faculty.name,
+          facultyDesignation: faculty.designation,
+          coordinatorReviewStatus: 'compiled',
+          compiledAt: new Date().toISOString(),
+        });
+        attachedCount++;
+      });
+    }
 
     setNewTitle('');
-    setUploadedFileName('');
-    setUploadedFileUrl('');
-    setUploadedFileSize('');
     setShowAddModal(false);
-    showToast(`Document uploaded successfully for Metric ${selectedMetricCode}`);
+    showToast(`Successfully attached ${attachedCount} document${attachedCount > 1 ? 's' : ''} for Metric ${selectedMetricCode}`);
   };
 
   // Criterion Card Icon helper
@@ -1784,7 +1852,14 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
               className="px-4 py-2 bg-[#2563eb] hover:bg-blue-700 text-white rounded-md font-bold text-xs shadow-xs cursor-pointer transition-colors inline-flex items-center gap-1.5"
             >
               <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-              <span>Save & Attach Document</span>
+              <span>
+                {(() => {
+                  const count = activeFileTab === 'new' ? uploadedFiles.length : selectedRepoFiles.length;
+                  if (count > 1) return `Save & Attach (${count}) Documents`;
+                  if (count === 1) return 'Save & Attach (1) Document';
+                  return 'Save & Attach Document';
+                })()}
+              </span>
             </button>
           </div>
         }
@@ -1896,109 +1971,208 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
             );
           })()}
 
-          {/* Evidence File Attachment */}
-          <div className="space-y-2 pt-1">
+          {/* Evidence File Attachment - Spacious Multiple Document Support */}
+          <div className="space-y-3 pt-1">
             <div className="flex items-center justify-between">
               <label className="block font-semibold text-gray-700 text-xs">
-                Evidence Document *
+                Evidence Documents *
               </label>
 
-              {/* Segmented Switch */}
-              <div className="inline-flex rounded-md p-0.5 bg-gray-100 border border-gray-200 text-[11px]">
+              {/* Segmented Switch with Counts */}
+              <div className="inline-flex rounded-lg p-0.5 bg-gray-100 border border-gray-200 text-[11px]">
                 <button
                   type="button"
                   onClick={() => setActiveFileTab('new')}
-                  className={`px-3 py-1 rounded font-medium transition-all cursor-pointer ${
+                  className={`px-3 py-1 rounded-md font-medium transition-all cursor-pointer ${
                     activeFileTab === 'new'
                       ? 'bg-white text-blue-700 shadow-2xs font-bold'
                       : 'text-gray-600 hover:text-gray-900'
                   }`}
                 >
-                  Upload File
+                  Upload Files {uploadedFiles.length > 0 && `(${uploadedFiles.length})`}
                 </button>
                 <button
                   type="button"
                   onClick={() => setActiveFileTab('existing')}
-                  className={`px-3 py-1 rounded font-medium transition-all cursor-pointer ${
+                  className={`px-3 py-1 rounded-md font-medium transition-all cursor-pointer ${
                     activeFileTab === 'existing'
                       ? 'bg-white text-blue-700 shadow-2xs font-bold'
                       : 'text-gray-600 hover:text-gray-900'
                   }`}
                 >
-                  From Repository
+                  From Repository {selectedRepoFiles.length > 0 && `(${selectedRepoFiles.length})`}
                 </button>
               </div>
             </div>
 
-            {/* Tab: Upload File */}
+            {/* TAB 1: UPLOAD MULTIPLE FILES */}
             {activeFileTab === 'new' && (
               <div className="space-y-3">
-                <div className="border-2 border-dashed border-gray-300 hover:border-blue-400 rounded-xl p-6 text-center transition-all bg-gray-50/50 hover:bg-blue-50/20">
-                  <input
-                    type="file"
-                    id="evidence-file-input"
-                    accept=".pdf,.docx,.xlsx,.png,.jpg,.jpeg"
-                    onChange={handleLocalFileUpload}
-                    className="hidden"
-                  />
-                  <label htmlFor="evidence-file-input" className="cursor-pointer block">
-                    <div className="w-11 h-11 rounded-full bg-blue-50 border border-blue-200 text-blue-600 mx-auto flex items-center justify-center mb-2.5 shadow-2xs">
+                {/* Drag & Drop Upload Zone */}
+                <input
+                  type="file"
+                  id="evidence-file-input"
+                  multiple
+                  accept=".pdf,.docx,.xlsx,.png,.jpg,.jpeg"
+                  onChange={handleLocalFileUpload}
+                  className="hidden"
+                />
+                <label 
+                  htmlFor="evidence-file-input" 
+                  className="cursor-pointer block border-2 border-dashed border-blue-300 hover:border-blue-500 rounded-xl p-4 text-center transition-all bg-blue-50/30 hover:bg-blue-50/60"
+                >
+                  <div className="flex items-center justify-center gap-3.5">
+                    <div className="w-10 h-10 rounded-full bg-blue-100 border border-blue-200 text-blue-600 flex items-center justify-center shrink-0 shadow-2xs">
                       <FolderOpen className="w-5 h-5" />
                     </div>
-                    <span className="text-xs font-bold text-blue-600 hover:underline block">
-                      Choose file or drag & drop here
-                    </span>
-                    <span className="text-[11px] text-gray-500 block mt-1">
-                      PDF, DOCX, XLSX, Geo-tagged photos (up to 25 MB)
-                    </span>
-                  </label>
-                </div>
-
-                {uploadedFileName && (
-                  <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <FileText className="w-4 h-4 text-emerald-600 shrink-0" />
-                      <div className="min-w-0">
-                        <span className="font-semibold text-emerald-950 block truncate">{uploadedFileName}</span>
-                        {uploadedFileSize && (
-                          <span className="text-[10px] text-emerald-700">{uploadedFileSize}</span>
-                        )}
-                      </div>
+                    <div className="text-left">
+                      <span className="text-xs font-bold text-blue-700 hover:underline block">
+                        Choose files or drag & drop multiple documents
+                      </span>
+                      <span className="text-[11px] text-gray-500 block mt-0.5">
+                        PDF, DOCX, XLSX, Geo-tagged photos (Upload multiple, up to 25 MB each)
+                      </span>
                     </div>
-                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded border border-emerald-300 shrink-0">
-                      Ready to Attach
+                  </div>
+                </label>
+
+                {/* Staged Uploaded Documents Queue Area - Generous Height */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between px-1">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-gray-600">
+                      Uploaded Documents List ({uploadedFiles.length})
+                    </span>
+                    {uploadedFiles.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setUploadedFiles([])}
+                        className="text-[11px] text-red-600 hover:text-red-700 font-semibold cursor-pointer"
+                      >
+                        Clear All
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="border border-gray-200 rounded-xl p-2.5 bg-gray-50/70 min-h-[170px] max-h-[280px] overflow-y-auto space-y-2">
+                    {uploadedFiles.length === 0 ? (
+                      <div className="h-full min-h-[140px] flex flex-col items-center justify-center text-center p-4 text-gray-400">
+                        <FileText className="w-8 h-8 text-gray-300 mb-2 stroke-[1.5]" />
+                        <p className="text-xs font-medium text-gray-600">No documents uploaded yet</p>
+                        <p className="text-[11px] text-gray-400 mt-0.5">Files uploaded above will appear here before saving.</p>
+                      </div>
+                    ) : (
+                      uploadedFiles.map((file) => (
+                        <div 
+                          key={file.id} 
+                          className="p-2.5 rounded-lg bg-white border border-gray-200 shadow-2xs flex items-center justify-between text-xs hover:border-blue-200 transition-colors"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <FileText className="w-4 h-4 text-red-500 shrink-0" />
+                            <div className="min-w-0">
+                              <span className="font-semibold text-gray-900 block truncate">{file.name}</span>
+                              <span className="text-[10px] text-gray-400">{file.size}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                              Ready to Attach
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveUploadedFile(file.id)}
+                              className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded cursor-pointer transition-colors"
+                              title="Remove document"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 2: SELECT MULTIPLE FROM REPOSITORY */}
+            {activeFileTab === 'existing' && (() => {
+              const filteredRepoFiles = REPOSITORY_SAMPLE_FILES.filter(f =>
+                f.name.toLowerCase().includes(repoSearchQuery.toLowerCase())
+              );
+              const allFilteredSelected = filteredRepoFiles.length > 0 && filteredRepoFiles.every(f => selectedRepoFiles.includes(f.name));
+
+              return (
+                <div className="space-y-2">
+                  {/* Search & Select All Bar */}
+                  <div className="flex items-center justify-between gap-3 bg-gray-50 p-2.5 rounded-lg border border-gray-200 text-xs">
+                    <label className="flex items-center gap-2 cursor-pointer font-semibold text-gray-700 select-none">
+                      <input
+                        type="checkbox"
+                        checked={allFilteredSelected}
+                        onChange={toggleSelectAllRepo}
+                        className="rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
+                      />
+                      <span>Select All</span>
+                    </label>
+
+                    <div className="relative flex-1 max-w-xs">
+                      <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-2" />
+                      <input
+                        type="text"
+                        placeholder="Search repository documents..."
+                        value={repoSearchQuery}
+                        onChange={(e) => setRepoSearchQuery(e.target.value)}
+                        className="w-full pl-8 pr-3 py-1 bg-white border border-gray-300 rounded text-xs focus:ring-1 focus:ring-blue-500"
+                      />
+                    </div>
+
+                    <span className="text-[11px] font-bold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded border border-blue-200 shrink-0">
+                      {selectedRepoFiles.length} Selected
                     </span>
                   </div>
-                )}
-              </div>
-            )}
 
-            {/* Tab: Select from Repository */}
-            {activeFileTab === 'existing' && (
-              <div className="border border-gray-200 rounded-lg p-2 bg-white max-h-56 overflow-y-auto divide-y divide-gray-100 text-xs">
-                {REPOSITORY_SAMPLE_FILES.map((file) => (
-                  <label 
-                    key={file.id} 
-                    className={`flex items-center gap-3 py-2 px-2.5 hover:bg-gray-50 cursor-pointer rounded-md transition-colors ${
-                      selectedExistingFileName === file.name ? 'bg-blue-50/70 border border-blue-200' : ''
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="selectedRepoFile"
-                      checked={selectedExistingFileName === file.name}
-                      onChange={() => setSelectedExistingFileName(file.name)}
-                      className="rounded text-blue-600 focus:ring-blue-500"
-                    />
-                    <FileText className="w-4 h-4 text-red-500 shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <span className="block font-medium text-gray-900 truncate">{file.name}</span>
-                      <span className="block text-[10px] text-gray-400">{file.size} • {file.date}</span>
-                    </div>
-                  </label>
-                ))}
-              </div>
-            )}
+                  {/* Spacious Scrollable Document List Area */}
+                  <div className="border border-gray-200 rounded-xl p-2 bg-white min-h-[240px] max-h-[340px] overflow-y-auto divide-y divide-gray-100 text-xs">
+                    {filteredRepoFiles.length === 0 ? (
+                      <div className="py-12 text-center text-gray-400">
+                        <FileText className="w-8 h-8 mx-auto text-gray-300 mb-2 stroke-[1.5]" />
+                        <p className="text-xs font-medium text-gray-600">No matching documents found</p>
+                      </div>
+                    ) : (
+                      filteredRepoFiles.map((file) => {
+                        const isChecked = selectedRepoFiles.includes(file.name);
+                        return (
+                          <label 
+                            key={file.id} 
+                            className={`flex items-center gap-3 py-2.5 px-3 hover:bg-gray-50 cursor-pointer rounded-lg transition-colors ${
+                              isChecked ? 'bg-blue-50/70 border border-blue-200' : ''
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              name="selectedRepoFiles"
+                              checked={isChecked}
+                              onChange={() => toggleRepoFile(file.name)}
+                              className="rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
+                            />
+                            <FileText className="w-4 h-4 text-red-500 shrink-0" />
+                            <div className="min-w-0 flex-1">
+                              <span className="block font-medium text-gray-900 truncate">{file.name}</span>
+                              <span className="block text-[10px] text-gray-400">{file.size} • Modified {file.date}</span>
+                            </div>
+                            {isChecked && (
+                              <span className="text-[10px] font-bold text-blue-700 bg-blue-100/70 px-2 py-0.5 rounded border border-blue-300 shrink-0">
+                                Selected
+                              </span>
+                            )}
+                          </label>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </form>
       </Drawer>
