@@ -1356,17 +1356,17 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
                             onClick={() => setSelectedFacultyFilter(isSelected ? null : 'coord-anita-verma')}
                             className={`p-3.5 rounded-lg border text-xs cursor-pointer transition-all flex flex-col justify-between ${
                               isSelected 
-                                ? 'bg-amber-100/90 border-amber-500 shadow-xs ring-2 ring-amber-400' 
-                                : 'bg-amber-50/80 border-amber-200 hover:border-amber-300 hover:bg-amber-100/50 shadow-2xs'
+                                ? 'bg-amber-100 border-amber-500 shadow-xs ring-2 ring-amber-400' 
+                                : 'bg-amber-50/90 border-amber-200 hover:border-amber-300 hover:bg-amber-100/60 shadow-2xs'
                             }`}
                           >
                             <div>
                               {/* Top Coordinator Tag & Badge */}
-                              <div className="flex items-center justify-between pb-2 mb-2 border-b border-amber-200/80">
+                              <div className="flex items-center justify-between pb-2 mb-2 border-b border-amber-200">
                                 <span className="text-[11px] font-bold text-amber-800 tracking-wide uppercase">
                                   COORDINATOR
                                 </span>
-                                <span className="text-[10px] font-bold text-amber-900 bg-amber-100/80 px-1.5 py-0.5 rounded border border-amber-300 shadow-2xs">
+                                <span className="text-[10px] font-bold text-amber-900 bg-amber-200/70 px-1.5 py-0.5 rounded border border-amber-300 shadow-2xs">
                                   Lead Role
                                 </span>
                               </div>
@@ -1378,14 +1378,14 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
 
                               {/* Coordinator Profile (Anita Verma) */}
                               <div className="flex items-center gap-2 mt-2.5">
-                                <div className="w-7 h-7 rounded-full bg-[#0f2748] text-white flex items-center justify-center font-bold text-[10px] shrink-0 shadow-2xs">
+                                <div className="w-7 h-7 rounded-full bg-amber-600 text-white flex items-center justify-center font-bold text-[10px] shrink-0 shadow-2xs">
                                   AV
                                 </div>
                                 <div className="min-w-0 flex-1">
                                   <p className="font-bold text-gray-900 text-[11px] truncate">
                                     Prof. Anita Verma
                                   </p>
-                                  <p className="text-[10px] text-amber-800/80 font-medium truncate">
+                                  <p className="text-[10px] text-amber-800 font-medium truncate">
                                     Program Coordinator
                                   </p>
                                 </div>
@@ -1393,7 +1393,7 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
                             </div>
 
                             {/* Proofs Status & Quick Upload Action */}
-                            <div className="mt-3 pt-2.5 border-t border-amber-200/80 flex items-center justify-between text-[11px] gap-2">
+                            <div className="mt-3 pt-2.5 border-t border-amber-200 flex items-center justify-between text-[11px] gap-2">
                               {anitaDocs.length > 0 ? (
                                 <span className="inline-flex items-center gap-1 font-bold text-emerald-800 bg-white/95 border border-emerald-300 px-2 py-0.5 rounded text-[11px] shadow-2xs">
                                   <Check className="w-3 h-3 stroke-[3]" />
@@ -1411,7 +1411,7 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
                                   e.stopPropagation();
                                   setShowAddModal(true);
                                 }}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#0f2748] hover:bg-slate-800 text-white rounded font-bold text-[10px] cursor-pointer transition-colors shrink-0 shadow-2xs"
+                                className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded font-bold text-[10px] cursor-pointer transition-colors shrink-0 shadow-2xs"
                                 title="Upload document as Program Coordinator"
                               >
                                 <Plus className="w-3 h-3 stroke-[2.5]" />
