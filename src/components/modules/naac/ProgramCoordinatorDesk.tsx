@@ -1356,36 +1356,36 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
                             onClick={() => setSelectedFacultyFilter(isSelected ? null : 'coord-anita-verma')}
                             className={`p-3.5 rounded-lg border text-xs cursor-pointer transition-all flex flex-col justify-between ${
                               isSelected 
-                                ? 'bg-indigo-100 border-indigo-500 shadow-xs ring-2 ring-indigo-400' 
-                                : 'bg-indigo-100/70 border-indigo-300 hover:border-indigo-400 hover:bg-indigo-100/90 shadow-2xs'
+                                ? 'bg-[#0f2748] text-white border-amber-400 shadow-md ring-2 ring-amber-400 ring-offset-1 ring-offset-white' 
+                                : 'bg-[#0f2748] text-white border-[#1e3a5f] hover:border-slate-400 shadow-xs'
                             }`}
                           >
                             <div>
                               {/* Top Coordinator Tag & Badge */}
-                              <div className="flex items-center justify-between pb-2 mb-2 border-b border-indigo-200">
-                                <span className="text-[11px] font-bold text-indigo-800 tracking-wide uppercase">
+                              <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/15">
+                                <span className="text-[11px] font-bold text-amber-400 tracking-wide uppercase">
                                   COORDINATOR
                                 </span>
-                                <span className="text-[10px] font-bold text-indigo-900 bg-white/90 px-1.5 py-0.5 rounded border border-indigo-300 shadow-2xs">
+                                <span className="text-[10px] font-bold text-amber-300 bg-amber-400/15 px-1.5 py-0.5 rounded border border-amber-400/30 shadow-2xs">
                                   Lead Role
                                 </span>
                               </div>
 
                               {/* Title (No word dossier) */}
-                              <h4 className="font-bold text-gray-900 text-xs leading-snug line-clamp-2 min-h-[32px]">
+                              <h4 className="font-bold text-white text-xs leading-snug line-clamp-2 min-h-[32px]">
                                 Department AQAR Coordination
                               </h4>
 
                               {/* Coordinator Profile (Anita Verma) */}
                               <div className="flex items-center gap-2 mt-2.5">
-                                <div className="w-7 h-7 rounded-full bg-indigo-950 text-white flex items-center justify-center font-bold text-[10px] shrink-0 shadow-2xs">
+                                <div className="w-7 h-7 rounded-full bg-white text-[#0f2748] flex items-center justify-center font-extrabold text-[10px] shrink-0 shadow-2xs">
                                   AV
                                 </div>
                                 <div className="min-w-0 flex-1">
-                                  <p className="font-bold text-gray-900 text-[11px] truncate">
+                                  <p className="font-bold text-white text-[11px] truncate">
                                     Prof. Anita Verma
                                   </p>
-                                  <p className="text-[10px] text-indigo-900/80 font-medium truncate">
+                                  <p className="text-[10px] text-slate-300 font-medium truncate">
                                     Program Coordinator
                                   </p>
                                 </div>
@@ -1393,14 +1393,14 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
                             </div>
 
                             {/* Proofs Status & Quick Upload Action */}
-                            <div className="mt-3 pt-2.5 border-t border-indigo-200 flex items-center justify-between text-[11px] gap-2">
+                            <div className="mt-3 pt-2.5 border-t border-white/15 flex items-center justify-between text-[11px] gap-2">
                               {anitaDocs.length > 0 ? (
-                                <span className="inline-flex items-center gap-1 font-bold text-emerald-800 bg-white/95 border border-emerald-300 px-2 py-0.5 rounded text-[11px] shadow-2xs">
+                                <span className="inline-flex items-center gap-1 font-bold text-emerald-300 bg-emerald-950/60 border border-emerald-500/40 px-2 py-0.5 rounded text-[11px]">
                                   <Check className="w-3 h-3 stroke-[3]" />
                                   <span>{anitaDocs.length} {anitaDocs.length === 1 ? 'proof' : 'proofs'} uploaded</span>
                                 </span>
                               ) : (
-                                <span className="text-amber-800 bg-white/95 border border-amber-300 font-bold px-2 py-0.5 rounded text-[10px] shadow-2xs">
+                                <span className="text-amber-300 bg-amber-950/60 border border-amber-500/40 font-semibold px-2 py-0.5 rounded text-[10px]">
                                   0 proofs uploaded
                                 </span>
                               )}
@@ -1411,7 +1411,7 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
                                   e.stopPropagation();
                                   setShowAddModal(true);
                                 }}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-700 hover:bg-indigo-800 text-white rounded font-bold text-[10px] cursor-pointer transition-colors shrink-0 shadow-2xs"
+                                className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-400 hover:bg-amber-300 text-slate-950 rounded font-bold text-[10px] cursor-pointer transition-colors shrink-0 shadow-xs"
                                 title="Upload document as Program Coordinator"
                               >
                                 <Plus className="w-3 h-3 stroke-[2.5]" />
