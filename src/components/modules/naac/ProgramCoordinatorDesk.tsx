@@ -136,15 +136,14 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
   const [selectedCriterionCode, setSelectedCriterionCode] = useState<string | null>(null);
   const [openIndicatorAccordion, setOpenIndicatorAccordion] = useState<string | null>(null);
   
-  // Desk tab: Criteria vs Team roster
-  const [activeDeskTab, setActiveDeskTab] = useState<'criteria' | 'team'>(
-    initialTab === 'compiled' || initialTab === 'team' ? 'team' : 'criteria'
-  );
+  // Desk tab: Criteria cards vs Document list
+  const [activeDeskTab, setActiveDeskTab] = useState<'criteria' | 'team'>('criteria');
   // View Toggle: 'cards' (Screenshot 2) vs 'table' (Compact Document List Table)
   const [criteriaViewMode, setCriteriaViewMode] = useState<'cards' | 'table'>('cards');
   const [tableCriterionFilter, setTableCriterionFilter] = useState<string>('all');
   const [tableSearchQuery, setTableSearchQuery] = useState<string>('');
   const [selectedFacultyFilter, setSelectedFacultyFilter] = useState<string | null>(null);
+  const [showCompactCards, setShowCompactCards] = useState<boolean>(true);
   
   // 3-Level Hierarchy Collapsible State: Criteria > Key Indicator > Metric
   const [collapsedCriteria, setCollapsedCriteria] = useState<Record<string, boolean>>({
@@ -878,127 +877,218 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
                 </div>
               </div>
 
-              {/* Department Desk Navigation Tabs & View Mode Toggle */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-200 pb-2">
-                {/* View Toggle: Cards vs Compact Table */}
-                <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-lg">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActiveDeskTab('criteria');
-                      setCriteriaViewMode('cards');
-                    }}
-                    className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-                      activeDeskTab === 'criteria' && criteriaViewMode === 'cards'
-                        ? 'bg-white text-gray-900 shadow-xs'
-                        : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    <LayoutGrid className="w-3.5 h-3.5" />
-                    <span>Criteria Cards</span>
-                  </button>
+              {/* Department Desk Navigation Tabs: Cards vs Document List */}
+              {/* COMPACT 8-CARD EXECUTIVE KPI & FILTER STRIP */}
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-bold text-gray-700 uppercase tracking-wide">
+                      NAAC Criteria & Department Leads (8 Cards)
+                    </span>
+                    
+                    {/* Hide / Show Cards Toggle Button */}
+                    <button
+                      type="button"
+                      onClick={() => setShowCompactCards(prev => !prev)}
+                      className="text-[11px] font-semibold text-gray-600 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 border border-gray-200 px-2 py-0.5 rounded cursor-pointer transition-colors inline-flex items-center gap-1 shadow-2xs"
+                      title={showCompactCards ? "Collapse summary cards to give more space for document list" : "Show 8 summary cards"}
+                    >
+                      {showCompactCards ? (
+                        <>
+                          <ChevronUp className="w-3 h-3 stroke-[2.5]" />
+                          <span>Hide Cards</span>
+                        </>
+                      ) : (
+                        <>
+                          <ChevronDown className="w-3 h-3 stroke-[2.5]" />
+                          <span>Show Cards ({tableCriterionFilter !== 'all' ? '1 Filtered' : '8'})</span>
+                        </>
+                      )}
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActiveDeskTab('criteria');
-                      setCriteriaViewMode('table');
-                    }}
-                    className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-                      activeDeskTab === 'criteria' && criteriaViewMode === 'table'
-                        ? 'bg-white text-blue-700 shadow-xs font-bold'
-                        : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    <TableIcon className="w-3.5 h-3.5" />
-                    <span>Document List</span>
-                  </button>
+                    {tableCriterionFilter !== 'all' && (
+                      <span className="text-[10px] text-blue-700 font-semibold bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                        <span>Filtered: {tableCriterionFilter === 'coordinator' ? 'Coordinator (Prof. Anita Verma)' : tableCriterionFilter}</span>
+                        <button
+                          type="button"
+                          onClick={() => setTableCriterionFilter('all')}
+                          className="hover:text-blue-900 cursor-pointer font-bold ml-0.5"
+                          title="Clear filter"
+                        >
+                          ✕
+                        </button>
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    {skipReminderPreview && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          localStorage.removeItem('naac_skip_reminder_preview');
+                          setSkipReminderPreview(false);
+                          showToast('Reminder preview re-enabled');
+                        }}
+                        className="text-[11px] text-blue-600 hover:text-blue-800 underline cursor-pointer font-medium"
+                      >
+                        Re-enable reminder preview
+                      </button>
+                    )}
+                    {showCompactCards && (
+                      <span className="text-[11px] text-gray-400">
+                        Click any card to filter document list
+                      </span>
+                    )}
+                  </div>
                 </div>
 
-                {/* Team Contributions Tab */}
-                <button
-                  type="button"
-                  onClick={() => setActiveDeskTab(activeDeskTab === 'team' ? 'criteria' : 'team')}
-                  className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 border transition-all cursor-pointer ${
-                    activeDeskTab === 'team'
-                      ? 'bg-blue-50 border-blue-300 text-blue-700 font-bold'
-                      : 'bg-white border-gray-200 text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  <Users className="w-3.5 h-3.5" />
-                  <span>Team Contributions (7 Criteria)</span>
-                </button>
-              </div>
+                {showCompactCards && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                    {/* CARD 1: PROF. ANITA VERMA (PROGRAM COORDINATOR) */}
+                    {(() => {
+                      const anitaDocs = deptDocs.filter(d => 
+                        d.uploadedBy?.toLowerCase().includes('anita') || 
+                        d.facultyName?.toLowerCase().includes('anita') || 
+                        d.submittedByFacultyId === 'coord-anita-verma'
+                      );
+                      const isSelected = tableCriterionFilter === 'coordinator';
 
-              {/* VIEW 1: 7 CRITERIA CARDS GRID (Matches Screenshot 2) */}
-              {activeDeskTab === 'criteria' && criteriaViewMode === 'cards' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {NAAC_CRITERIA_SUMMARY.map((crit) => {
-                    const critDocs = deptDocs.filter(d => d.criterionCode === crit.code || d.criterionId === crit.id);
-                    const assignedFaculty = CSE_DEPARTMENT_FACULTY.find(f => f.criterionAssigned.includes(crit.code));
-                    const facultyLead = assignedFaculty ? assignedFaculty.name : 'Prof. Anita Verma';
-
-                    return (
-                      <div 
-                        key={crit.id}
-                        className="bg-white rounded-lg border border-gray-200 p-5 shadow-xs flex items-center justify-between gap-4 hover:border-blue-400 transition-all"
-                      >
-                        <div className="flex items-center gap-4 min-w-0">
-                          {/* Icon Box */}
-                          <div className="w-14 h-14 rounded-lg bg-gray-50 border border-gray-200 flex items-center justify-center shrink-0">
-                            {getCriterionIcon(crit.code)}
+                      return (
+                        <div
+                          onClick={() => setTableCriterionFilter(isSelected ? 'all' : 'coordinator')}
+                          className={`p-2.5 rounded-lg border text-xs cursor-pointer transition-all flex flex-col justify-between ${
+                            isSelected
+                              ? 'bg-amber-100 border-amber-500 ring-2 ring-amber-400 shadow-xs'
+                              : 'bg-amber-50/90 border-amber-200 hover:border-amber-400 hover:bg-amber-100/50 shadow-2xs'
+                          }`}
+                          title="Click to filter Document List to Coordinator proofs"
+                        >
+                          {/* Row 1: Coordinator Tag + Proofs Badge */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] font-bold text-amber-800 tracking-wide uppercase">
+                                COORDINATOR
+                              </span>
+                              <span className="text-[9px] font-bold text-amber-900 bg-amber-200/70 px-1 py-0.2 rounded border border-amber-300">
+                                Lead
+                              </span>
+                            </div>
+                            <span className="text-[10px] font-bold text-emerald-800 bg-white/95 border border-emerald-300 px-1.5 py-0.5 rounded shadow-2xs">
+                              {anitaDocs.length} proofs
+                            </span>
                           </div>
 
-                          {/* Title & Metadata */}
-                          <div className="min-w-0">
-                            <span className="block text-[11px] font-bold text-gray-500 uppercase">
-                              {crit.code}:
-                            </span>
-                            <h3 className="text-sm font-bold text-gray-900 leading-snug truncate">
-                              {crit.name}
-                            </h3>
-                            <p className="text-xs text-gray-600 mt-1">
-                              Documents Added: <strong className="text-gray-900 font-bold">{critDocs.length}</strong>
-                            </p>
-                            <p className="text-[11px] text-gray-400 mt-0.5 truncate">
-                              Lead: {facultyLead}
-                            </p>
+                          {/* Bottom Row: Avatar + Name + Upload Button */}
+                          <div className="flex items-center justify-between mt-1 pt-1.5 border-t border-amber-200/80">
+                            <div className="flex items-center gap-1.5 min-w-0" title="Prof. Anita Verma - Program Coordinator">
+                              <div className="w-5 h-5 rounded-full bg-amber-600 text-white flex items-center justify-center font-bold text-[9px] shrink-0">
+                                AV
+                              </div>
+                              <p className="font-medium text-gray-600 text-[11px] truncate">
+                                Prof. Anita Verma
+                              </p>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setShowAddModal(true);
+                              }}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-600 hover:bg-amber-700 text-white rounded font-bold text-[10px] cursor-pointer transition-colors shrink-0 shadow-2xs"
+                              title="Upload proof as Program Coordinator"
+                            >
+                              <Plus className="w-2.5 h-2.5 stroke-[2.5]" />
+                              <span>Upload</span>
+                            </button>
                           </div>
                         </div>
+                      );
+                    })()}
 
-                        {/* Actions: Yellow Bordered Bell Reminder + Start Adding Documents */}
-                        <div className="flex items-center gap-2 shrink-0">
-                          {assignedFaculty && (
+                    {/* CARDS 2 TO 8: CRITERIA 1 TO 7 */}
+                    {NAAC_CRITERIA_SUMMARY.map((crit) => {
+                      const assignedFaculty = CSE_DEPARTMENT_FACULTY.find(f => f.criterionAssigned.includes(crit.code)) || CSE_DEPARTMENT_FACULTY[0];
+                      const critDocs = deptDocs.filter(d => d.criterionCode === crit.code || d.criterionId === crit.id);
+                      const isSelected = tableCriterionFilter === crit.code;
+
+                      return (
+                        <div
+                          key={crit.id}
+                          onClick={() => setTableCriterionFilter(isSelected ? 'all' : crit.code)}
+                          className={`p-2.5 rounded-lg border text-xs cursor-pointer transition-all flex flex-col justify-between ${
+                            isSelected
+                              ? 'bg-blue-50/90 border-blue-500 ring-2 ring-blue-400 shadow-xs'
+                              : 'bg-white border-gray-200 hover:border-blue-400 hover:shadow-xs shadow-2xs'
+                          }`}
+                          title={`Click to filter Document List to ${crit.code}: ${crit.name}`}
+                        >
+                          {/* Row 1: Criterion Code + Weightage + Proofs Badge */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] font-bold text-blue-700 uppercase">
+                                {crit.code}
+                              </span>
+                              <span className="text-[9px] font-semibold text-gray-500 bg-gray-100 px-1 py-0.2 rounded">
+                                {crit.weightage}m
+                              </span>
+                            </div>
+                            {critDocs.length > 0 ? (
+                              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
+                                {critDocs.length} proofs
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 font-semibold px-1.5 py-0.5 rounded">
+                                0 proofs
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Bottom Row: Faculty Avatar + Name + Reminder Bell */}
+                          <div className="flex items-center justify-between mt-1 pt-1.5 border-t border-gray-100">
+                            <div className="flex items-center gap-1.5 min-w-0" title={`${crit.name} (${assignedFaculty.name})`}>
+                              <div className="w-5 h-5 rounded-full bg-[#0f2748] text-white flex items-center justify-center font-bold text-[9px] shrink-0">
+                                {assignedFaculty.avatarInitials}
+                              </div>
+                              <p className="font-medium text-gray-500 text-[11px] truncate">
+                                {assignedFaculty.name}
+                              </p>
+                            </div>
+
                             <button
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleInitiateReminder(assignedFaculty);
                               }}
-                              className="p-1.5 text-amber-500 hover:text-amber-600 hover:bg-amber-50 rounded cursor-pointer transition-colors shrink-0"
+                              className="p-1 text-amber-500 hover:text-amber-600 hover:bg-amber-50 rounded cursor-pointer transition-colors shrink-0"
                               title={`Send reminder to ${assignedFaculty.name}`}
                             >
-                              <Bell className="w-4 h-4" />
+                              <Bell className="w-3 h-3" />
                             </button>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => setSelectedCriterionCode(crit.code)}
-                            className="px-3.5 py-1.5 border border-[#2563eb] text-[#2563eb] hover:bg-blue-50 font-bold text-xs rounded shadow-2xs shrink-0 cursor-pointer transition-colors"
-                          >
-                            Start Adding Documents
-                          </button>
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
 
-              {/* VIEW 2: 3-TIER HIERARCHICAL TABLE (Criteria > Key Indicator > Metric) */}
-              {activeDeskTab === 'criteria' && criteriaViewMode === 'table' && (() => {
+              {/* 3-TIER HIERARCHICAL DOCUMENT LIST TABLE (Directly below compact cards) */}
+              {(() => {
+                const isCoordinatorFilter = tableCriterionFilter === 'coordinator';
+                const anitaDocs = deptDocs.filter(d => 
+                  d.uploadedBy?.toLowerCase().includes('anita') || 
+                  d.facultyName?.toLowerCase().includes('anita') || 
+                  d.submittedByFacultyId === 'coord-anita-verma'
+                );
+
                 // Filter criteria, indicators, and metrics
                 const filteredCriteria = NAAC_CRITERIA_SUMMARY.filter(crit => {
+                  if (isCoordinatorFilter) {
+                    return anitaDocs.some(d => d.criterionCode === crit.code || d.criterionId === crit.id);
+                  }
                   if (tableCriterionFilter !== 'all' && crit.code !== tableCriterionFilter) return false;
                   if (tableSearchQuery.trim()) {
                     const q = tableSearchQuery.toLowerCase();
@@ -1025,6 +1115,7 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
                           className="px-2.5 py-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-blue-500 bg-white cursor-pointer"
                         >
                           <option value="all">All Criteria (1–7)</option>
+                          <option value="coordinator">Coordinator: Prof. Anita Verma</option>
                           {NAAC_CRITERIA_SUMMARY.map(c => (
                             <option key={c.id} value={c.code}>{c.code}: {c.name}</option>
                           ))}
@@ -1183,7 +1274,19 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
 
                                           {/* LEVEL 3: METRIC ROWS (Rows in the SAME table matching 6 columns) */}
                                           {!isKiCollapsed && kiMetrics.map((metric) => {
-                                            const metricDocs = deptDocs.filter(d => d.metricCode === metric.code);
+                                            const metricDocs = deptDocs.filter(d => {
+                                              if (d.metricCode !== metric.code) return false;
+                                              if (isCoordinatorFilter) {
+                                                return (
+                                                  d.uploadedBy?.toLowerCase().includes('anita') || 
+                                                  d.facultyName?.toLowerCase().includes('anita') || 
+                                                  d.submittedByFacultyId === 'coord-anita-verma'
+                                                );
+                                              }
+                                              return true;
+                                            });
+
+                                            if (isCoordinatorFilter && metricDocs.length === 0) return null;
 
                                             if (metricDocs.length === 0) {
                                               return (
@@ -1675,6 +1778,190 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
               LEVEL 3: KEY INDICATORS ACCORDION FOR SELECTED CRITERION (Matches Screenshot 3)
              --------------------------------------------------------------------- */}
           {selectedYear && selectedCriterionCode && (() => {
+            if (selectedCriterionCode === 'coordinator') {
+              const anitaDocs = deptDocs.filter(d => 
+                d.uploadedBy?.toLowerCase().includes('anita') || 
+                d.facultyName?.toLowerCase().includes('anita') || 
+                d.submittedByFacultyId === 'coord-anita-verma'
+              );
+
+              return (
+                <div className="space-y-5 animate-in fade-in">
+                  {/* Header & Breadcrumbs */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-200 pb-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded bg-[#2563eb] text-white flex items-center justify-center shadow-xs">
+                        <Home className="w-4 h-4" />
+                      </div>
+                      <h1 className="text-sm sm:text-base font-bold text-gray-800">
+                        AQAR Supporting Documents for {selectedYear}
+                      </h1>
+                    </div>
+
+                    {/* Breadcrumb Navigation */}
+                    <div className="text-xs text-blue-600 font-medium flex items-center gap-1.5">
+                      <button 
+                        onClick={() => { setSelectedYear(null); setSelectedCriterionCode(null); }} 
+                        className="hover:underline cursor-pointer"
+                      >
+                        AQAR
+                      </button>
+                      <span className="text-gray-400">/</span>
+                      <button 
+                        onClick={() => setSelectedCriterionCode(null)} 
+                        className="hover:underline cursor-pointer"
+                      >
+                        NAAC Criteria
+                      </button>
+                      <span className="text-gray-400">/</span>
+                      <span className="text-amber-800 font-bold">Department AQAR Coordination</span>
+                    </div>
+                  </div>
+
+                  {/* Coordinator Banner Bar */}
+                  <div className="bg-amber-50/90 border border-amber-200 rounded-lg p-4 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-amber-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
+                        AV
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h2 className="text-sm font-bold text-gray-900">
+                            Department AQAR Coordination
+                          </h2>
+                          <span className="text-[10px] font-bold text-amber-900 bg-amber-200/80 px-2 py-0.5 rounded border border-amber-300">
+                            Program Coordinator
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-600 mt-0.5">
+                          Prof. Anita Verma • <strong className="text-amber-900">{anitaDocs.length} Proofs & Transmittals Attached</strong>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedCriterionCode(null)}
+                        className="px-3 py-1.5 border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 font-semibold text-xs rounded shadow-xs cursor-pointer transition-colors"
+                      >
+                        ← Back to Criteria Cards
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setModalCriterionCode('Criterion 1');
+                          setSelectedIndicatorCode('1.1');
+                          setSelectedMetricCode('1.1.1');
+                          setShowAddModal(true);
+                        }}
+                        className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded shadow-xs inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+                      >
+                        <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                        <span>Upload Coordinator Document</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Coordinator Uploaded Proofs Table */}
+                  <div className="bg-white rounded-lg border border-gray-200 shadow-xs overflow-hidden">
+                    <div className="p-3.5 border-b border-gray-200 bg-gray-50/60 flex items-center justify-between">
+                      <div>
+                        <h3 className="text-xs font-bold text-gray-800 uppercase tracking-wide">
+                          Coordinator Uploaded Documents & Evidences
+                        </h3>
+                        <p className="text-[11px] text-gray-500">
+                          Department-level files, transmittals, and proofs uploaded by Prof. Anita Verma
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-gray-100/70 text-gray-700 uppercase font-semibold text-[10px] border-b border-gray-200">
+                          <tr>
+                            <th className="py-2.5 px-4">Metric & Title</th>
+                            <th className="py-2.5 px-4">Criterion</th>
+                            <th className="py-2.5 px-4">File & Size</th>
+                            <th className="py-2.5 px-4">Uploaded Date</th>
+                            <th className="py-2.5 px-4">Status</th>
+                            <th className="py-2.5 px-4 text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200 text-gray-800">
+                          {anitaDocs.length > 0 ? (
+                            anitaDocs.map((doc) => (
+                              <tr key={doc.id} className="hover:bg-amber-50/30 transition-colors">
+                                <td className="py-3 px-4">
+                                  <span className="inline-block text-[10px] font-bold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded border border-amber-300 mb-1">
+                                    Metric {doc.metricCode} ({doc.metricType})
+                                  </span>
+                                  <h4 className="font-bold text-gray-900 leading-snug">
+                                    {doc.title}
+                                  </h4>
+                                </td>
+                                <td className="py-3 px-4 whitespace-nowrap text-gray-600 font-medium">
+                                  {doc.criterionCode}
+                                </td>
+                                <td className="py-3 px-4 whitespace-nowrap">
+                                  <button
+                                    type="button"
+                                    onClick={() => openFileInNewTab(doc.fileUrl)}
+                                    className="text-blue-600 hover:underline font-semibold inline-flex items-center gap-1 cursor-pointer"
+                                  >
+                                    <FileText className="w-3.5 h-3.5 text-red-500" />
+                                    <span className="truncate max-w-[150px]">{doc.fileName}</span>
+                                  </button>
+                                  <span className="block text-[10px] text-gray-400 mt-0.5">
+                                    {doc.fileSize || '2.4 MB'}
+                                  </span>
+                                </td>
+                                <td className="py-3 px-4 whitespace-nowrap text-gray-500">
+                                  {formatDocDate(doc.createdAt)}
+                                </td>
+                                <td className="py-3 px-4 whitespace-nowrap">
+                                  <span className="inline-flex items-center gap-1 font-bold text-emerald-800 bg-emerald-50 border border-emerald-300 px-2 py-0.5 rounded text-[11px]">
+                                    <Check className="w-3 h-3 stroke-[3]" />
+                                    <span>Ready</span>
+                                  </span>
+                                </td>
+                                <td className="py-3 px-4 text-right whitespace-nowrap">
+                                  <div className="inline-flex items-center gap-2 justify-end">
+                                    <button
+                                      type="button"
+                                      onClick={() => openFileInNewTab(doc.fileUrl)}
+                                      className="p-1 text-gray-500 hover:text-blue-600 rounded cursor-pointer"
+                                      title="View PDF"
+                                    >
+                                      <ExternalLink className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteDocument(doc.id, doc.title)}
+                                      className="p-1 text-gray-400 hover:text-red-600 rounded cursor-pointer"
+                                      title="Delete Document"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan={6} className="py-8 text-center text-gray-400">
+                                No documents uploaded by Prof. Anita Verma yet. Click "+ Upload Coordinator Document" above to attach department proofs.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+
             const critSummary = NAAC_CRITERIA_SUMMARY.find(c => c.code === selectedCriterionCode) || NAAC_CRITERIA_SUMMARY[0];
             const assignedFaculty = CSE_DEPARTMENT_FACULTY.find(f => f.criterionAssigned.includes(critSummary.code));
             const indicatorsForCrit = KEY_INDICATORS.filter(ki => ki.criterionCode === critSummary.code);
