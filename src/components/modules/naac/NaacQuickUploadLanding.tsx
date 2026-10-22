@@ -76,7 +76,7 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
   const [selectedCriterionCode, setSelectedCriterionCode] = useState<string>('Criterion 6');
   const [selectedKeyIndicatorCode, setSelectedKeyIndicatorCode] = useState<string>('6.5');
   const [selectedMetricCode, setSelectedMetricCode] = useState<string>('6.5.1');
-  const [isChangeTargetOpen, setIsChangeTargetOpen] = useState<boolean>(false);
+  const [isChangeOpen, setIsChangeOpen] = useState<boolean>(false);
 
   // Filter key indicators and metrics based on selected criterion
   const availableKeyIndicators = KEY_INDICATORS.filter(
@@ -358,6 +358,7 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
     setDocumentTitle('');
     setDocumentDescription('');
     setAiSuggestion(null);
+    setIsChangeOpen(false);
     setIsSubmitting(false);
   };
 
@@ -467,7 +468,7 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
                 : 'border-gray-300 hover:border-blue-400 focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-100/60'
             }`}
           >
-            {/* When a file is uploaded: no search, show auto suggestions, change button, confirm & drop */}
+            {/* When a file is uploaded: no search, show file chip, target route, and confirm & drop */}
             {uploadedFile ? (
               <div className="flex-1 flex flex-col md:flex-row items-center justify-between gap-3 min-w-0 text-left w-full">
                 {/* Left: Attached File Chip */}
@@ -533,13 +534,17 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setIsChangeTargetOpen(true);
+                      setIsChangeOpen(!isChangeOpen);
                     }}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-gray-700 bg-gray-50 hover:bg-gray-100 border border-gray-300 hover:border-gray-400 shadow-2xs transition-all cursor-pointer"
-                    title="Change target Criterion, Key Indicator, or Metric"
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+                      isChangeOpen
+                        ? 'bg-blue-100 text-blue-800 border border-blue-300 ring-2 ring-blue-100'
+                        : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300 shadow-2xs'
+                    }`}
+                    title="Manually select Criterion, Key Indicator, or Metric"
                   >
                     <SlidersHorizontal className="w-3.5 h-3.5 text-gray-600" />
-                    <span>Change</span>
+                    <span>{isChangeOpen ? 'Hide' : 'Change'}</span>
                   </button>
 
                   <button
@@ -549,7 +554,7 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
                       handleConfirmAndDrop();
                     }}
                     disabled={isSubmitting}
-                    className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold text-white bg-[#0f2748] hover:bg-[#183963] active:scale-[0.98] shadow-sm hover:shadow transition-all cursor-pointer disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold text-white bg-[#0f2748] hover:bg-[#183963] active:scale-[0.98] shadow-sm hover:shadow transition-all cursor-pointer disabled:opacity-50"
                     title="Confirm destination and ingest evidence into repository"
                   >
                     <Check className="w-4 h-4 text-emerald-400 stroke-[2.5]" />
@@ -577,6 +582,86 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
               </div>
             )}
           </div>
+
+          {/* Horizontal Side-by-Side Selectboxes - Appears ONLY when user clicks Change */}
+          {isChangeOpen && (
+            <div className="w-full max-w-4xl mx-auto bg-white/95 backdrop-blur-xs border border-blue-200 rounded-2xl p-3.5 sm:p-4 shadow-md text-left transition-all animate-in fade-in slide-in-from-top-2">
+              <div className="flex items-center justify-between mb-2.5 px-0.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-bold text-gray-700 uppercase tracking-wider">
+                    Manual Classification
+                  </span>
+                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
+                    Select target destination
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsChangeOpen(false)}
+                  className="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 cursor-pointer"
+                  title="Close manual selection"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {/* 1. Criterion Select Box */}
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                    1. Criterion
+                  </label>
+                  <select
+                    value={selectedCriterionCode}
+                    onChange={(e) => handleCriterionChange(e.target.value)}
+                    className="w-full text-xs font-semibold px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-hidden bg-white text-gray-800 shadow-2xs hover:border-blue-400 transition-colors cursor-pointer"
+                  >
+                    {NAAC_CRITERIA_SUMMARY.map((c) => (
+                      <option key={c.code} value={c.code}>
+                        {c.code}: {c.name.substring(0, 30)}...
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* 2. Key Indicator Select Box */}
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                    2. Key Indicator
+                  </label>
+                  <select
+                    value={selectedKeyIndicatorCode}
+                    onChange={(e) => handleKeyIndicatorChange(e.target.value)}
+                    className="w-full text-xs font-semibold px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-hidden bg-white text-gray-800 shadow-2xs hover:border-blue-400 transition-colors cursor-pointer"
+                  >
+                    {availableKeyIndicators.map((ki) => (
+                      <option key={ki.code} value={ki.code}>
+                        KI {ki.code}: {ki.name.substring(0, 32)}...
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* 3. Metric Select Box */}
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                    3. Metric
+                  </label>
+                  <select
+                    value={selectedMetricCode}
+                    onChange={(e) => setSelectedMetricCode(e.target.value)}
+                    className="w-full text-xs font-semibold px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-hidden bg-white text-gray-800 shadow-2xs hover:border-blue-400 transition-colors cursor-pointer"
+                  >
+                    {availableMetrics.map((m) => (
+                      <option key={m.code} value={m.code}>
+                        {m.code} ({m.metricType}) - {m.name.substring(0, 28)}...
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Simple Clean Guidelines & Repository Quick Actions */}
           <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
@@ -612,122 +697,6 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
           </button>
         </div>
       </div>
-
-      {/* Change Target Destination Modal */}
-      {isChangeTargetOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
-          <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 max-w-lg w-full overflow-hidden animate-in zoom-in-95 text-left">
-            <div className="p-4 sm:p-5 border-b border-gray-100 flex items-center justify-between bg-slate-50">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center">
-                  <SlidersHorizontal className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-gray-900">Change NAAC Target Destination</h3>
-                  <p className="text-[11px] text-gray-500">Configure target Criterion, Key Indicator, and Metric</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsChangeTargetOpen(false)}
-                className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="p-5 space-y-4">
-              {uploadedFile && (
-                <div className="bg-blue-50/70 border border-blue-200/80 rounded-xl p-3 flex items-center gap-2.5 text-xs text-blue-900">
-                  <FileCheck2 className="w-4 h-4 text-blue-600 shrink-0" />
-                  <span className="font-semibold truncate">{uploadedFile.name}</span>
-                  <span className="text-[11px] text-blue-500 font-normal shrink-0">({uploadedFile.size})</span>
-                </div>
-              )}
-
-              {/* Criterion Selector */}
-              <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1.5">
-                  1. Target Criterion
-                </label>
-                <select
-                  value={selectedCriterionCode}
-                  onChange={(e) => handleCriterionChange(e.target.value)}
-                  className="w-full text-xs px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-hidden bg-white font-medium text-gray-800"
-                >
-                  {NAAC_CRITERIA_SUMMARY.map((c) => (
-                    <option key={c.code} value={c.code}>
-                      {c.code}: {c.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Key Indicator Selector */}
-              <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1.5">
-                  2. Key Indicator
-                </label>
-                <select
-                  value={selectedKeyIndicatorCode}
-                  onChange={(e) => handleKeyIndicatorChange(e.target.value)}
-                  className="w-full text-xs px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-hidden bg-white font-medium text-gray-800"
-                >
-                  {availableKeyIndicators.map((ki) => (
-                    <option key={ki.code} value={ki.code}>
-                      KI {ki.code}: {ki.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Specific Metric Selector */}
-              <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1.5">
-                  3. Specific Metric
-                </label>
-                <select
-                  value={selectedMetricCode}
-                  onChange={(e) => setSelectedMetricCode(e.target.value)}
-                  className="w-full text-xs px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-hidden bg-white font-medium text-gray-800"
-                >
-                  {availableMetrics.map((m) => (
-                    <option key={m.code} value={m.code}>
-                      {m.code} ({m.metricType}) - {m.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="p-4 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
-              <span className="text-[11px] text-gray-500 font-medium">
-                {selectedCriterionCode} › KI {selectedKeyIndicatorCode} › Metric {selectedMetricCode}
-              </span>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsChangeTargetOpen(false)}
-                  className="px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-200 rounded-lg cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsChangeTargetOpen(false);
-                    setSuccessToast(`Destination updated to ${selectedCriterionCode} › KI ${selectedKeyIndicatorCode} › Metric ${selectedMetricCode}`);
-                    setTimeout(() => setSuccessToast(null), 3000);
-                  }}
-                  className="px-4 py-1.5 bg-[#0f2748] hover:bg-[#183963] text-white text-xs font-bold rounded-lg shadow-xs cursor-pointer transition-colors"
-                >
-                  Apply Destination
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Criteria Guidelines Modal */}
       {isGuidelinesOpen && (
