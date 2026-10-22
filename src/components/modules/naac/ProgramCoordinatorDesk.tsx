@@ -57,6 +57,7 @@ import {
 import { openFileInNewTab } from '../../../utils/fileHelper';
 import { Drawer } from '../../common/Drawer';
 import { getStoredAuthUser } from '../../../services/authService';
+import { NaacQuickUploadLanding } from './NaacQuickUploadLanding';
 
 // NAAC Key Indicator Mapping
 interface KeyIndicatorDef {
@@ -136,6 +137,9 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
   const [selectedCriterionCode, setSelectedCriterionCode] = useState<string | null>(null);
   const [openIndicatorAccordion, setOpenIndicatorAccordion] = useState<string | null>(null);
   
+  // Top-level Desk Mode: 'quick-upload' (Google-style upload landing) vs 'repository' (Document List & Criteria Cards)
+  const [deskMode, setDeskMode] = useState<'quick-upload' | 'repository'>('quick-upload');
+
   // Desk tab: Criteria cards vs Document list
   const [activeDeskTab, setActiveDeskTab] = useState<'criteria' | 'team'>('criteria');
   // View Toggle: 'cards' (Screenshot 2) vs 'table' (Compact Document List Table)
@@ -652,11 +656,27 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
          ========================================================================= */}
       {activeSection === 'aqar' && (
         <>
-          {/* ---------------------------------------------------------------------
-              LEVEL 1: AQAR YEAR MASTER TABLE (Matches Screenshot 1 Exactly)
-             --------------------------------------------------------------------- */}
-          {!selectedYear && (
-            <div className="space-y-6 animate-in fade-in">
+          {deskMode === 'quick-upload' ? (
+            <NaacQuickUploadLanding
+              academicYear={selectedYear || '2025-26'}
+              onNavigateToDocumentList={(critCode, metricCode) => {
+                setDeskMode('repository');
+                if (critCode) {
+                  setTableCriterionFilter(critCode);
+                  setCollapsedCriteria(prev => ({ ...prev, [critCode]: false }));
+                }
+                if (metricCode) {
+                  showToast(`Opened Document List filtered for Metric ${metricCode}`);
+                }
+              }}
+            />
+          ) : (
+            <>
+              {/* ---------------------------------------------------------------------
+                  LEVEL 1: AQAR YEAR MASTER TABLE (Matches Screenshot 1 Exactly)
+                 --------------------------------------------------------------------- */}
+              {!selectedYear && (
+                <div className="space-y-6 animate-in fade-in">
               {/* Blue House Header & Initiate AQAR Button (Matches Screenshot 1) */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-200 pb-3">
                 <div className="flex items-center gap-2.5">
@@ -668,14 +688,26 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
                   </h1>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => setShowInitiateModal(true)}
-                  className="px-4 py-2 bg-[#2563eb] hover:bg-blue-700 text-white font-semibold text-xs rounded shadow-xs inline-flex items-center gap-1.5 cursor-pointer transition-colors"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Initiate AQAR</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setDeskMode('quick-upload')}
+                    className="px-3.5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs rounded shadow-xs inline-flex items-center gap-1.5 cursor-pointer transition-all"
+                    title="Switch to Google-like Quick Proof Drop"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Quick Proof Drop</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowInitiateModal(true)}
+                    className="px-4 py-2 bg-[#2563eb] hover:bg-blue-700 text-white font-semibold text-xs rounded shadow-xs inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Initiate AQAR</span>
+                  </button>
+                </div>
               </div>
 
               {/* Master AQAR Table (Matches Screenshot 1) */}
@@ -816,7 +848,17 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
                 </div>
 
                 {/* Breadcrumb & Action */}
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setDeskMode('quick-upload')}
+                    className="px-3 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs rounded-md shadow-xs inline-flex items-center gap-1.5 cursor-pointer transition-all"
+                    title="Switch to Google-like Quick Proof Drop"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Quick Proof Drop</span>
+                  </button>
+
                   <button
                     type="button"
                     onClick={() => {
@@ -2148,6 +2190,8 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
               </div>
             );
           })()}
+            </>
+          )}
         </>
       )}
 

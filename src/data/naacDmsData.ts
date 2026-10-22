@@ -227,6 +227,42 @@ export const NAAC_CRITERIA_SUMMARY: NaacCriterionSummary[] = [
   { id: 'crit-7', code: 'Criterion 7', name: 'Institutional Values and Best Practices', weightage: 100 },
 ];
 
+export interface KeyIndicatorDef {
+  code: string;
+  name: string;
+  criterionCode: string;
+  metricCodes: string[];
+}
+
+export const KEY_INDICATORS: KeyIndicatorDef[] = [
+  // Criterion 1
+  { code: '1.1', name: 'Curricular Planning and Implementation', criterionCode: 'Criterion 1', metricCodes: ['1.1.1'] },
+  { code: '1.2', name: 'Academic Flexibility', criterionCode: 'Criterion 1', metricCodes: ['1.2.1'] },
+  { code: '1.3', name: 'Curriculum Enrichment', criterionCode: 'Criterion 1', metricCodes: ['1.3.1'] },
+  { code: '1.4', name: 'Feedback System', criterionCode: 'Criterion 1', metricCodes: ['1.4.1'] },
+  // Criterion 2
+  { code: '2.1', name: 'Student Enrolment and Profile', criterionCode: 'Criterion 2', metricCodes: ['2.1.1'] },
+  { code: '2.3', name: 'Teaching-Learning Process & Experiential Methods', criterionCode: 'Criterion 2', metricCodes: ['2.3.1'] },
+  { code: '2.4', name: 'Teacher Profile and Quality Credentials', criterionCode: 'Criterion 2', metricCodes: ['2.4.1'] },
+  { code: '2.6', name: 'Student Performance and Learning Outcomes (PO/CO)', criterionCode: 'Criterion 2', metricCodes: ['2.6.1'] },
+  // Criterion 3
+  { code: '3.1', name: 'Resource Mobilization for Research & Grants', criterionCode: 'Criterion 3', metricCodes: ['3.1.1'] },
+  { code: '3.2', name: 'Innovation Ecosystem & Incubation Center', criterionCode: 'Criterion 3', metricCodes: ['3.2.1'] },
+  { code: '3.4', name: 'Extension Activities & Social Responsibility', criterionCode: 'Criterion 3', metricCodes: ['3.4.1'] },
+  { code: '3.5', name: 'Collaboration, Linkages & Corporate MoUs', criterionCode: 'Criterion 3', metricCodes: ['3.5.1'] },
+  // Criterion 4
+  { code: '4.1', name: 'Physical Facilities (ICT Classrooms & Labs)', criterionCode: 'Criterion 4', metricCodes: ['4.1.1'] },
+  { code: '4.2', name: 'Library as a Learning Resource & E-Subscriptions', criterionCode: 'Criterion 4', metricCodes: ['4.2.1'] },
+  // Criterion 5
+  { code: '5.1', name: 'Student Support & Freeships', criterionCode: 'Criterion 5', metricCodes: ['5.1.1'] },
+  { code: '5.3', name: 'Student Participation & Awards', criterionCode: 'Criterion 5', metricCodes: ['5.3.1'] },
+  // Criterion 6
+  { code: '6.5', name: 'Internal Quality Assurance System (IQAC)', criterionCode: 'Criterion 6', metricCodes: ['6.5.1'] },
+  // Criterion 7
+  { code: '7.1', name: 'Institutional Values & Gender Equity', criterionCode: 'Criterion 7', metricCodes: ['7.1.1'] },
+  { code: '7.2', name: 'Institutional Best Practices', criterionCode: 'Criterion 7', metricCodes: ['7.2.1'] },
+];
+
 export const NAAC_METRICS_LIST: NaacMetric[] = [
   { code: '1.1.1', name: 'Curriculum Planning & Delivery Implementation System', criterionId: 'crit-1', criterionCode: 'Criterion 1', metricType: 'QlM', description: 'Academic council minutes, lesson plans, course handouts, and timetable alignment.' },
   { code: '1.2.1', name: 'Academic Flexibility & Choice-Based Credit System (CBCS) Courses', criterionId: 'crit-1', criterionCode: 'Criterion 1', metricType: 'QnM', description: 'List of elective and interdisciplinary courses offered across programs.' },
