@@ -102,7 +102,6 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
 
   const isDocSubmitted = (doc: NaacEvidenceDocument) =>
     doc.status === 'submitted_to_school' ||
-    doc.status === 'submitted' ||
     doc.status === 'approved_by_school' ||
     doc.status === 'university_verified';
 
@@ -1521,7 +1520,6 @@ Respond in JSON ONLY:
                                   const isChecked = selectedDocIds.includes(doc.id);
                                   const isSubmitted =
                                     doc.status === 'submitted_to_school' ||
-                                    doc.status === 'submitted' ||
                                     doc.status === 'approved_by_school' ||
                                     doc.status === 'university_verified';
 

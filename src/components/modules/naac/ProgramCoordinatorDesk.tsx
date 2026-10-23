@@ -1760,7 +1760,7 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
                                   </span>
                                 </td>
                                 <td className="py-3 px-4 whitespace-nowrap text-gray-500">
-                                  {formatDocDate(doc.createdAt)}
+                                  {formatDocDate(doc.uploadedAt)}
                                 </td>
                                 <td className="py-3 px-4 whitespace-nowrap">
                                   <span className="inline-flex items-center gap-1 font-bold text-emerald-800 bg-emerald-50 border border-emerald-300 px-2 py-0.5 rounded text-[11px]">
