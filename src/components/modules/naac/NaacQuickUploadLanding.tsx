@@ -10,20 +10,22 @@ import {
   ExternalLink, 
   Trash2, 
   Eye, 
+  EyeOff,
+  KeyRound,
   Search, 
   Clock, 
   ShieldCheck, 
   Check, 
   Layers, 
-  Calendar,
-  X,
-  FileCheck2,
-  HardDrive,
-  ChevronRight,
-  Plus,
-  SlidersHorizontal,
-  Mic,
-  Camera
+  Calendar, 
+  X, 
+  FileCheck2, 
+  HardDrive, 
+  ChevronRight, 
+  Plus, 
+  SlidersHorizontal, 
+  Mic, 
+  Camera 
 } from 'lucide-react';
 import { 
   NAAC_CRITERIA_SUMMARY, 
@@ -77,6 +79,12 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
   const [selectedKeyIndicatorCode, setSelectedKeyIndicatorCode] = useState<string>('6.5');
   const [selectedMetricCode, setSelectedMetricCode] = useState<string>('6.5.1');
   const [isChangeOpen, setIsChangeOpen] = useState<boolean>(false);
+
+  // OpenAI Integration State (Default OFF per user requirement)
+  const [useAi, setUseAi] = useState<boolean>(false);
+  const [openaiKey, setOpenaiKey] = useState<string>(() => localStorage.getItem('openai_api_key') || '');
+  const [showOpenaiKey, setShowOpenaiKey] = useState<boolean>(false);
+  const [isAiProcessing, setIsAiProcessing] = useState<boolean>(false);
 
   // Filter key indicators and metrics based on selected criterion
   const availableKeyIndicators = KEY_INDICATORS.filter(
@@ -183,6 +191,68 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
 
   const [aiSuggestion, setAiSuggestion] = useState<{ crit: string; keyIndicator: string; metric: string; reason: string } | null>(null);
 
+  // Deep AI Classification via OpenAI
+  const classifyWithOpenAi = async (filename: string, key: string) => {
+    try {
+      setIsAiProcessing(true);
+      const prompt = `You are a NAAC (National Assessment and Accreditation Council) accreditation expert.
+Classify this uploaded academic evidence file: "${filename}" into the single most appropriate NAAC AQAR Criterion, Key Indicator, and Metric.
+
+Valid Criteria options:
+- Criterion 1: Curricular Aspects (KI: 1.1, 1.2, 1.3, 1.4; Metrics: 1.1.1, 1.2.1, 1.3.1, 1.4.1)
+- Criterion 2: Teaching-Learning and Evaluation (KI: 2.1, 2.3, 2.4, 2.6; Metrics: 2.1.1, 2.3.1, 2.4.1, 2.6.1)
+- Criterion 3: Research, Innovations and Extension (KI: 3.1, 3.2, 3.4, 3.5; Metrics: 3.1.1, 3.2.1, 3.4.1, 3.5.1)
+- Criterion 4: Infrastructure and Learning Resources (KI: 4.1, 4.2; Metrics: 4.1.1, 4.2.1)
+- Criterion 5: Student Support and Progression (KI: 5.1, 5.3; Metrics: 5.1.1, 5.3.1)
+- Criterion 6: Governance, Leadership and Management (KI: 6.5; Metric: 6.5.1)
+- Criterion 7: Institutional Values and Best Practices (KI: 7.1, 7.2; Metrics: 7.1.1, 7.2.1)
+
+Respond in JSON ONLY:
+{
+  "crit": "Criterion X",
+  "keyIndicator": "X.Y",
+  "metric": "X.Y.Z",
+  "reason": "short explanation"
+}`;
+
+      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${key.trim()}`,
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.1,
+          response_format: { type: 'json_object' },
+        }),
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        const parsed = JSON.parse(json.choices[0].message.content);
+        if (parsed.crit && parsed.keyIndicator && parsed.metric) {
+          setSelectedCriterionCode(parsed.crit);
+          setSelectedKeyIndicatorCode(parsed.keyIndicator);
+          setSelectedMetricCode(parsed.metric);
+          setAiSuggestion({
+            crit: parsed.crit,
+            keyIndicator: parsed.keyIndicator,
+            metric: parsed.metric,
+            reason: parsed.reason || 'OpenAI Analysis',
+          });
+          setSuccessToast(`✨ OpenAI analyzed & classified into ${parsed.crit} › KI ${parsed.keyIndicator} › Metric ${parsed.metric}`);
+          setTimeout(() => setSuccessToast(null), 4000);
+        }
+      }
+    } catch (err) {
+      console.warn('OpenAI classification error, fallback remains active:', err);
+    } finally {
+      setIsAiProcessing(false);
+    }
+  };
+
   // File drop / select handler
   const processFile = (file: File) => {
     const sizeStr = file.size > 1024 * 1024 
@@ -202,12 +272,17 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
       const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
       setDocumentTitle(cleanName);
 
-      // Auto-populate suggestions
+      // Auto-populate suggestions (Fast rule-based first)
       const suggestion = getAiSuggestion(file.name);
       setSelectedCriterionCode(suggestion.crit);
       setSelectedKeyIndicatorCode(suggestion.keyIndicator);
       setSelectedMetricCode(suggestion.metric);
       setAiSuggestion(suggestion);
+
+      // Deep AI Classification with OpenAI if enabled and key provided
+      if (useAi && openaiKey.trim()) {
+        classifyWithOpenAi(file.name, openaiKey.trim());
+      }
     };
     reader.readAsDataURL(file);
   };
@@ -435,9 +510,9 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
       {/* Center Google-Style Uncluttered Experience */}
       <div className="flex flex-col items-center justify-center min-h-[64vh] max-w-5xl w-full mx-auto px-4 text-center">
         {/* Bold Heading */}
-        <div className="mb-8">
-          <h1 className="text-5xl sm:text-6xl font-black tracking-tight text-[#0f2748] select-none">
-            NAAC Proof
+        <div className="mb-5">
+          <h1 className="text-5xl sm:text-5xl font-black tracking-tight text-[#0f2748]  ">
+            Drop NAAC Evidence  
           </h1>
         </div>
 
@@ -555,10 +630,10 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
                     }}
                     disabled={isSubmitting}
                     className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold text-white bg-[#0f2748] hover:bg-[#183963] active:scale-[0.98] shadow-sm hover:shadow transition-all cursor-pointer disabled:opacity-50"
-                    title="Confirm destination and ingest evidence into repository"
+                    title="Confirm destination and drop document into repository"
                   >
                     <Check className="w-4 h-4 text-emerald-400 stroke-[2.5]" />
-                    <span>Confirm & Drop</span>
+                    <span>Confirm</span>
                   </button>
                 </div>
               </div>
@@ -660,42 +735,110 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
                   </select>
                 </div>
               </div>
+
+              {/* Panel Footer with Confirm Button */}
+              <div className="mt-3.5 pt-3 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-2.5">
+                <div className="text-xs text-gray-600 font-medium truncate">
+                  <span className="text-gray-400">Selected Route: </span>
+                  <span className="font-bold text-[#0f2748]">{selectedCriterionCode}</span>
+                  <span className="text-gray-400 mx-1">›</span>
+                  <span className="font-semibold text-gray-800">KI {selectedKeyIndicatorCode}</span>
+                  <span className="text-gray-400 mx-1">›</span>
+                  <span className="font-semibold text-blue-700">Metric {selectedMetricCode}</span>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setIsChangeOpen(false)}
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-600 hover:text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleConfirmAndDrop();
+                    }}
+                    disabled={isSubmitting}
+                    className="px-4 py-1.5 rounded-lg text-xs font-bold text-white bg-[#0f2748] hover:bg-[#183963] active:scale-[0.98] shadow-xs hover:shadow transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    title="Confirm destination and drop document into repository"
+                  >
+                    <Check className="w-3.5 h-3.5 text-emerald-400 stroke-[2.5]" />
+                    <span>Confirm</span>
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 
-          {/* Simple Clean Guidelines & Repository Quick Actions */}
-          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-            <button
-              type="button"
-              onClick={() => setIsGuidelinesOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200 transition-colors cursor-pointer"
-            >
-              <FileText className="w-3.5 h-3.5 text-purple-600" />
-              <span>Criteria Guidelines</span>
-            </button>
+          {/* AI Mode Options Row (Checkbox default off + OpenAI Key Input) */}
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-3">
+            <div className="inline-flex flex-wrap items-center justify-center gap-3 bg-white/90 border border-gray-200/90 rounded-2xl px-4 py-2 shadow-xs transition-all">
+              {/* Checkbox (Default OFF) */}
+              <label htmlFor="use-ai-checkbox" className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  id="use-ai-checkbox"
+                  type="checkbox"
+                  checked={useAi}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setUseAi(checked);
+                    if (checked && !openaiKey.trim()) {
+                      setSuccessToast('OpenAI mode enabled. Enter your OpenAI API key to run deep classification.');
+                      setTimeout(() => setSuccessToast(null), 3500);
+                    }
+                  }}
+                  className="w-4 h-4 rounded text-blue-600 border-gray-300 focus:ring-blue-500 cursor-pointer accent-[#0f2748]"
+                />
+                <span className="text-xs font-semibold text-gray-700 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Use AI for Evidence Parsing & Auto-Classification</span>
+                </span>
+              </label>
 
-            <button
-              type="button"
-              onClick={() => onNavigateToDocumentList()}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200 transition-colors cursor-pointer"
-            >
-              <FolderOpen className="w-3.5 h-3.5 text-blue-600" />
-              <span>Master Repository ({documents.length} proofs)</span>
-            </button>
+              {/* OpenAI Key Input */}
+              <div className="flex items-center gap-2 pl-1 border-t sm:border-t-0 sm:border-l border-gray-200 pt-2 sm:pt-0">
+                <div className="relative flex items-center">
+                  <KeyRound className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 pointer-events-none" />
+                  <input
+                    type={showOpenaiKey ? 'text' : 'password'}
+                    value={openaiKey}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setOpenaiKey(val);
+                      localStorage.setItem('openai_api_key', val);
+                    }}
+                    placeholder="OpenAI Key (sk-...)"
+                    className="text-xs pl-8 pr-7 py-1 bg-gray-50 hover:bg-white focus:bg-white border border-gray-300 focus:border-blue-500 rounded-lg outline-hidden font-mono w-[180px] sm:w-[210px] transition-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowOpenaiKey(!showOpenaiKey)}
+                    className="absolute right-2 text-gray-400 hover:text-gray-600 cursor-pointer"
+                    title={showOpenaiKey ? 'Hide key' : 'Show key'}
+                  >
+                    {showOpenaiKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+
+                {openaiKey.trim() && (
+                  <span className="text-[10px] text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded font-bold">
+                    Key Saved
+                  </span>
+                )}
+                {isAiProcessing && (
+                  <span className="text-[10px] text-blue-600 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded font-semibold animate-pulse">
+                    Analyzing...
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
         </form>
 
-        {/* Google-Style Subtle Footer Link */}
-        <div className="pt-8 text-xs text-gray-500">
-          <span>NAAC Evidence DMS: Program Coordinator (Prof. Anita Verma) • </span>
-          <button
-            type="button"
-            onClick={() => onNavigateToDocumentList()}
-            className="text-blue-600 hover:underline font-semibold cursor-pointer"
-          >
-            Open Full Repository ({documents.length} proofs) &rarr;
-          </button>
-        </div>
+        
       </div>
 
       {/* Criteria Guidelines Modal */}
