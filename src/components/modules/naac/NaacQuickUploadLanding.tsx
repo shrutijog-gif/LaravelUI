@@ -25,7 +25,10 @@ import {
   Plus, 
   SlidersHorizontal, 
   Mic, 
-  Camera 
+  Camera,
+  ChevronDown,
+  Lightbulb,
+  Info
 } from 'lucide-react';
 import { 
   NAAC_CRITERIA_SUMMARY, 
@@ -79,6 +82,7 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
   const [selectedKeyIndicatorCode, setSelectedKeyIndicatorCode] = useState<string>('6.5');
   const [selectedMetricCode, setSelectedMetricCode] = useState<string>('6.5.1');
   const [isChangeOpen, setIsChangeOpen] = useState<boolean>(false);
+  const [isAiBoxOpen, setIsAiBoxOpen] = useState<boolean>(false);
 
   // OpenAI Integration State (Default OFF per user requirement)
   const [useAi, setUseAi] = useState<boolean>(false);
@@ -86,7 +90,11 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
   const [showOpenaiKey, setShowOpenaiKey] = useState<boolean>(false);
   const [isAiProcessing, setIsAiProcessing] = useState<boolean>(false);
 
-  // Filter key indicators and metrics based on selected criterion
+  // Filter criteria, key indicators, and metrics based on selected criterion
+  const currentCriterion = NAAC_CRITERIA_SUMMARY.find(
+    (c) => c.code.toLowerCase() === selectedCriterionCode.toLowerCase()
+  ) || NAAC_CRITERIA_SUMMARY[0];
+
   const availableKeyIndicators = KEY_INDICATORS.filter(
     (ki) => ki.criterionCode.toLowerCase() === selectedCriterionCode.toLowerCase()
   );
@@ -127,69 +135,195 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
   };
 
   // Smart AI Metric Suggestion based on file name
-  const getAiSuggestion = (filename: string): { crit: string; keyIndicator: string; metric: string; reason: string } => {
+  const getAiSuggestion = (filename: string): { crit: string; keyIndicator: string; metric: string; reason: string; source: 'rule-engine' } => {
     const lower = filename.toLowerCase();
     if (lower.includes('syllabus') || lower.includes('curriculum') || lower.includes('lesson') || lower.includes('timetable')) {
-      return { crit: 'Criterion 1', keyIndicator: '1.1', metric: '1.1.1', reason: 'Curricular Planning & Implementation' };
+      return { 
+        crit: 'Criterion 1', 
+        keyIndicator: '1.1', 
+        metric: '1.1.1', 
+        reason: 'Detected curriculum design & syllabus planning terminology. Mapped to Criterion 1 (Curricular Aspects) under KI 1.1 Curricular Planning and Delivery.',
+        source: 'rule-engine' 
+      };
     }
     if (lower.includes('elective') || lower.includes('cbcs')) {
-      return { crit: 'Criterion 1', keyIndicator: '1.2', metric: '1.2.1', reason: 'CBCS Academic Flexibility' };
+      return { 
+        crit: 'Criterion 1', 
+        keyIndicator: '1.2', 
+        metric: '1.2.1', 
+        reason: 'Detected elective course / CBCS academic flexibility terms. Mapped to Criterion 1 under KI 1.2 Academic Flexibility.',
+        source: 'rule-engine' 
+      };
     }
     if (lower.includes('enrichment') || lower.includes('value added')) {
-      return { crit: 'Criterion 1', keyIndicator: '1.3', metric: '1.3.1', reason: 'Curriculum Enrichment' };
+      return { 
+        crit: 'Criterion 1', 
+        keyIndicator: '1.3', 
+        metric: '1.3.1', 
+        reason: 'Detected value-added and curriculum enrichment course content. Mapped to Criterion 1 under KI 1.3 Curriculum Enrichment.',
+        source: 'rule-engine' 
+      };
     }
     if (lower.includes('feedback') || lower.includes('atr') || lower.includes('stakeholder')) {
-      return { crit: 'Criterion 1', keyIndicator: '1.4', metric: '1.4.1', reason: 'Feedback System & ATR' };
+      return { 
+        crit: 'Criterion 1', 
+        keyIndicator: '1.4', 
+        metric: '1.4.1', 
+        reason: 'Detected stakeholder feedback and Action Taken Report (ATR) documentation. Mapped to Criterion 1 under KI 1.4 Feedback System.',
+        source: 'rule-engine' 
+      };
     }
     if (lower.includes('enroll') || lower.includes('admission') || lower.includes('student') || lower.includes('intake')) {
-      return { crit: 'Criterion 2', keyIndicator: '2.1', metric: '2.1.1', reason: 'Student Enrolment Profile' };
+      return { 
+        crit: 'Criterion 2', 
+        keyIndicator: '2.1', 
+        metric: '2.1.1', 
+        reason: 'Detected student admissions, sanctioned intake, and enrolment records. Mapped to Criterion 2 (Teaching-Learning & Evaluation) under KI 2.1 Student Enrolment.',
+        source: 'rule-engine' 
+      };
     }
     if (lower.includes('experiential') || lower.includes('visit') || lower.includes('project') || lower.includes('lab manual')) {
-      return { crit: 'Criterion 2', keyIndicator: '2.3', metric: '2.3.1', reason: 'Student-Centric Experiential Methods' };
+      return { 
+        crit: 'Criterion 2', 
+        keyIndicator: '2.3', 
+        metric: '2.3.1', 
+        reason: 'Detected student-centric experiential learning, industrial visits, or laboratory projects. Mapped to Criterion 2 under KI 2.3 Teaching-Learning Process.',
+        source: 'rule-engine' 
+      };
     }
     if (lower.includes('phd') || lower.includes('faculty') || lower.includes('teacher') || lower.includes('credentials')) {
-      return { crit: 'Criterion 2', keyIndicator: '2.4', metric: '2.4.1', reason: 'Teacher Profile & Credentials' };
+      return { 
+        crit: 'Criterion 2', 
+        keyIndicator: '2.4', 
+        metric: '2.4.1', 
+        reason: 'Detected faculty credentials, Ph.D. degrees, and full-time teacher qualifications. Mapped to Criterion 2 under KI 2.4 Teacher Profile and Quality.',
+        source: 'rule-engine' 
+      };
     }
     if (lower.includes('outcome') || lower.includes('po') || lower.includes('co') || lower.includes('attainment')) {
-      return { crit: 'Criterion 2', keyIndicator: '2.6', metric: '2.6.1', reason: 'PO/CO Learning Outcomes' };
+      return { 
+        crit: 'Criterion 2', 
+        keyIndicator: '2.6', 
+        metric: '2.6.1', 
+        reason: 'Detected Program Outcomes (POs) and Course Outcomes (COs) attainment mapping. Mapped to Criterion 2 under KI 2.6 Student Performance & Learning Outcomes.',
+        source: 'rule-engine' 
+      };
     }
     if (lower.includes('grant') || lower.includes('research') || lower.includes('fund') || lower.includes('seed')) {
-      return { crit: 'Criterion 3', keyIndicator: '3.1', metric: '3.1.1', reason: 'Resource Mobilization for Research & Grants' };
+      return { 
+        crit: 'Criterion 3', 
+        keyIndicator: '3.1', 
+        metric: '3.1.1', 
+        reason: 'Detected research grant sanctions, funding allocations, or seed money awards. Mapped to Criterion 3 (Research, Innovations & Extension) under KI 3.1 Resource Mobilization.',
+        source: 'rule-engine' 
+      };
     }
     if (lower.includes('incubat') || lower.includes('innovat') || lower.includes('startup') || lower.includes('hackathon')) {
-      return { crit: 'Criterion 3', keyIndicator: '3.2', metric: '3.2.1', reason: 'Innovation Ecosystem & Incubation' };
+      return { 
+        crit: 'Criterion 3', 
+        keyIndicator: '3.2', 
+        metric: '3.2.1', 
+        reason: 'Detected innovation ecosystem, startup incubation center, or hackathon proofs. Mapped to Criterion 3 under KI 3.2 Innovation Ecosystem.',
+        source: 'rule-engine' 
+      };
     }
     if (lower.includes('extension') || lower.includes('outreach') || lower.includes('nss') || lower.includes('ncc') || lower.includes('community')) {
-      return { crit: 'Criterion 3', keyIndicator: '3.4', metric: '3.4.1', reason: 'Extension & Social Outreach' };
+      return { 
+        crit: 'Criterion 3', 
+        keyIndicator: '3.4', 
+        metric: '3.4.1', 
+        reason: 'Detected NSS, NCC, or community outreach extension activities. Mapped to Criterion 3 under KI 3.4 Extension Activities.',
+        source: 'rule-engine' 
+      };
     }
     if (lower.includes('mou') || lower.includes('collaborat') || lower.includes('industry') || lower.includes('linkage')) {
-      return { crit: 'Criterion 3', keyIndicator: '3.5', metric: '3.5.1', reason: 'Corporate MoUs & Collaborations' };
+      return { 
+        crit: 'Criterion 3', 
+        keyIndicator: '3.5', 
+        metric: '3.5.1', 
+        reason: 'Detected formal MoUs, corporate collaborations, and industry linkages. Mapped to Criterion 3 under KI 3.5 Collaboration & Linkages.',
+        source: 'rule-engine' 
+      };
     }
     if (lower.includes('lab') || lower.includes('ict') || lower.includes('facility') || lower.includes('classroom') || lower.includes('infrastructure')) {
-      return { crit: 'Criterion 4', keyIndicator: '4.1', metric: '4.1.1', reason: 'Physical & ICT Infrastructure' };
+      return { 
+        crit: 'Criterion 4', 
+        keyIndicator: '4.1', 
+        metric: '4.1.1', 
+        reason: 'Detected ICT-enabled classrooms, laboratory facilities, and physical infrastructure records. Mapped to Criterion 4 (Infrastructure) under KI 4.1 Physical Facilities.',
+        source: 'rule-engine' 
+      };
     }
     if (lower.includes('library') || lower.includes('book') || lower.includes('journal') || lower.includes('ieee') || lower.includes('springer')) {
-      return { crit: 'Criterion 4', keyIndicator: '4.2', metric: '4.2.1', reason: 'Library Learning Resource' };
+      return { 
+        crit: 'Criterion 4', 
+        keyIndicator: '4.2', 
+        metric: '4.2.1', 
+        reason: 'Detected library automated resources, e-journal subscriptions, and books catalog. Mapped to Criterion 4 under KI 4.2 Library as a Learning Resource.',
+        source: 'rule-engine' 
+      };
     }
     if (lower.includes('scholarship') || lower.includes('freeship') || lower.includes('support')) {
-      return { crit: 'Criterion 5', keyIndicator: '5.1', metric: '5.1.1', reason: 'Student Support & Freeships' };
+      return { 
+        crit: 'Criterion 5', 
+        keyIndicator: '5.1', 
+        metric: '5.1.1', 
+        reason: 'Detected government scholarships, institutional freeships, and student financial aid. Mapped to Criterion 5 (Student Support & Progression) under KI 5.1 Student Support.',
+        source: 'rule-engine' 
+      };
     }
     if (lower.includes('sport') || lower.includes('cultural') || lower.includes('award') || lower.includes('event')) {
-      return { crit: 'Criterion 5', keyIndicator: '5.3', metric: '5.3.1', reason: 'Student Participation & Awards' };
+      return { 
+        crit: 'Criterion 5', 
+        keyIndicator: '5.3', 
+        metric: '5.3.1', 
+        reason: 'Detected sports medals, cultural festival participation, and competitive student awards. Mapped to Criterion 5 under KI 5.3 Student Participation.',
+        source: 'rule-engine' 
+      };
     }
     if (lower.includes('iqac') || lower.includes('formation') || lower.includes('audit') || lower.includes('quality') || lower.includes('minutes')) {
-      return { crit: 'Criterion 6', keyIndicator: '6.5', metric: '6.5.1', reason: 'Internal Quality Assurance (IQAC)' };
+      return { 
+        crit: 'Criterion 6', 
+        keyIndicator: '6.5', 
+        metric: '6.5.1', 
+        reason: 'Detected IQAC quality reviews, academic audit reports, or IQAC meeting minutes. Mapped to Criterion 6 (Governance) under KI 6.5 Internal Quality Assurance System.',
+        source: 'rule-engine' 
+      };
     }
     if (lower.includes('gender') || lower.includes('equity') || lower.includes('safety') || lower.includes('icc')) {
-      return { crit: 'Criterion 7', keyIndicator: '7.1', metric: '7.1.1', reason: 'Institutional Values & Gender Equity' };
+      return { 
+        crit: 'Criterion 7', 
+        keyIndicator: '7.1', 
+        metric: '7.1.1', 
+        reason: 'Detected gender equity promotion, campus safety initiatives, or ICC records. Mapped to Criterion 7 (Institutional Values) under KI 7.1 Institutional Values.',
+        source: 'rule-engine' 
+      };
     }
     if (lower.includes('green') || lower.includes('best practice') || lower.includes('sustainability') || lower.includes('case study')) {
-      return { crit: 'Criterion 7', keyIndicator: '7.2', metric: '7.2.1', reason: 'Institutional Best Practices' };
+      return { 
+        crit: 'Criterion 7', 
+        keyIndicator: '7.2', 
+        metric: '7.2.1', 
+        reason: 'Detected green campus initiatives, environment audits, or institutional best practice case studies. Mapped to Criterion 7 under KI 7.2 Best Practices.',
+        source: 'rule-engine' 
+      };
     }
-    return { crit: 'Criterion 6', keyIndicator: '6.5', metric: '6.5.1', reason: 'Internal Quality Assurance (IQAC)' };
+    return { 
+      crit: 'Criterion 6', 
+      keyIndicator: '6.5', 
+      metric: '6.5.1', 
+      reason: 'General academic/administrative evidence. Mapped to Criterion 6 (Governance & Quality Assurance) for institutional audit review.',
+      source: 'rule-engine' 
+    };
   };
 
-  const [aiSuggestion, setAiSuggestion] = useState<{ crit: string; keyIndicator: string; metric: string; reason: string } | null>(null);
+  const [aiSuggestion, setAiSuggestion] = useState<{ 
+    crit: string; 
+    keyIndicator: string; 
+    metric: string; 
+    reason: string; 
+    source?: 'openai' | 'rule-engine';
+  } | null>(null);
 
   // Deep AI Classification via OpenAI
   const classifyWithOpenAi = async (filename: string, key: string) => {
@@ -212,7 +346,7 @@ Respond in JSON ONLY:
   "crit": "Criterion X",
   "keyIndicator": "X.Y",
   "metric": "X.Y.Z",
-  "reason": "short explanation"
+  "reason": "Detailed 1-2 sentence explanation of why this file belongs to this Criterion, Key Indicator, and Metric according to NAAC guidelines."
 }`;
 
       const res = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -240,8 +374,10 @@ Respond in JSON ONLY:
             crit: parsed.crit,
             keyIndicator: parsed.keyIndicator,
             metric: parsed.metric,
-            reason: parsed.reason || 'OpenAI Analysis',
+            reason: parsed.reason || 'OpenAI natural language analysis of evidence document content and metadata.',
+            source: 'openai',
           });
+          setIsAiBoxOpen(true);
           setSuccessToast(`✨ OpenAI analyzed & classified into ${parsed.crit} › KI ${parsed.keyIndicator} › Metric ${parsed.metric}`);
           setTimeout(() => setSuccessToast(null), 4000);
         }
@@ -272,16 +408,25 @@ Respond in JSON ONLY:
       const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
       setDocumentTitle(cleanName);
 
-      // Auto-populate suggestions (Fast rule-based first)
-      const suggestion = getAiSuggestion(file.name);
-      setSelectedCriterionCode(suggestion.crit);
-      setSelectedKeyIndicatorCode(suggestion.keyIndicator);
-      setSelectedMetricCode(suggestion.metric);
-      setAiSuggestion(suggestion);
-
-      // Deep AI Classification with OpenAI if enabled and key provided
-      if (useAi && openaiKey.trim()) {
-        classifyWithOpenAi(file.name, openaiKey.trim());
+      if (useAi) {
+        // AI MODE: strictly OpenAI classification
+        if (openaiKey.trim()) {
+          classifyWithOpenAi(file.name, openaiKey.trim());
+        } else {
+          setIsAiBoxOpen(true);
+          setAiSuggestion({
+            crit: selectedCriterionCode,
+            keyIndicator: selectedKeyIndicatorCode,
+            metric: selectedMetricCode,
+            reason: 'AI Mode is active. Enter your OpenAI API Key to classify this evidence document, or use manual selection.',
+            source: 'openai',
+          });
+        }
+      } else {
+        // STRICTLY MANUAL MODE: No general auto keyword guessing!
+        setAiSuggestion(null);
+        setIsAiBoxOpen(false);
+        setIsChangeOpen(true);
       }
     };
     reader.readAsDataURL(file);
@@ -527,234 +672,162 @@ Respond in JSON ONLY:
             className="hidden"
           />
 
-          {/* The Upload Area Capsule Bar (Longer & Clickable Everywhere) */}
-          <div
-            onClick={() => {
-              if (!uploadedFile) {
-                fileInputRef.current?.click();
-              }
-            }}
-            onDragOver={handleBarDragOver}
-            onDragLeave={handleBarDragLeave}
-            onDrop={handleBarDrop}
-            className={`relative flex items-center bg-white border rounded-full px-4 py-2.5 sm:px-5 sm:py-3 transition-all shadow-[0_2px_14px_rgba(0,0,0,0.08)] hover:shadow-[0_6px_26px_rgba(0,0,0,0.12)] cursor-pointer w-full max-w-4xl mx-auto ${
-              isBarDragging
-                ? 'border-blue-500 ring-4 ring-blue-100 bg-blue-50/50 scale-[1.005]'
-                : 'border-gray-300 hover:border-blue-400 focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-100/60'
-            }`}
-          >
-            {/* When a file is uploaded: no search, show file chip, target route, and confirm & drop */}
-            {uploadedFile ? (
-              <div className="flex-1 flex flex-col md:flex-row items-center justify-between gap-3 min-w-0 text-left w-full">
-                {/* Left: Attached File Chip */}
-                <div 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    fileInputRef.current?.click();
-                  }}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50/90 border border-blue-200 text-blue-900 rounded-full text-xs font-semibold shrink-0 max-w-[220px] sm:max-w-[260px] cursor-pointer hover:bg-blue-100 transition-colors shadow-2xs"
-                  title="Click to replace file"
+          {!uploadedFile ? (
+            /* EMPTY STATE: Capsule Upload Bar (Clickable Everywhere) */
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              onDragOver={handleBarDragOver}
+              onDragLeave={handleBarDragLeave}
+              onDrop={handleBarDrop}
+              className={`relative flex items-center bg-white border rounded-full px-4 py-2.5 sm:px-5 sm:py-3 transition-all shadow-[0_2px_14px_rgba(0,0,0,0.08)] hover:shadow-[0_6px_26px_rgba(0,0,0,0.12)] cursor-pointer w-full max-w-4xl mx-auto ${
+                isBarDragging
+                  ? 'border-blue-500 ring-4 ring-blue-100 bg-blue-50/50 scale-[1.005]'
+                  : 'border-gray-300 hover:border-blue-400 focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-100/60'
+              }`}
+            >
+              {/* VERY LEFT INSIDE DROP AREA: Enable AI Checkbox */}
+              <div className="flex items-center shrink-0 pr-2.5 border-r border-gray-200 mr-2.5">
+                <label
+                  htmlFor="enable-ai-inside-bar"
+                  onClick={(e) => e.stopPropagation()}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold select-none cursor-pointer transition-all ${
+                    useAi
+                      ? 'bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs'
+                      : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300'
+                  }`}
+                  title="Toggle AI Parsing. When off, destination selection is strictly manual."
                 >
-                  <FileCheck2 className="w-4 h-4 text-blue-600 shrink-0" />
-                  <span className="truncate max-w-[140px]">{uploadedFile.name}</span>
-                  <span className="text-[10px] text-blue-500 font-normal shrink-0">({uploadedFile.size})</span>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setUploadedFile(null);
-                      setAiSuggestion(null);
+                  <input
+                    id="enable-ai-inside-bar"
+                    type="checkbox"
+                    checked={useAi}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setUseAi(checked);
                     }}
-                    className="text-blue-400 hover:text-red-600 ml-0.5 cursor-pointer p-0.5 rounded-full hover:bg-blue-200/50"
-                    title="Remove attached file"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-
-                {/* Center: Auto Suggestions (Criteria, Key Indicator, Metric) */}
-                <div className="flex items-center gap-1.5 min-w-0 flex-1 justify-center px-1">
-                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200/80 px-2.5 py-1 rounded-full shrink-0 shadow-2xs">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                    <span>Auto:</span>
-                  </span>
-
-                  <div className="inline-flex items-center gap-1 text-xs font-semibold overflow-hidden">
-                    <span 
-                      className="px-2.5 py-1 bg-slate-100 text-slate-800 rounded-full border border-slate-200 shrink-0 font-bold"
-                      title={selectedCriterionCode}
-                    >
-                      {selectedCriterionCode}
-                    </span>
-                    <span className="text-gray-400 font-bold">›</span>
-                    <span 
-                      className="px-2.5 py-1 bg-slate-100 text-slate-800 rounded-full border border-slate-200 shrink-0 font-medium"
-                      title={`Key Indicator ${selectedKeyIndicatorCode}: ${currentKeyIndicator?.name || ''}`}
-                    >
-                      KI {selectedKeyIndicatorCode}
-                    </span>
-                    <span className="text-gray-400 font-bold">›</span>
-                    <span 
-                      className="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full border border-blue-200 shrink-0 font-bold truncate max-w-[180px]"
-                      title={`Metric ${selectedMetricCode}: ${currentMetric?.name || ''}`}
-                    >
-                      Metric {selectedMetricCode}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Right: Change Button + Confirm and Drop Button */}
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setIsChangeOpen(!isChangeOpen);
-                    }}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
-                      isChangeOpen
-                        ? 'bg-blue-100 text-blue-800 border border-blue-300 ring-2 ring-blue-100'
-                        : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300 shadow-2xs'
-                    }`}
-                    title="Manually select Criterion, Key Indicator, or Metric"
-                  >
-                    <SlidersHorizontal className="w-3.5 h-3.5 text-gray-600" />
-                    <span>{isChangeOpen ? 'Hide' : 'Change'}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleConfirmAndDrop();
-                    }}
-                    disabled={isSubmitting}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold text-white bg-[#0f2748] hover:bg-[#183963] active:scale-[0.98] shadow-sm hover:shadow transition-all cursor-pointer disabled:opacity-50"
-                    title="Confirm destination and drop document into repository"
-                  >
-                    <Check className="w-4 h-4 text-emerald-400 stroke-[2.5]" />
-                    <span>Confirm</span>
-                  </button>
-                </div>
+                    className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-500 cursor-pointer accent-[#0f2748]"
+                  />
+                  <Sparkles className={`w-3.5 h-3.5 ${useAi ? 'text-amber-600 fill-amber-500' : 'text-gray-400'}`} />
+                  <span>Enable AI</span>
+                </label>
               </div>
-            ) : (
-              // Empty State (Click anywhere to upload)
+
+              {/* Empty State Text */}
               <div className="flex items-center justify-between w-full min-w-0">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-9 h-9 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-                    <Plus className="w-5 h-5 stroke-[2.2]" />
-                  </div>
-                  <span className="text-xs sm:text-sm text-gray-500 font-medium select-none truncate">
-                    Drop evidence file here or click anywhere to upload...
-                  </span>
-                </div>
+                <span className="text-xs sm:text-sm text-gray-500 font-medium select-none truncate">
+                  Drop evidence file here or click anywhere to upload...
+                </span>
                 <div className="flex items-center gap-2 shrink-0 pl-2">
-                  <span className="rounded-full px-3 py-1 text-[11px] font-semibold flex items-center gap-1.5 bg-blue-50 text-blue-700 border border-blue-200/80 shadow-2xs select-none">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                    <span>AI Auto-Classification</span>
-                  </span>
+                  {useAi ? (
+                    <span className="rounded-full px-2.5 py-1 text-[11px] font-bold flex items-center gap-1 bg-amber-50 text-amber-800 border border-amber-200 shadow-2xs select-none">
+                      <Sparkles className="w-3 h-3 text-amber-500" />
+                      <span>AI Active</span>
+                    </span>
+                  ) : (
+                    <span className="rounded-full px-2.5 py-1 text-[11px] font-medium flex items-center gap-1 bg-slate-100 text-slate-600 border border-slate-200 select-none">
+                      <span>Manual Mode</span>
+                    </span>
+                  )}
                 </div>
               </div>
-            )}
-          </div>
-
-          {/* Horizontal Side-by-Side Selectboxes - Appears ONLY when user clicks Change */}
-          {isChangeOpen && (
-            <div className="w-full max-w-4xl mx-auto bg-white/95 backdrop-blur-xs border border-blue-200 rounded-2xl p-3.5 sm:p-4 shadow-md text-left transition-all animate-in fade-in slide-in-from-top-2">
-              <div className="flex items-center justify-between mb-2.5 px-0.5">
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-bold text-gray-700 uppercase tracking-wider">
-                    Manual Classification
-                  </span>
-                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
-                    Select target destination
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIsChangeOpen(false)}
-                  className="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 cursor-pointer"
-                  title="Close manual selection"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {/* 1. Criterion Select Box */}
-                <div>
-                  <label className="block text-[11px] font-bold text-gray-700 mb-1">
-                    1. Criterion
+            </div>
+          ) : (
+            /* UPLOADED FILE STATE: SINGLE UNIFIED CARD BOX (Replaces capsule bar so behind box is hidden) */
+            <div
+              onDragOver={handleBarDragOver}
+              onDragLeave={handleBarDragLeave}
+              onDrop={handleBarDrop}
+              className={`w-full max-w-4xl mx-auto bg-white border-2 rounded-2xl p-4 sm:p-5 shadow-lg text-left transition-all animate-in fade-in zoom-in-95 ${
+                isBarDragging ? 'border-blue-500 ring-4 ring-blue-100 bg-blue-50/30' : 'border-blue-200/90'
+              }`}
+            >
+              {/* Box Top Header: Enable AI Checkbox, File Chip, and Actions */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-gray-100">
+                {/* Left: Enable AI + Attached File Chip */}
+                <div className="flex items-center gap-2.5 flex-wrap min-w-0">
+                  <label
+                    htmlFor="enable-ai-card-box"
+                    className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold select-none cursor-pointer transition-all shrink-0 ${
+                      useAi
+                        ? 'bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs'
+                        : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300'
+                    }`}
+                    title="Toggle AI Parsing"
+                  >
+                    <input
+                      id="enable-ai-card-box"
+                      type="checkbox"
+                      checked={useAi}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setUseAi(checked);
+                        if (checked) {
+                          setIsChangeOpen(false);
+                          if (uploadedFile && openaiKey.trim()) {
+                            classifyWithOpenAi(uploadedFile.name, openaiKey.trim());
+                          }
+                        } else {
+                          setAiSuggestion(null);
+                          setIsChangeOpen(true);
+                        }
+                      }}
+                      className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-500 cursor-pointer accent-[#0f2748]"
+                    />
+                    <Sparkles className={`w-3.5 h-3.5 ${useAi ? 'text-amber-600 fill-amber-500' : 'text-gray-400'}`} />
+                    <span>Enable AI</span>
                   </label>
-                  <select
-                    value={selectedCriterionCode}
-                    onChange={(e) => handleCriterionChange(e.target.value)}
-                    className="w-full text-xs font-semibold px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-hidden bg-white text-gray-800 shadow-2xs hover:border-blue-400 transition-colors cursor-pointer"
+
+                  <div className="h-4 w-px bg-gray-200 hidden sm:block shrink-0" />
+
+                  {/* File Chip */}
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50/90 border border-blue-200 text-blue-900 rounded-lg text-xs font-semibold cursor-pointer hover:bg-blue-100 transition-colors shadow-2xs min-w-0"
+                    title="Click to replace attached file"
                   >
-                    {NAAC_CRITERIA_SUMMARY.map((c) => (
-                      <option key={c.code} value={c.code}>
-                        {c.code}: {c.name.substring(0, 30)}...
-                      </option>
-                    ))}
-                  </select>
+                    <FileCheck2 className="w-4 h-4 text-blue-600 shrink-0" />
+                    <span className="truncate max-w-[200px] font-medium">{uploadedFile.name}</span>
+                    <span className="text-[10px] text-blue-500 font-normal shrink-0">({uploadedFile.size})</span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setUploadedFile(null);
+                        setAiSuggestion(null);
+                        setIsChangeOpen(false);
+                        setIsAiBoxOpen(false);
+                      }}
+                      className="text-blue-400 hover:text-red-600 ml-1 cursor-pointer p-0.5 rounded hover:bg-blue-200/50"
+                      title="Remove file"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
 
-                {/* 2. Key Indicator Select Box */}
-                <div>
-                  <label className="block text-[11px] font-bold text-gray-700 mb-1">
-                    2. Key Indicator
-                  </label>
-                  <select
-                    value={selectedKeyIndicatorCode}
-                    onChange={(e) => handleKeyIndicatorChange(e.target.value)}
-                    className="w-full text-xs font-semibold px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-hidden bg-white text-gray-800 shadow-2xs hover:border-blue-400 transition-colors cursor-pointer"
-                  >
-                    {availableKeyIndicators.map((ki) => (
-                      <option key={ki.code} value={ki.code}>
-                        KI {ki.code}: {ki.name.substring(0, 32)}...
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                {/* Right: Actions */}
+                <div className="flex items-center gap-2 shrink-0 justify-end">
+                  {useAi && (
+                    <button
+                      type="button"
+                      onClick={() => setIsChangeOpen(!isChangeOpen)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-300 transition-colors cursor-pointer"
+                      title={isChangeOpen ? 'Return to AI Suggestion' : 'Manually change Criterion, KI, or Metric'}
+                    >
+                      {isChangeOpen ? (
+                        <>
+                          <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                          <span>Back to AI</span>
+                        </>
+                      ) : (
+                        <>
+                          <SlidersHorizontal className="w-3.5 h-3.5 text-gray-600" />
+                          <span>Change</span>
+                        </>
+                      )}
+                    </button>
+                  )}
 
-                {/* 3. Metric Select Box */}
-                <div>
-                  <label className="block text-[11px] font-bold text-gray-700 mb-1">
-                    3. Metric
-                  </label>
-                  <select
-                    value={selectedMetricCode}
-                    onChange={(e) => setSelectedMetricCode(e.target.value)}
-                    className="w-full text-xs font-semibold px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-hidden bg-white text-gray-800 shadow-2xs hover:border-blue-400 transition-colors cursor-pointer"
-                  >
-                    {availableMetrics.map((m) => (
-                      <option key={m.code} value={m.code}>
-                        {m.code} ({m.metricType}) - {m.name.substring(0, 28)}...
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Panel Footer with Confirm Button */}
-              <div className="mt-3.5 pt-3 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-2.5">
-                <div className="text-xs text-gray-600 font-medium truncate">
-                  <span className="text-gray-400">Selected Route: </span>
-                  <span className="font-bold text-[#0f2748]">{selectedCriterionCode}</span>
-                  <span className="text-gray-400 mx-1">›</span>
-                  <span className="font-semibold text-gray-800">KI {selectedKeyIndicatorCode}</span>
-                  <span className="text-gray-400 mx-1">›</span>
-                  <span className="font-semibold text-blue-700">Metric {selectedMetricCode}</span>
-                </div>
-
-                <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end">
-                  <button
-                    type="button"
-                    onClick={() => setIsChangeOpen(false)}
-                    className="px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-600 hover:text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
-                  >
-                    Cancel
-                  </button>
                   <button
                     type="button"
                     onClick={(e) => {
@@ -762,7 +835,7 @@ Respond in JSON ONLY:
                       handleConfirmAndDrop();
                     }}
                     disabled={isSubmitting}
-                    className="px-4 py-1.5 rounded-lg text-xs font-bold text-white bg-[#0f2748] hover:bg-[#183963] active:scale-[0.98] shadow-xs hover:shadow transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold text-white bg-[#0f2748] hover:bg-[#183963] active:scale-[0.98] shadow-xs hover:shadow transition-all cursor-pointer disabled:opacity-50"
                     title="Confirm destination and drop document into repository"
                   >
                     <Check className="w-3.5 h-3.5 text-emerald-400 stroke-[2.5]" />
@@ -770,38 +843,147 @@ Respond in JSON ONLY:
                   </button>
                 </div>
               </div>
+
+              {/* Box Body: EITHER AI Reasoning OR Manual Selectors in the exact same box */}
+              {isChangeOpen || !useAi ? (
+                /* VIEW A: Manual Destination Selectors */
+                <div className="pt-3 animate-in fade-in">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[11px] font-bold text-gray-700 uppercase tracking-wider">
+                      Select Target Destination
+                    </span>
+                    <span className="text-[11px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
+                      Manual Selection
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {/* 1. Criterion */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                        1. Criterion
+                      </label>
+                      <select
+                        value={selectedCriterionCode}
+                        onChange={(e) => handleCriterionChange(e.target.value)}
+                        className="w-full text-xs font-semibold px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-hidden bg-white text-gray-800 shadow-2xs hover:border-blue-400 transition-colors cursor-pointer"
+                      >
+                        {NAAC_CRITERIA_SUMMARY.map((c) => (
+                          <option key={c.code} value={c.code}>
+                            {c.code}: {c.name.substring(0, 30)}...
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* 2. Key Indicator */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                        2. Key Indicator
+                      </label>
+                      <select
+                        value={selectedKeyIndicatorCode}
+                        onChange={(e) => handleKeyIndicatorChange(e.target.value)}
+                        className="w-full text-xs font-semibold px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-hidden bg-white text-gray-800 shadow-2xs hover:border-blue-400 transition-colors cursor-pointer"
+                      >
+                        {availableKeyIndicators.map((ki) => (
+                          <option key={ki.code} value={ki.code}>
+                            KI {ki.code}: {ki.name.substring(0, 32)}...
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* 3. Metric */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                        3. Metric
+                      </label>
+                      <select
+                        value={selectedMetricCode}
+                        onChange={(e) => setSelectedMetricCode(e.target.value)}
+                        className="w-full text-xs font-semibold px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-hidden bg-white text-gray-800 shadow-2xs hover:border-blue-400 transition-colors cursor-pointer"
+                      >
+                        {availableMetrics.map((m) => (
+                          <option key={m.code} value={m.code}>
+                            {m.code} ({m.metricType}) - {m.name.substring(0, 28)}...
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Route Summary */}
+                  <div className="mt-3 pt-2.5 border-t border-gray-100 flex items-center justify-between text-xs text-gray-600">
+                    <div>
+                      <span className="text-gray-400">Selected Route: </span>
+                      <span className="font-bold text-[#0f2748]">{selectedCriterionCode}</span>
+                      <span className="text-gray-400 mx-1">›</span>
+                      <span className="font-semibold text-gray-800">KI {selectedKeyIndicatorCode}</span>
+                      <span className="text-gray-400 mx-1">›</span>
+                      <span className="font-semibold text-blue-700">Metric {selectedMetricCode}</span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* VIEW B: AI Reasoning Strip with Target Destination Badge */
+                <div className="pt-3 animate-in fade-in space-y-2.5">
+                  <div className="flex items-center gap-2 flex-wrap text-xs">
+                    <span className="text-gray-500 font-medium">Classified Route:</span>
+                    <span className="px-2.5 py-0.5 rounded-full bg-slate-100 border border-slate-200 font-bold text-[11px] text-[#0f2748]">
+                      {selectedCriterionCode}
+                    </span>
+                    <span className="text-gray-400 font-bold text-[11px]">›</span>
+                    <span className="px-2.5 py-0.5 rounded-full bg-slate-100 border border-slate-200 font-medium text-[11px] text-gray-800">
+                      KI {selectedKeyIndicatorCode}
+                    </span>
+                    <span className="text-gray-400 font-bold text-[11px]">›</span>
+                    <span className="px-2.5 py-0.5 rounded-full bg-blue-50 border border-blue-200 font-bold text-[11px] text-blue-700">
+                      Metric {selectedMetricCode}
+                    </span>
+                  </div>
+
+                  <div className="bg-amber-50/70 border border-amber-300 rounded-xl p-3 flex items-start gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center shrink-0 mt-0.5">
+                      <Sparkles className="w-4 h-4 text-amber-600 stroke-[2.2]" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[11px] font-bold text-amber-900 uppercase tracking-wider">
+                          AI Reasoning:
+                        </span>
+                        {aiSuggestion?.source === 'openai' ? (
+                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded">
+                            ✨ OpenAI
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold text-amber-800 bg-white/80 border border-amber-200 px-1.5 py-0.2 rounded">
+                            ⚡ AI Analyzed
+                          </span>
+                        )}
+                        {isAiProcessing && (
+                          <span className="text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.2 rounded animate-pulse">
+                            Analyzing...
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-800 font-medium leading-relaxed mt-1">
+                        {aiSuggestion?.reason || 'File attributes match NAAC AQAR evidence guidelines.'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
-          {/* AI Mode Options Row (Checkbox default off + OpenAI Key Input) */}
-          <div className="flex flex-wrap items-center justify-center gap-3 pt-3">
-            <div className="inline-flex flex-wrap items-center justify-center gap-3 bg-white/90 border border-gray-200/90 rounded-2xl px-4 py-2 shadow-xs transition-all">
-              {/* Checkbox (Default OFF) */}
-              <label htmlFor="use-ai-checkbox" className="flex items-center gap-2 cursor-pointer select-none">
-                <input
-                  id="use-ai-checkbox"
-                  type="checkbox"
-                  checked={useAi}
-                  onChange={(e) => {
-                    const checked = e.target.checked;
-                    setUseAi(checked);
-                    if (checked && !openaiKey.trim()) {
-                      setSuccessToast('OpenAI mode enabled. Enter your OpenAI API key to run deep classification.');
-                      setTimeout(() => setSuccessToast(null), 3500);
-                    }
-                  }}
-                  className="w-4 h-4 rounded text-blue-600 border-gray-300 focus:ring-blue-500 cursor-pointer accent-[#0f2748]"
-                />
-                <span className="text-xs font-semibold text-gray-700 flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                  <span>Use AI for Evidence Parsing & Auto-Classification</span>
-                </span>
-              </label>
-
-              {/* OpenAI Key Input */}
-              <div className="flex items-center gap-2 pl-1 border-t sm:border-t-0 sm:border-l border-gray-200 pt-2 sm:pt-0">
+          {/* OpenAI Pass Key Below Drop Area */}
+          {useAi && (
+            <div className="flex items-center justify-center pt-3 animate-in fade-in slide-in-from-top-1">
+              <div className="inline-flex items-center gap-2.5 bg-white/95 border border-gray-200/90 rounded-full px-4 py-1.5 shadow-2xs text-xs">
+                <KeyRound className="w-3.5 h-3.5 text-gray-500 shrink-0" />
+                <span className="text-gray-600 font-semibold text-[11px] shrink-0">OpenAI API Key:</span>
                 <div className="relative flex items-center">
-                  <KeyRound className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 pointer-events-none" />
                   <input
                     type={showOpenaiKey ? 'text' : 'password'}
                     value={openaiKey}
@@ -810,8 +992,8 @@ Respond in JSON ONLY:
                       setOpenaiKey(val);
                       localStorage.setItem('openai_api_key', val);
                     }}
-                    placeholder="OpenAI Key (sk-...)"
-                    className="text-xs pl-8 pr-7 py-1 bg-gray-50 hover:bg-white focus:bg-white border border-gray-300 focus:border-blue-500 rounded-lg outline-hidden font-mono w-[180px] sm:w-[210px] transition-all"
+                    placeholder="sk-..."
+                    className="text-xs pl-2.5 pr-7 py-0.5 bg-gray-50 hover:bg-white focus:bg-white border border-gray-300 focus:border-blue-500 rounded-lg outline-hidden font-mono w-[180px] sm:w-[220px] transition-all"
                   />
                   <button
                     type="button"
@@ -819,23 +1001,22 @@ Respond in JSON ONLY:
                     className="absolute right-2 text-gray-400 hover:text-gray-600 cursor-pointer"
                     title={showOpenaiKey ? 'Hide key' : 'Show key'}
                   >
-                    {showOpenaiKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    {showOpenaiKey ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
                   </button>
                 </div>
-
                 {openaiKey.trim() && (
-                  <span className="text-[10px] text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded font-bold">
+                  <span className="text-[10px] text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded font-bold shrink-0">
                     Key Saved
                   </span>
                 )}
                 {isAiProcessing && (
-                  <span className="text-[10px] text-blue-600 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded font-semibold animate-pulse">
+                  <span className="text-[10px] text-blue-600 bg-blue-50 border border-blue-200 px-1.5 py-0.2 rounded font-semibold animate-pulse shrink-0">
                     Analyzing...
                   </span>
                 )}
               </div>
             </div>
-          </div>
+          )}
         </form>
 
         
