@@ -29,7 +29,8 @@ import {
   ChevronDown,
   Lightbulb,
   Info,
-  Loader2
+  Loader2,
+  Send
 } from 'lucide-react';
 import { 
   NAAC_CRITERIA_SUMMARY, 
@@ -72,6 +73,60 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
   // Filter state for recent uploads list
   const [searchQuery, setSearchQuery] = useState('');
   const [criterionFilter, setCriterionFilter] = useState<string>('ALL');
+
+  // My Documents Drawer state & tracking
+  const [isMyDocsDrawerOpen, setIsMyDocsDrawerOpen] = useState<boolean>(false);
+  const [myDocIds, setMyDocIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('naac_my_uploaded_doc_ids_v3');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      // ignore
+    }
+    // Seeded initial faculty-uploaded documents showcasing multiple docs per criterion
+    return [
+      'naac-cse-fac-5',
+      'naac-cse-fac-5-b',
+      'naac-cse-fac-5-c',
+      'naac-cse-fac-5-d',
+      'naac-cse-fac-5-e',
+      'naac-cse-fac-1',
+      'naac-cse-fac-1-b',
+      'naac-cse-fac-3',
+      'naac-cse-fac-2',
+      'naac-cse-fac-4',
+    ];
+  });
+
+  const myDocuments = documents.filter((doc) => myDocIds.includes(doc.id));
+
+  const isDocSubmitted = (doc: NaacEvidenceDocument) =>
+    doc.status === 'submitted_to_school' ||
+    doc.status === 'submitted' ||
+    doc.status === 'approved_by_school' ||
+    doc.status === 'university_verified';
+
+  const unsubmittedDocs = myDocuments.filter((d) => !isDocSubmitted(d));
+
+  // Selection state for submitting documents to coordinator (default unchecked)
+  const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
+
+  const handleToggleSelectAll = () => {
+    if (selectedDocIds.length === unsubmittedDocs.length && unsubmittedDocs.length > 0) {
+      setSelectedDocIds([]);
+    } else {
+      setSelectedDocIds(unsubmittedDocs.map((d) => d.id));
+    }
+  };
+
+  const handleToggleSelectDoc = (docId: string) => {
+    const doc = myDocuments.find((d) => d.id === docId);
+    if (doc && isDocSubmitted(doc)) return;
+
+    setSelectedDocIds((prev) =>
+      prev.includes(docId) ? prev.filter((id) => id !== docId) : [...prev, docId]
+    );
+  };
 
   // Sync documents from storage
   const refreshDocuments = () => {
@@ -627,6 +682,10 @@ Respond in JSON ONLY:
     };
 
     addOrUpdateNaacDocument(newDoc);
+    const updatedMyDocIds = [newDoc.id, ...myDocIds];
+    setMyDocIds(updatedMyDocIds);
+    setSelectedDocIds((prev) => [newDoc.id, ...prev]);
+    localStorage.setItem('naac_my_uploaded_doc_ids_v3', JSON.stringify(updatedMyDocIds));
     refreshDocuments();
 
     setSuccessToast(`Document "${fileName}" confirmed & dropped into ${cleanCritCode} › KI ${cleanKiCode} › Metric ${cleanMetricCode}!`);
@@ -642,6 +701,47 @@ Respond in JSON ONLY:
     setAiSuggestion(null);
     setIsChangeOpen(false);
     setIsSubmitting(false);
+  };
+
+  // Submit selected documents to Program Coordinator
+  const handleSubmitToCoordinator = () => {
+    const docsToSubmit = myDocuments.filter((doc) => selectedDocIds.includes(doc.id));
+    if (docsToSubmit.length === 0) {
+      setSuccessToast('Please select at least one document to submit.');
+      setTimeout(() => setSuccessToast(null), 3000);
+      return;
+    }
+    docsToSubmit.forEach((doc) => {
+      addOrUpdateNaacDocument({
+        ...doc,
+        status: 'submitted_to_school',
+        coordinatorReviewStatus: 'pending_review',
+      });
+    });
+    setSelectedDocIds([]);
+    refreshDocuments();
+    setSuccessToast(`✨ Successfully submitted ${docsToSubmit.length} selected document${docsToSubmit.length === 1 ? '' : 's'} to Program Coordinator!`);
+    setTimeout(() => setSuccessToast(null), 4500);
+  };
+
+  // Delete document from my documents
+  const handleDeleteMyDoc = (docId: string, title: string) => {
+    if (window.confirm(`Delete evidence file "${title}"?`)) {
+      deleteNaacDocument(docId);
+      const updated = myDocIds.filter((id) => id !== docId);
+      setMyDocIds(updated);
+      setSelectedDocIds((prev) => prev.filter((id) => id !== docId));
+      localStorage.setItem('naac_my_uploaded_doc_ids_v3', JSON.stringify(updated));
+      refreshDocuments();
+      setSuccessToast(`Deleted "${title}" from uploaded documents.`);
+      setTimeout(() => setSuccessToast(null), 3000);
+    }
+  };
+
+  // View Complete Document Repository
+  const handleViewCompleteRepository = () => {
+    setIsMyDocsDrawerOpen(false);
+    onNavigateToDocumentList();
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -698,7 +798,21 @@ Respond in JSON ONLY:
           <span className="text-gray-500 font-medium">B.Tech CSE</span>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* My Documents Drawer Trigger */}
+          <button
+            type="button"
+            onClick={() => setIsMyDocsDrawerOpen(true)}
+            className="text-xs font-semibold text-[#0f2748] hover:text-blue-700 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors flex items-center gap-1.5 cursor-pointer"
+            title="Open My Uploaded Documents Drawer"
+          >
+            <FileText className="w-4 h-4 text-blue-600" />
+            <span>My Documents</span>
+            <span className="px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold">
+              {myDocuments.length}
+            </span>
+          </button>
+
           <button
             type="button"
             onClick={() => onNavigateToDocumentList()}
@@ -1279,6 +1393,248 @@ Respond in JSON ONLY:
               >
                 Close
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          MY DOCUMENTS RIGHT-SIDE DRAWER
+          Shows criteria-wise document list with:
+          - Submit to Program Coordinator button
+          - View Complete Document Repository button
+         ========================================================================= */}
+      {isMyDocsDrawerOpen && (
+        <div className="fixed inset-0 z-50 overflow-hidden">
+          {/* Backdrop */}
+          <div
+            onClick={() => setIsMyDocsDrawerOpen(false)}
+            className="fixed inset-0 bg-black/40 backdrop-blur-xs transition-opacity animate-in fade-in"
+          />
+
+          <div className="fixed inset-y-0 right-0 max-w-full flex pl-10 pointer-events-none">
+            <div className="w-screen max-w-3xl bg-white shadow-2xl border-l border-gray-200 flex flex-col pointer-events-auto animate-in slide-in-from-right duration-200">
+              {/* Drawer Header: Plain white, no icon, no description */}
+              <div className="px-5 py-4 border-b border-gray-200 bg-white flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-2.5">
+                  <h3 className="text-sm font-bold text-gray-900">My Uploaded Documents</h3>
+                  <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-[11px] font-bold">
+                    {myDocuments.length}
+                  </span>
+                  {selectedDocIds.length > 0 && (
+                    <span className="text-[11px] text-blue-700 font-semibold bg-blue-50/70 border border-blue-200 px-2 py-0.5 rounded-full">
+                      {selectedDocIds.length} selected
+                    </span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsMyDocsDrawerOpen(false)}
+                  className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg cursor-pointer transition-colors"
+                  title="Close Drawer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Drawer Body: One continuous table */}
+              <div className="flex-1 overflow-y-auto p-4 sm:p-5">
+                {myDocuments.length === 0 ? (
+                  <div className="py-16 text-center">
+                    <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
+                      <Upload className="w-6 h-6" />
+                    </div>
+                    <h4 className="text-sm font-bold text-gray-800">No documents uploaded yet</h4>
+                    <p className="text-xs text-gray-500 mt-1 max-w-xs mx-auto">
+                      Drop evidence files on the main screen to ingest them criteria-wise.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsMyDocsDrawerOpen(false);
+                        fileInputRef.current?.click();
+                      }}
+                      className="mt-4 px-4 py-1.5 bg-[#0f2748] text-white text-xs font-semibold rounded-lg hover:bg-[#183963] cursor-pointer"
+                    >
+                      Upload File Now
+                    </button>
+                  </div>
+                ) : (
+                  <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-2xs">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead className="bg-slate-50 border-b border-gray-200 sticky top-0 z-10">
+                          <tr className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                            <th className="py-2 px-3 w-9 text-center">
+                              <input
+                                type="checkbox"
+                                checked={unsubmittedDocs.length > 0 && selectedDocIds.length === unsubmittedDocs.length}
+                                disabled={unsubmittedDocs.length === 0}
+                                onChange={handleToggleSelectAll}
+                                className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 accent-[#0f2748]"
+                                title={
+                                  unsubmittedDocs.length === 0
+                                    ? 'All documents are already submitted'
+                                    : 'Select all unsubmitted documents'
+                                }
+                              />
+                            </th>
+                            <th className="py-2 px-3 whitespace-nowrap">Metric</th>
+                            <th className="py-2 px-3">File Name</th>
+                            <th className="py-2 px-3 text-center whitespace-nowrap">Status</th>
+                            <th className="py-2 px-3 text-right whitespace-nowrap">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {NAAC_CRITERIA_SUMMARY.map((crit) => {
+                            const docsInCrit = myDocuments.filter(
+                              (d) =>
+                                d.criterionCode?.toLowerCase() === crit.code.toLowerCase() ||
+                                toCanonicalCrit(d.criterionCode || '').toLowerCase() === crit.code.toLowerCase()
+                            );
+                            if (docsInCrit.length === 0) return null;
+
+                            return (
+                              <React.Fragment key={crit.code}>
+                                {/* Criterion Group Subheader Row */}
+                                <tr className="bg-slate-50/80 border-y border-slate-200/80">
+                                  <td colSpan={5} className="py-1.5 px-3">
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center gap-2 min-w-0">
+                                        <span className="font-mono text-[10px] font-bold text-[#0f2748] bg-white px-1.5 py-0.5 rounded border border-slate-200 shrink-0">
+                                          {crit.code}
+                                        </span>
+                                        <span className="text-[11px] font-bold text-gray-800 truncate" title={crit.name}>
+                                          {crit.name}
+                                        </span>
+                                      </div>
+                                      <span className="text-[10px] font-semibold text-gray-500 bg-white px-2 py-0.5 rounded-full border border-slate-200 shrink-0">
+                                        {docsInCrit.length} {docsInCrit.length === 1 ? 'doc' : 'docs'}
+                                      </span>
+                                    </div>
+                                  </td>
+                                </tr>
+
+                                {/* Documents under this Criterion: Checkbox -> Metric -> File Name -> Status -> Action */}
+                                {docsInCrit.map((doc) => {
+                                  const isChecked = selectedDocIds.includes(doc.id);
+                                  const isSubmitted =
+                                    doc.status === 'submitted_to_school' ||
+                                    doc.status === 'submitted' ||
+                                    doc.status === 'approved_by_school' ||
+                                    doc.status === 'university_verified';
+
+                                  return (
+                                    <tr
+                                      key={doc.id}
+                                      className={`hover:bg-blue-50/30 transition-colors group ${
+                                        isChecked ? 'bg-blue-50/20' : ''
+                                      }`}
+                                    >
+                                      {/* 1. Checkbox */}
+                                      <td className="py-2 px-3 text-center align-middle">
+                                        <input
+                                          type="checkbox"
+                                          checked={isChecked}
+                                          disabled={isSubmitted}
+                                          onChange={() => !isSubmitted && handleToggleSelectDoc(doc.id)}
+                                          className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-30 disabled:bg-gray-100 accent-[#0f2748]"
+                                          title={isSubmitted ? 'Already submitted' : `Select "${doc.fileName}"`}
+                                        />
+                                      </td>
+
+                                      {/* 2. Metric (FIRST) */}
+                                      <td className="py-2 px-3 align-middle whitespace-nowrap">
+                                        <span className="font-mono text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded">
+                                          {doc.metricCode}
+                                        </span>
+                                      </td>
+
+                                      {/* 3. File Name (single clean line, no subtitle) */}
+                                      <td className="py-2 px-3 align-middle">
+                                        <div
+                                          onClick={() => openFileInNewTab(doc.fileUrl)}
+                                          className="font-medium text-gray-800 group-hover:text-blue-700 cursor-pointer truncate text-xs"
+                                          title={doc.fileName}
+                                        >
+                                          {doc.fileName}
+                                        </div>
+                                      </td>
+
+                                      {/* 4. Status: strictly two states - either blank or submitted */}
+                                      <td className="py-2 px-3 align-middle text-center whitespace-nowrap">
+                                        {isSubmitted ? (
+                                          <span className="inline-block text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                                            Submitted
+                                          </span>
+                                        ) : null}
+                                      </td>
+
+                                      {/* 5. Action */}
+                                      <td className="py-2 px-3 align-middle text-right whitespace-nowrap">
+                                        <div className="inline-flex items-center gap-1">
+                                          <button
+                                            type="button"
+                                            onClick={() => openFileInNewTab(doc.fileUrl)}
+                                            className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded cursor-pointer transition-colors"
+                                            title="View Document"
+                                          >
+                                            <ExternalLink className="w-3.5 h-3.5" />
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleDeleteMyDoc(doc.id, doc.fileName || doc.title)}
+                                            className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded cursor-pointer transition-colors"
+                                            title="Delete from My Documents"
+                                          >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                          </button>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </React.Fragment>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="p-4 bg-slate-50 border-t border-gray-200 space-y-2 shrink-0">
+                {/* Button 1: Submit to Program Coordinator */}
+                <button
+                  type="button"
+                  onClick={handleSubmitToCoordinator}
+                  disabled={selectedDocIds.length === 0}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold text-white bg-[#0f2748] hover:bg-[#183963] active:scale-[0.99] shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                  title={
+                    selectedDocIds.length === 0
+                      ? 'Select at least one document to submit'
+                      : `Submit ${selectedDocIds.length} selected document(s) to Program Coordinator`
+                  }
+                >
+                  <Send className="w-3.5 h-3.5 text-blue-200" />
+                  <span>
+                    Submit {selectedDocIds.length > 0 ? `(${selectedDocIds.length}) ` : ''}to Program Coordinator
+                  </span>
+                </button>
+
+                {/* Button 2: View Complete Document Repository */}
+                <button
+                  type="button"
+                  onClick={handleViewCompleteRepository}
+                  className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl text-xs font-semibold text-gray-700 bg-white hover:bg-gray-100 active:scale-[0.99] border border-gray-300 shadow-2xs transition-all cursor-pointer"
+                  title="Navigate to the full Master Document Repository"
+                >
+                  <FolderOpen className="w-3.5 h-3.5 text-blue-600" />
+                  <span>View Complete Document Repository</span>
+                </button>
+              </div>
+
             </div>
           </div>
         </div>
