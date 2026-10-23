@@ -66,6 +66,7 @@ export interface NaacEvidenceDocument {
   fileSize?: string;
   uploadedBy: string;
   uploadedAt: string;
+  createdAt?: string;
   status: NaacWorkflowStatus;
   version: string;
   // Department Faculty Metadata (Submissions by staff under Program Coordinator)
