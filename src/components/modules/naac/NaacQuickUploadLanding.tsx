@@ -28,7 +28,8 @@ import {
   Camera,
   ChevronDown,
   Lightbulb,
-  Info
+  Info,
+  Loader2
 } from 'lucide-react';
 import { 
   NAAC_CRITERIA_SUMMARY, 
@@ -77,10 +78,10 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
     setDocuments(getStoredNaacDocuments());
   };
 
-  // Destination Target State (Criterion, Key Indicator, Metric)
-  const [selectedCriterionCode, setSelectedCriterionCode] = useState<string>('Criterion 6');
-  const [selectedKeyIndicatorCode, setSelectedKeyIndicatorCode] = useState<string>('6.5');
-  const [selectedMetricCode, setSelectedMetricCode] = useState<string>('6.5.1');
+  // Destination Target State (Criterion, Key Indicator, Metric) — Defaults to Criterion 1 for manual
+  const [selectedCriterionCode, setSelectedCriterionCode] = useState<string>('Criterion 1');
+  const [selectedKeyIndicatorCode, setSelectedKeyIndicatorCode] = useState<string>('1.1');
+  const [selectedMetricCode, setSelectedMetricCode] = useState<string>('1.1.1');
   const [isChangeOpen, setIsChangeOpen] = useState<boolean>(false);
   const [isAiBoxOpen, setIsAiBoxOpen] = useState<boolean>(false);
 
@@ -90,34 +91,53 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
   const [showOpenaiKey, setShowOpenaiKey] = useState<boolean>(false);
   const [isAiProcessing, setIsAiProcessing] = useState<boolean>(false);
 
-  // Filter criteria, key indicators, and metrics based on selected criterion
+  // Canonical helpers to prevent string mismatch across OpenAI, rules, and UI selects
+  const toCanonicalCrit = (val: string) => {
+    const m = val?.match(/Criterion\s*(\d)/i) || val?.match(/(\d)/);
+    return m ? `Criterion ${m[1]}` : 'Criterion 1';
+  };
+  const toCanonicalKi = (val: string) => {
+    const m = val?.match(/(\d+\.\d+)/);
+    return m ? m[1] : '1.1';
+  };
+  const toCanonicalMetric = (val: string) => {
+    const m = val?.match(/(\d+\.\d+\.\d+)/);
+    return m ? m[1] : '1.1.1';
+  };
+
+  // Robust clean Criterion number and codes
+  const cleanCritCode = toCanonicalCrit(selectedCriterionCode);
+  const cleanKiCode = toCanonicalKi(selectedKeyIndicatorCode);
+  const cleanMetricCode = toCanonicalMetric(selectedMetricCode);
+
   const currentCriterion = NAAC_CRITERIA_SUMMARY.find(
-    (c) => c.code.toLowerCase() === selectedCriterionCode.toLowerCase()
+    (c) => c.code.toLowerCase() === cleanCritCode.toLowerCase()
   ) || NAAC_CRITERIA_SUMMARY[0];
 
   const availableKeyIndicators = KEY_INDICATORS.filter(
-    (ki) => ki.criterionCode.toLowerCase() === selectedCriterionCode.toLowerCase()
+    (ki) => ki.criterionCode.toLowerCase() === cleanCritCode.toLowerCase()
   );
   const currentKeyIndicator = KEY_INDICATORS.find(
-    (ki) => ki.code === selectedKeyIndicatorCode
+    (ki) => ki.code === cleanKiCode
   ) || availableKeyIndicators[0];
 
   const availableMetrics = NAAC_METRICS_LIST.filter(
-    (m) => m.criterionCode.toLowerCase() === selectedCriterionCode.toLowerCase()
+    (m) => m.criterionCode.toLowerCase() === cleanCritCode.toLowerCase()
   );
-  const currentMetric = NAAC_METRICS_LIST.find((m) => m.code === selectedMetricCode) || availableMetrics[0];
+  const currentMetric = NAAC_METRICS_LIST.find((m) => m.code === cleanMetricCode) || availableMetrics[0];
 
   // When criterion changes, auto-select corresponding Key Indicator and Metric
   const handleCriterionChange = (critCode: string) => {
-    setSelectedCriterionCode(critCode);
+    const canonical = toCanonicalCrit(critCode);
+    setSelectedCriterionCode(canonical);
     const kis = KEY_INDICATORS.filter(
-      (ki) => ki.criterionCode.toLowerCase() === critCode.toLowerCase()
+      (ki) => ki.criterionCode.toLowerCase() === canonical.toLowerCase()
     );
     const newKiCode = kis[0]?.code || '1.1';
     setSelectedKeyIndicatorCode(newKiCode);
 
     const metricsForCrit = NAAC_METRICS_LIST.filter(
-      (m) => m.criterionCode.toLowerCase() === critCode.toLowerCase()
+      (m) => m.criterionCode.toLowerCase() === canonical.toLowerCase()
     );
     const matchingMetric = metricsForCrit.find(m => m.code.startsWith(newKiCode)) || metricsForCrit[0];
     if (matchingMetric) {
@@ -127,10 +147,22 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
 
   // When key indicator changes, auto-select first matching metric
   const handleKeyIndicatorChange = (kiCode: string) => {
-    setSelectedKeyIndicatorCode(kiCode);
-    const matchingMetrics = availableMetrics.filter(m => m.code.startsWith(kiCode));
+    const canonical = toCanonicalKi(kiCode);
+    setSelectedKeyIndicatorCode(canonical);
+    const matchingMetrics = availableMetrics.filter(m => m.code.startsWith(canonical));
     if (matchingMetrics.length > 0) {
       setSelectedMetricCode(matchingMetrics[0].code);
+    }
+  };
+
+  // When metric changes, auto-sync parent key indicator
+  const handleMetricChange = (metricCode: string) => {
+    const canonical = toCanonicalMetric(metricCode);
+    setSelectedMetricCode(canonical);
+    const parts = canonical.split('.');
+    if (parts.length >= 2) {
+      const parentKi = `${parts[0]}.${parts[1]}`;
+      setSelectedKeyIndicatorCode(parentKi);
     }
   };
 
@@ -329,6 +361,7 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
   const classifyWithOpenAi = async (filename: string, key: string) => {
     try {
       setIsAiProcessing(true);
+      setAiSuggestion(null);
       const prompt = `You are a NAAC (National Assessment and Accreditation Council) accreditation expert.
 Classify this uploaded academic evidence file: "${filename}" into the single most appropriate NAAC AQAR Criterion, Key Indicator, and Metric.
 
@@ -367,23 +400,46 @@ Respond in JSON ONLY:
         const json = await res.json();
         const parsed = JSON.parse(json.choices[0].message.content);
         if (parsed.crit && parsed.keyIndicator && parsed.metric) {
-          setSelectedCriterionCode(parsed.crit);
-          setSelectedKeyIndicatorCode(parsed.keyIndicator);
-          setSelectedMetricCode(parsed.metric);
+          const canonicalCrit = toCanonicalCrit(parsed.crit);
+          const canonicalKi = toCanonicalKi(parsed.keyIndicator);
+          const canonicalMetric = toCanonicalMetric(parsed.metric);
+
+          setSelectedCriterionCode(canonicalCrit);
+          setSelectedKeyIndicatorCode(canonicalKi);
+          setSelectedMetricCode(canonicalMetric);
           setAiSuggestion({
-            crit: parsed.crit,
-            keyIndicator: parsed.keyIndicator,
-            metric: parsed.metric,
+            crit: canonicalCrit,
+            keyIndicator: canonicalKi,
+            metric: canonicalMetric,
             reason: parsed.reason || 'OpenAI natural language analysis of evidence document content and metadata.',
             source: 'openai',
           });
           setIsAiBoxOpen(true);
-          setSuccessToast(`✨ OpenAI analyzed & classified into ${parsed.crit} › KI ${parsed.keyIndicator} › Metric ${parsed.metric}`);
+          setSuccessToast(`✨ OpenAI analyzed & classified into ${canonicalCrit} › KI ${canonicalKi} › Metric ${canonicalMetric}`);
           setTimeout(() => setSuccessToast(null), 4000);
         }
+      } else {
+        const errJson = await res.json().catch(() => ({}));
+        const errMsg = errJson?.error?.message || `HTTP ${res.status}: OpenAI classification request failed.`;
+        setAiSuggestion({
+          crit: selectedCriterionCode,
+          keyIndicator: selectedKeyIndicatorCode,
+          metric: selectedMetricCode,
+          reason: `OpenAI Notice: ${errMsg}. Please check your API key below or use manual selection.`,
+          source: 'rule-engine',
+        });
+        setSuccessToast(`OpenAI: ${errMsg}`);
+        setTimeout(() => setSuccessToast(null), 5000);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.warn('OpenAI classification error, fallback remains active:', err);
+      setAiSuggestion({
+        crit: selectedCriterionCode,
+        keyIndicator: selectedKeyIndicatorCode,
+        metric: selectedMetricCode,
+        reason: 'Unable to complete AI analysis due to a network or connection issue. You can select target destination manually.',
+        source: 'rule-engine',
+      });
     } finally {
       setIsAiProcessing(false);
     }
@@ -423,7 +479,10 @@ Respond in JSON ONLY:
           });
         }
       } else {
-        // STRICTLY MANUAL MODE: No general auto keyword guessing!
+        // STRICTLY MANUAL MODE: Clean fresh start at Criterion 1 without retaining stale history
+        setSelectedCriterionCode('Criterion 1');
+        setSelectedKeyIndicatorCode('1.1');
+        setSelectedMetricCode('1.1.1');
         setAiSuggestion(null);
         setIsAiBoxOpen(false);
         setIsChangeOpen(true);
@@ -536,8 +595,8 @@ Respond in JSON ONLY:
 
     setIsSubmitting(true);
 
-    const activeCrit = NAAC_CRITERIA_SUMMARY.find((c) => c.code === selectedCriterionCode);
-    const activeMetric = NAAC_METRICS_LIST.find((m) => m.code === selectedMetricCode);
+    const activeCrit = NAAC_CRITERIA_SUMMARY.find((c) => c.code.toLowerCase() === cleanCritCode.toLowerCase()) || NAAC_CRITERIA_SUMMARY[0];
+    const activeMetric = NAAC_METRICS_LIST.find((m) => m.code === cleanMetricCode) || availableMetrics[0];
 
     const fileUrl = uploadedFile.dataUrl;
     const fileName = uploadedFile.name;
@@ -547,16 +606,16 @@ Respond in JSON ONLY:
     const newDoc: NaacEvidenceDocument = {
       id: `doc-${Date.now()}`,
       title: docTitle,
-      description: `Ingested NAAC evidence for ${selectedCriterionCode} › Key Indicator ${selectedKeyIndicatorCode} › Metric ${selectedMetricCode}.`,
+      description: `Ingested NAAC evidence for ${cleanCritCode} › Key Indicator ${cleanKiCode} › Metric ${cleanMetricCode}.`,
       schoolId: 'sch-eng',
       schoolName: 'School of Engineering & Technology',
       programId: 'prog-cse',
       programName: 'B.Tech Computer Science & Engineering',
       academicYear: academicYear || '2025-26',
       criterionId: activeCrit?.id || 'crit-1',
-      criterionCode: selectedCriterionCode,
-      metricCode: selectedMetricCode,
-      metricName: activeMetric?.name || `${selectedMetricCode} Evidence Proof`,
+      criterionCode: cleanCritCode,
+      metricCode: cleanMetricCode,
+      metricName: activeMetric?.name || `${cleanMetricCode} Evidence Proof`,
       metricType: activeMetric?.metricType || 'QnM',
       fileUrl,
       fileName,
@@ -570,13 +629,16 @@ Respond in JSON ONLY:
     addOrUpdateNaacDocument(newDoc);
     refreshDocuments();
 
-    setSuccessToast(`Document "${fileName}" confirmed & dropped into ${selectedCriterionCode} › KI ${selectedKeyIndicatorCode} › Metric ${selectedMetricCode}!`);
+    setSuccessToast(`Document "${fileName}" confirmed & dropped into ${cleanCritCode} › KI ${cleanKiCode} › Metric ${cleanMetricCode}!`);
     setTimeout(() => setSuccessToast(null), 5000);
 
     // Reset Form
     setUploadedFile(null);
     setDocumentTitle('');
     setDocumentDescription('');
+    setSelectedCriterionCode('Criterion 1');
+    setSelectedKeyIndicatorCode('1.1');
+    setSelectedMetricCode('1.1.1');
     setAiSuggestion(null);
     setIsChangeOpen(false);
     setIsSubmitting(false);
@@ -767,6 +829,12 @@ Respond in JSON ONLY:
                             classifyWithOpenAi(uploadedFile.name, openaiKey.trim());
                           }
                         } else {
+                          // Carry over AI suggestion destination into manual dropdowns if available
+                          if (aiSuggestion) {
+                            setSelectedCriterionCode(toCanonicalCrit(aiSuggestion.crit));
+                            setSelectedKeyIndicatorCode(toCanonicalKi(aiSuggestion.keyIndicator));
+                            setSelectedMetricCode(toCanonicalMetric(aiSuggestion.metric));
+                          }
                           setAiSuggestion(null);
                           setIsChangeOpen(true);
                         }
@@ -779,13 +847,13 @@ Respond in JSON ONLY:
 
                   <div className="h-4 w-px bg-gray-200 hidden sm:block shrink-0" />
 
-                  {/* File Chip */}
+                  {/* Attached Document File Chip (Subtle Rounded-Full Pill) */}
                   <div
                     onClick={() => fileInputRef.current?.click()}
-                    className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50/90 border border-blue-200 text-blue-900 rounded-lg text-xs font-semibold cursor-pointer hover:bg-blue-100 transition-colors shadow-2xs min-w-0"
+                    className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50/90 border border-blue-200 text-blue-900 rounded-full text-xs font-semibold cursor-pointer hover:bg-blue-100 transition-colors shadow-2xs min-w-0"
                     title="Click to replace attached file"
                   >
-                    <FileCheck2 className="w-4 h-4 text-blue-600 shrink-0" />
+                    <FileCheck2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
                     <span className="truncate max-w-[200px] font-medium">{uploadedFile.name}</span>
                     <span className="text-[10px] text-blue-500 font-normal shrink-0">({uploadedFile.size})</span>
                     <button
@@ -793,6 +861,9 @@ Respond in JSON ONLY:
                       onClick={(e) => {
                         e.stopPropagation();
                         setUploadedFile(null);
+                        setSelectedCriterionCode('Criterion 1');
+                        setSelectedKeyIndicatorCode('1.1');
+                        setSelectedMetricCode('1.1.1');
                         setAiSuggestion(null);
                         setIsChangeOpen(false);
                         setIsAiBoxOpen(false);
@@ -810,7 +881,15 @@ Respond in JSON ONLY:
                   {useAi && (
                     <button
                       type="button"
-                      onClick={() => setIsChangeOpen(!isChangeOpen)}
+                      onClick={() => {
+                        if (!isChangeOpen && aiSuggestion) {
+                          // Switching from Auto to Manual: strictly carry over the AI suggestion
+                          setSelectedCriterionCode(toCanonicalCrit(aiSuggestion.crit));
+                          setSelectedKeyIndicatorCode(toCanonicalKi(aiSuggestion.keyIndicator));
+                          setSelectedMetricCode(toCanonicalMetric(aiSuggestion.metric));
+                        }
+                        setIsChangeOpen(!isChangeOpen);
+                      }}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-300 transition-colors cursor-pointer"
                       title={isChangeOpen ? 'Return to AI Suggestion' : 'Manually change Criterion, KI, or Metric'}
                     >
@@ -834,12 +913,21 @@ Respond in JSON ONLY:
                       e.stopPropagation();
                       handleConfirmAndDrop();
                     }}
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || isAiProcessing}
                     className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold text-white bg-[#0f2748] hover:bg-[#183963] active:scale-[0.98] shadow-xs hover:shadow transition-all cursor-pointer disabled:opacity-50"
-                    title="Confirm destination and drop document into repository"
+                    title={isAiProcessing ? 'AI is analyzing evidence document...' : 'Confirm destination and drop document into repository'}
                   >
-                    <Check className="w-3.5 h-3.5 text-emerald-400 stroke-[2.5]" />
-                    <span>Confirm</span>
+                    {isAiProcessing ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 text-blue-300 animate-spin" />
+                        <span>Analyzing...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-400 stroke-[2.5]" />
+                        <span>Confirm</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
@@ -864,13 +952,13 @@ Respond in JSON ONLY:
                         1. Criterion
                       </label>
                       <select
-                        value={selectedCriterionCode}
+                        value={cleanCritCode}
                         onChange={(e) => handleCriterionChange(e.target.value)}
                         className="w-full text-xs font-semibold px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-hidden bg-white text-gray-800 shadow-2xs hover:border-blue-400 transition-colors cursor-pointer"
                       >
                         {NAAC_CRITERIA_SUMMARY.map((c) => (
                           <option key={c.code} value={c.code}>
-                            {c.code}: {c.name.substring(0, 30)}...
+                            {c.code}: {c.name}
                           </option>
                         ))}
                       </select>
@@ -882,13 +970,13 @@ Respond in JSON ONLY:
                         2. Key Indicator
                       </label>
                       <select
-                        value={selectedKeyIndicatorCode}
+                        value={cleanKiCode}
                         onChange={(e) => handleKeyIndicatorChange(e.target.value)}
                         className="w-full text-xs font-semibold px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-hidden bg-white text-gray-800 shadow-2xs hover:border-blue-400 transition-colors cursor-pointer"
                       >
                         {availableKeyIndicators.map((ki) => (
                           <option key={ki.code} value={ki.code}>
-                            KI {ki.code}: {ki.name.substring(0, 32)}...
+                            KI {ki.code}: {ki.name}
                           </option>
                         ))}
                       </select>
@@ -900,78 +988,179 @@ Respond in JSON ONLY:
                         3. Metric
                       </label>
                       <select
-                        value={selectedMetricCode}
-                        onChange={(e) => setSelectedMetricCode(e.target.value)}
+                        value={cleanMetricCode}
+                        onChange={(e) => handleMetricChange(e.target.value)}
                         className="w-full text-xs font-semibold px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-hidden bg-white text-gray-800 shadow-2xs hover:border-blue-400 transition-colors cursor-pointer"
                       >
-                        {availableMetrics.map((m) => (
-                          <option key={m.code} value={m.code}>
-                            {m.code} ({m.metricType}) - {m.name.substring(0, 28)}...
-                          </option>
-                        ))}
+                        {availableKeyIndicators.map((ki) => {
+                          const metricsInKi = availableMetrics.filter((m) => m.code.startsWith(ki.code));
+                          if (metricsInKi.length === 0) return null;
+                          return (
+                            <optgroup key={ki.code} label={`KI ${ki.code}: ${ki.name}`}>
+                              {metricsInKi.map((m) => (
+                                <option key={m.code} value={m.code}>
+                                  {m.code} ({m.metricType}) — {m.name}
+                                </option>
+                              ))}
+                            </optgroup>
+                          );
+                        })}
                       </select>
                     </div>
                   </div>
 
-                  {/* Route Summary */}
-                  <div className="mt-3 pt-2.5 border-t border-gray-100 flex items-center justify-between text-xs text-gray-600">
-                    <div>
-                      <span className="text-gray-400">Selected Route: </span>
-                      <span className="font-bold text-[#0f2748]">{selectedCriterionCode}</span>
-                      <span className="text-gray-400 mx-1">›</span>
-                      <span className="font-semibold text-gray-800">KI {selectedKeyIndicatorCode}</span>
-                      <span className="text-gray-400 mx-1">›</span>
-                      <span className="font-semibold text-blue-700">Metric {selectedMetricCode}</span>
+                  {/* Manual Target Summary: Compact Pathway */}
+                  <div className="mt-2.5 pt-2 border-t border-gray-100">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      {/* 1. Criterion */}
+                      <div className="bg-slate-50/80 border border-slate-200/90 rounded-lg p-2.5 flex flex-col justify-between min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                            Criterion
+                          </span>
+                          <span className="text-[10px] font-bold text-[#0f2748] font-mono">
+                            {cleanCritCode}
+                          </span>
+                        </div>
+                        <p className="text-xs font-semibold text-gray-800 line-clamp-2 leading-snug" title={currentCriterion.name}>
+                          {currentCriterion.name}
+                        </p>
+                      </div>
+
+                      {/* 2. Key Indicator */}
+                      <div className="bg-slate-50/80 border border-slate-200/90 rounded-lg p-2.5 flex flex-col justify-between min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                            Key Indicator
+                          </span>
+                          <span className="text-[10px] font-bold text-gray-700 font-mono">
+                            KI {cleanKiCode}
+                          </span>
+                        </div>
+                        <p className="text-xs font-semibold text-gray-800 line-clamp-2 leading-snug" title={currentKeyIndicator?.name}>
+                          {currentKeyIndicator?.name || `KI ${cleanKiCode}`}
+                        </p>
+                      </div>
+
+                      {/* 3. Metric */}
+                      <div className="bg-slate-50/80 border border-slate-200/90 rounded-lg p-2.5 flex flex-col justify-between min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                            Selected Metric
+                          </span>
+                          <span className="text-[10px] font-bold text-blue-700 font-mono">
+                            Metric {cleanMetricCode}
+                          </span>
+                        </div>
+                        <p className="text-xs font-semibold text-gray-800 line-clamp-2 leading-snug" title={currentMetric?.name}>
+                          {currentMetric?.name || `Metric ${cleanMetricCode}`}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
+              ) : isAiProcessing ? (
+                /* AI ANALYZING LOADER: Sleek Spinner Icon (No progress bar) */
+                <div className="py-2.5 px-3 my-1 bg-slate-50/90 border border-slate-200/90 rounded-xl flex items-center justify-center gap-3 text-left animate-in fade-in">
+                  <div className="w-7 h-7 rounded-lg bg-[#0f2748] text-white flex items-center justify-center shrink-0 shadow-2xs">
+                    <Loader2 className="w-4 h-4 text-emerald-400 animate-spin" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-bold text-gray-900">
+                        AI Analyzing Evidence Document...
+                      </span>
+                      <span className="text-[10px] font-bold text-blue-700 bg-blue-100/90 border border-blue-200 px-2 py-0.2 rounded-full animate-pulse">
+                        Matching NAAC Criteria
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-gray-500 mt-0.5 truncate">
+                      Evaluating file context, attributes & title against AQAR Criteria and Metrics...
+                    </p>
+                  </div>
+                </div>
               ) : (
-                /* VIEW B: AI Reasoning Strip with Target Destination Badge */
+                /* VIEW B: Auto AI Classification Display */
                 <div className="pt-3 animate-in fade-in space-y-2.5">
-                  <div className="flex items-center gap-2 flex-wrap text-xs">
-                    <span className="text-gray-500 font-medium">Classified Route:</span>
-                    <span className="px-2.5 py-0.5 rounded-full bg-slate-100 border border-slate-200 font-bold text-[11px] text-[#0f2748]">
-                      {selectedCriterionCode}
-                    </span>
-                    <span className="text-gray-400 font-bold text-[11px]">›</span>
-                    <span className="px-2.5 py-0.5 rounded-full bg-slate-100 border border-slate-200 font-medium text-[11px] text-gray-800">
-                      KI {selectedKeyIndicatorCode}
-                    </span>
-                    <span className="text-gray-400 font-bold text-[11px]">›</span>
-                    <span className="px-2.5 py-0.5 rounded-full bg-blue-50 border border-blue-200 font-bold text-[11px] text-blue-700">
-                      Metric {selectedMetricCode}
-                    </span>
+                  {/* Top sub-header: Label + Provider Pill */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      <span className="text-[11px] font-bold text-gray-700 uppercase tracking-wider">
+                        AI Destination Pathway
+                      </span>
+                    </div>
+                    {aiSuggestion?.source === 'openai' ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-white border border-emerald-200 px-2 py-0.5 rounded-full shadow-2xs">
+                        <Sparkles className="w-3 h-3 text-emerald-600 fill-emerald-500" />
+                        <span>OpenAI GPT-4o-mini</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-white border border-blue-200 px-2 py-0.5 rounded-full shadow-2xs">
+                        <Sparkles className="w-3 h-3 text-blue-600" />
+                        <span>NAAC AI Rule Engine</span>
+                      </span>
+                    )}
                   </div>
 
-                  <div className="bg-amber-50/70 border border-amber-300 rounded-xl p-3 flex items-start gap-2.5">
-                    <div className="w-7 h-7 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center shrink-0 mt-0.5">
-                      <Sparkles className="w-4 h-4 text-amber-600 stroke-[2.2]" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-[11px] font-bold text-amber-900 uppercase tracking-wider">
-                          AI Reasoning:
+                  {/* 3 Light Gray Boxes: Identical style to Manual panel */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    {/* 1. Criterion */}
+                    <div className="bg-slate-50/80 border border-slate-200/90 rounded-lg p-2.5 flex flex-col justify-between min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                          1. Criterion
                         </span>
-                        {aiSuggestion?.source === 'openai' ? (
-                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded">
-                            ✨ OpenAI
-                          </span>
-                        ) : (
-                          <span className="text-[10px] font-bold text-amber-800 bg-white/80 border border-amber-200 px-1.5 py-0.2 rounded">
-                            ⚡ AI Analyzed
-                          </span>
-                        )}
-                        {isAiProcessing && (
-                          <span className="text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.2 rounded animate-pulse">
-                            Analyzing...
-                          </span>
-                        )}
+                        <span className="text-[10px] font-bold text-[#0f2748] font-mono">
+                          {cleanCritCode}
+                        </span>
                       </div>
-                      <p className="text-xs text-gray-800 font-medium leading-relaxed mt-1">
-                        {aiSuggestion?.reason || 'File attributes match NAAC AQAR evidence guidelines.'}
+                      <p className="text-xs font-semibold text-gray-800 line-clamp-2 leading-snug" title={currentCriterion.name}>
+                        {currentCriterion.name}
+                      </p>
+                    </div>
+
+                    {/* 2. Key Indicator */}
+                    <div className="bg-slate-50/80 border border-slate-200/90 rounded-lg p-2.5 flex flex-col justify-between min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                          2. Key Indicator
+                        </span>
+                        <span className="text-[10px] font-bold text-gray-700 font-mono">
+                          KI {cleanKiCode}
+                        </span>
+                      </div>
+                      <p className="text-xs font-semibold text-gray-800 line-clamp-2 leading-snug" title={currentKeyIndicator?.name}>
+                        {currentKeyIndicator?.name || `KI ${cleanKiCode}`}
+                      </p>
+                    </div>
+
+                    {/* 3. Metric */}
+                    <div className="bg-slate-50/80 border border-slate-200/90 rounded-lg p-2.5 flex flex-col justify-between min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                          3. Target Metric
+                        </span>
+                        <span className="text-[10px] font-bold text-blue-700 font-mono">
+                          {cleanMetricCode}
+                        </span>
+                      </div>
+                      <p className="text-xs font-semibold text-gray-800 line-clamp-2 leading-snug" title={currentMetric?.name}>
+                        {currentMetric?.name || `Metric ${cleanMetricCode}`}
                       </p>
                     </div>
                   </div>
+
+                  {/* Integrated AI Reasoning in Light Blue */}
+                  {aiSuggestion?.reason && (
+                    <div className="bg-blue-50/80 border border-blue-100/90 rounded-lg p-2.5 flex items-start gap-2 shadow-2xs">
+                      <Sparkles className="w-3.5 h-3.5 text-blue-600 shrink-0 mt-0.5" />
+                      <p className="text-[11px] text-blue-950 leading-relaxed font-normal">
+                        <span className="font-semibold text-blue-900">Reasoning: </span>
+                        {aiSuggestion.reason}
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

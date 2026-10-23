@@ -235,54 +235,137 @@ export interface KeyIndicatorDef {
 }
 
 export const KEY_INDICATORS: KeyIndicatorDef[] = [
-  // Criterion 1
-  { code: '1.1', name: 'Curricular Planning and Implementation', criterionCode: 'Criterion 1', metricCodes: ['1.1.1'] },
-  { code: '1.2', name: 'Academic Flexibility', criterionCode: 'Criterion 1', metricCodes: ['1.2.1'] },
-  { code: '1.3', name: 'Curriculum Enrichment', criterionCode: 'Criterion 1', metricCodes: ['1.3.1'] },
-  { code: '1.4', name: 'Feedback System', criterionCode: 'Criterion 1', metricCodes: ['1.4.1'] },
-  // Criterion 2
-  { code: '2.1', name: 'Student Enrolment and Profile', criterionCode: 'Criterion 2', metricCodes: ['2.1.1'] },
-  { code: '2.3', name: 'Teaching-Learning Process & Experiential Methods', criterionCode: 'Criterion 2', metricCodes: ['2.3.1'] },
-  { code: '2.4', name: 'Teacher Profile and Quality Credentials', criterionCode: 'Criterion 2', metricCodes: ['2.4.1'] },
-  { code: '2.6', name: 'Student Performance and Learning Outcomes (PO/CO)', criterionCode: 'Criterion 2', metricCodes: ['2.6.1'] },
-  // Criterion 3
-  { code: '3.1', name: 'Resource Mobilization for Research & Grants', criterionCode: 'Criterion 3', metricCodes: ['3.1.1'] },
-  { code: '3.2', name: 'Innovation Ecosystem & Incubation Center', criterionCode: 'Criterion 3', metricCodes: ['3.2.1'] },
-  { code: '3.4', name: 'Extension Activities & Social Responsibility', criterionCode: 'Criterion 3', metricCodes: ['3.4.1'] },
-  { code: '3.5', name: 'Collaboration, Linkages & Corporate MoUs', criterionCode: 'Criterion 3', metricCodes: ['3.5.1'] },
-  // Criterion 4
-  { code: '4.1', name: 'Physical Facilities (ICT Classrooms & Labs)', criterionCode: 'Criterion 4', metricCodes: ['4.1.1'] },
-  { code: '4.2', name: 'Library as a Learning Resource & E-Subscriptions', criterionCode: 'Criterion 4', metricCodes: ['4.2.1'] },
-  // Criterion 5
-  { code: '5.1', name: 'Student Support & Freeships', criterionCode: 'Criterion 5', metricCodes: ['5.1.1'] },
-  { code: '5.3', name: 'Student Participation & Awards', criterionCode: 'Criterion 5', metricCodes: ['5.3.1'] },
-  // Criterion 6
-  { code: '6.5', name: 'Internal Quality Assurance System (IQAC)', criterionCode: 'Criterion 6', metricCodes: ['6.5.1'] },
-  // Criterion 7
-  { code: '7.1', name: 'Institutional Values & Gender Equity', criterionCode: 'Criterion 7', metricCodes: ['7.1.1'] },
+  // Criterion 1: Curricular Aspects
+  { code: '1.1', name: 'Curricular Planning and Implementation', criterionCode: 'Criterion 1', metricCodes: ['1.1.1', '1.1.2', '1.1.3'] },
+  { code: '1.2', name: 'Academic Flexibility', criterionCode: 'Criterion 1', metricCodes: ['1.2.1', '1.2.2'] },
+  { code: '1.3', name: 'Curriculum Enrichment', criterionCode: 'Criterion 1', metricCodes: ['1.3.1', '1.3.2', '1.3.3'] },
+  { code: '1.4', name: 'Feedback System', criterionCode: 'Criterion 1', metricCodes: ['1.4.1', '1.4.2'] },
+
+  // Criterion 2: Teaching-Learning and Evaluation
+  { code: '2.1', name: 'Student Enrolment and Profile', criterionCode: 'Criterion 2', metricCodes: ['2.1.1', '2.1.2'] },
+  { code: '2.2', name: 'Catering to Student Diversity', criterionCode: 'Criterion 2', metricCodes: ['2.2.1', '2.2.2'] },
+  { code: '2.3', name: 'Teaching-Learning Process & Experiential Methods', criterionCode: 'Criterion 2', metricCodes: ['2.3.1', '2.3.2'] },
+  { code: '2.4', name: 'Teacher Profile and Quality Credentials', criterionCode: 'Criterion 2', metricCodes: ['2.4.1', '2.4.2', '2.4.3'] },
+  { code: '2.5', name: 'Evaluation Process and Reforms', criterionCode: 'Criterion 2', metricCodes: ['2.5.1', '2.5.2'] },
+  { code: '2.6', name: 'Student Performance and Learning Outcomes (PO/CO)', criterionCode: 'Criterion 2', metricCodes: ['2.6.1', '2.6.2', '2.6.3'] },
+  { code: '2.7', name: 'Student Satisfaction Survey', criterionCode: 'Criterion 2', metricCodes: ['2.7.1'] },
+
+  // Criterion 3: Research, Innovations and Extension
+  { code: '3.1', name: 'Resource Mobilization for Research & Grants', criterionCode: 'Criterion 3', metricCodes: ['3.1.1', '3.1.2'] },
+  { code: '3.2', name: 'Innovation Ecosystem & Incubation Center', criterionCode: 'Criterion 3', metricCodes: ['3.2.1', '3.2.2'] },
+  { code: '3.3', name: 'Research Publications and Awards', criterionCode: 'Criterion 3', metricCodes: ['3.3.1', '3.3.2'] },
+  { code: '3.4', name: 'Extension Activities & Social Responsibility', criterionCode: 'Criterion 3', metricCodes: ['3.4.1', '3.4.2'] },
+  { code: '3.5', name: 'Collaboration, Linkages & Corporate MoUs', criterionCode: 'Criterion 3', metricCodes: ['3.5.1', '3.5.2'] },
+
+  // Criterion 4: Infrastructure and Learning Resources
+  { code: '4.1', name: 'Physical Facilities (ICT Classrooms & Labs)', criterionCode: 'Criterion 4', metricCodes: ['4.1.1', '4.1.2', '4.1.3'] },
+  { code: '4.2', name: 'Library as a Learning Resource & E-Subscriptions', criterionCode: 'Criterion 4', metricCodes: ['4.2.1', '4.2.2'] },
+  { code: '4.3', name: 'IT Infrastructure & Wi-Fi Facilities', criterionCode: 'Criterion 4', metricCodes: ['4.3.1', '4.3.2'] },
+  { code: '4.4', name: 'Maintenance of Campus Infrastructure', criterionCode: 'Criterion 4', metricCodes: ['4.4.1', '4.4.2'] },
+
+  // Criterion 5: Student Support and Progression
+  { code: '5.1', name: 'Student Support & Freeships', criterionCode: 'Criterion 5', metricCodes: ['5.1.1', '5.1.2', '5.1.3'] },
+  { code: '5.2', name: 'Student Progression & Placements', criterionCode: 'Criterion 5', metricCodes: ['5.2.1', '5.2.2'] },
+  { code: '5.3', name: 'Student Participation & Awards', criterionCode: 'Criterion 5', metricCodes: ['5.3.1', '5.3.2'] },
+  { code: '5.4', name: 'Alumni Engagement', criterionCode: 'Criterion 5', metricCodes: ['5.4.1', '5.4.2'] },
+
+  // Criterion 6: Governance, Leadership and Management
+  { code: '6.1', name: 'Institutional Vision and Leadership', criterionCode: 'Criterion 6', metricCodes: ['6.1.1', '6.1.2'] },
+  { code: '6.2', name: 'Strategy Development and Deployment', criterionCode: 'Criterion 6', metricCodes: ['6.2.1', '6.2.2', '6.2.3'] },
+  { code: '6.3', name: 'Faculty Empowerment Strategies', criterionCode: 'Criterion 6', metricCodes: ['6.3.1', '6.3.2', '6.3.3'] },
+  { code: '6.4', name: 'Financial Management & Resource Mobilization', criterionCode: 'Criterion 6', metricCodes: ['6.4.1', '6.4.2'] },
+  { code: '6.5', name: 'Internal Quality Assurance System (IQAC)', criterionCode: 'Criterion 6', metricCodes: ['6.5.1', '6.5.2'] },
+
+  // Criterion 7: Institutional Values and Best Practices
+  { code: '7.1', name: 'Institutional Values & Gender Equity', criterionCode: 'Criterion 7', metricCodes: ['7.1.1', '7.1.2', '7.1.3'] },
   { code: '7.2', name: 'Institutional Best Practices', criterionCode: 'Criterion 7', metricCodes: ['7.2.1'] },
+  { code: '7.3', name: 'Institutional Distinctiveness', criterionCode: 'Criterion 7', metricCodes: ['7.3.1'] },
 ];
 
 export const NAAC_METRICS_LIST: NaacMetric[] = [
+  // Criterion 1
   { code: '1.1.1', name: 'Curriculum Planning & Delivery Implementation System', criterionId: 'crit-1', criterionCode: 'Criterion 1', metricType: 'QlM', description: 'Academic council minutes, lesson plans, course handouts, and timetable alignment.' },
+  { code: '1.1.2', name: 'Percentage of Programmes where Syllabus Revision was Carried Out', criterionId: 'crit-1', criterionCode: 'Criterion 1', metricType: 'QnM', description: 'Board of Studies (BoS) minutes, comparative curriculum charts, and revised course structures.' },
+  { code: '1.1.3', name: 'Courses with Focus on Employability, Entrepreneurship & Skill Development', criterionId: 'crit-1', criterionCode: 'Criterion 1', metricType: 'QnM', description: 'Course content highlighting practical skills, live projects, and professional certifications.' },
   { code: '1.2.1', name: 'Academic Flexibility & Choice-Based Credit System (CBCS) Courses', criterionId: 'crit-1', criterionCode: 'Criterion 1', metricType: 'QnM', description: 'List of elective and interdisciplinary courses offered across programs.' },
+  { code: '1.2.2', name: 'Percentage of Programmes Adopting CBCS / Elective Course System', criterionId: 'crit-1', criterionCode: 'Criterion 1', metricType: 'QnM', description: 'University approval letters, statutory council notifications for CBCS implementation.' },
   { code: '1.3.1', name: 'Cross-cutting Issues: Gender, Environment, Sustainability & Professional Ethics', criterionId: 'crit-1', criterionCode: 'Criterion 1', metricType: 'QlM', description: 'Course syllabi integrating sustainability, environmental studies, and human values.' },
+  { code: '1.3.2', name: 'Value-Added Courses for Imparting Transferable & Life Skills', criterionId: 'crit-1', criterionCode: 'Criterion 1', metricType: 'QnM', description: 'Brochures, attendance sheets, and certificates of value-added training modules.' },
+  { code: '1.3.3', name: 'Students Undertaking Field Projects, Internships & Student Projects', criterionId: 'crit-1', criterionCode: 'Criterion 1', metricType: 'QnM', description: 'Industry internship completion certificates, field study reports, and project rosters.' },
   { code: '1.4.1', name: 'Structured Stakeholder Feedback Analysis & Action Taken Report (ATR)', criterionId: 'crit-1', criterionCode: 'Criterion 1', metricType: 'QnM', description: 'Student, teacher, employer, and alumni feedback reports with institutional ATRs.' },
+  { code: '1.4.2', name: 'Institutional Feedback Process & Communication on Website', criterionId: 'crit-1', criterionCode: 'Criterion 1', metricType: 'QnM', description: 'Feedback collection policy, web links, analysis summaries, and action taken reports.' },
+
+  // Criterion 2
   { code: '2.1.1', name: 'Enrolment Percentage and Sanctioned Intake Allocation', criterionId: 'crit-2', criterionCode: 'Criterion 2', metricType: 'QnM', description: 'Admission register, state quota sanction letters, and final enrolled lists.' },
+  { code: '2.1.2', name: 'Percentage of Seats Filled Against Reserved Categories', criterionId: 'crit-2', criterionCode: 'Criterion 2', metricType: 'QnM', description: 'Category-wise student enrolment data, caste certificates, and admission ledger.' },
+  { code: '2.2.1', name: 'Assessing Learning Levels & Programmes for Advanced and Slow Learners', criterionId: 'crit-2', criterionCode: 'Criterion 2', metricType: 'QlM', description: 'Diagnostic test reports, remedial class timetables, and peer tutoring logs.' },
+  { code: '2.2.2', name: 'Student - Full Time Teacher Ratio', criterionId: 'crit-2', criterionCode: 'Criterion 2', metricType: 'QnM', description: 'Calculated student to teacher ratio roster signed by head of institution.' },
   { code: '2.3.1', name: 'Student-Centric Learning Methods (Experiential, Participative & Problem-Solving)', criterionId: 'crit-2', criterionCode: 'Criterion 2', metricType: 'QlM', description: 'Industrial visits, case study documentation, capstone projects, and lab manuals.' },
+  { code: '2.3.2', name: 'Teachers Use of ICT Enabled Tools Including LMS & E-Resources', criterionId: 'crit-2', criterionCode: 'Criterion 2', metricType: 'QlM', description: 'Google Classroom / Moodle audit logs, e-content links, and interactive lecture slides.' },
   { code: '2.4.1', name: 'Full-time Teachers and Faculty Quality Credentials (Ph.D. / NET)', criterionId: 'crit-2', criterionCode: 'Criterion 2', metricType: 'QnM', description: 'Faculty appointment orders, doctoral degree certificates, and staff lists.' },
+  { code: '2.4.2', name: 'Percentage of Full-Time Teachers with Ph.D. / D.Sc. / D.Litt.', criterionId: 'crit-2', criterionCode: 'Criterion 2', metricType: 'QnM', description: 'Doctoral degree certificates, university approval notifications, and thesis titles.' },
+  { code: '2.4.3', name: 'Average Teaching Experience of Full-Time Teachers in Same Institution', criterionId: 'crit-2', criterionCode: 'Criterion 2', metricType: 'QnM', description: 'Experience certificates, joining letters, and service verification records.' },
+  { code: '2.5.1', name: 'Mechanism of Internal / Continuous Assessment is Transparent & Robust', criterionId: 'crit-2', criterionCode: 'Criterion 2', metricType: 'QlM', description: 'Examination circulars, internal assessment rubrics, and answer sheet grievance logs.' },
+  { code: '2.5.2', name: 'Mechanism to Deal with Examination-Related Grievances', criterionId: 'crit-2', criterionCode: 'Criterion 2', metricType: 'QlM', description: 'Grievance redressal minutes, revaluation requests, and re-check reports.' },
   { code: '2.6.1', name: 'Programme Outcomes (PO) and Course Outcomes (CO) Attainment', criterionId: 'crit-2', criterionCode: 'Criterion 2', metricType: 'QlM', description: 'Outcome-based education (OBE) evaluation matrices and attainment rubrics.' },
+  { code: '2.6.2', name: 'Attainment of Programme Outcomes and Course Outcomes Evaluated', criterionId: 'crit-2', criterionCode: 'Criterion 2', metricType: 'QlM', description: 'Direct and indirect assessment sheets with target vs attainment graphs.' },
+  { code: '2.6.3', name: 'Pass Percentage of Final Year Students in University Examinations', criterionId: 'crit-2', criterionCode: 'Criterion 2', metricType: 'QnM', description: 'Controller of Examinations (CoE) certified annual result sheets and gazettes.' },
+  { code: '2.7.1', name: 'Online Student Satisfaction Survey (SSS) on Teaching-Learning Process', criterionId: 'crit-2', criterionCode: 'Criterion 2', metricType: 'QnM', description: 'Google Form / portal SSS survey responses, percentage metrics, and report.' },
+
+  // Criterion 3
   { code: '3.1.1', name: 'Research Grants & Resource Mobilization from Government and Industry', criterionId: 'crit-3', criterionCode: 'Criterion 3', metricType: 'QnM', description: 'Sanction letters for funded research projects, consultancy receipts, and budgets.' },
+  { code: '3.1.2', name: 'Percentage of Teachers Recognized as Research Guides', criterionId: 'crit-3', criterionCode: 'Criterion 3', metricType: 'QnM', description: 'Ph.D. guide recognition letters from affiliating university / research council.' },
   { code: '3.2.1', name: 'Innovation Ecosystem & Incubation Center Documentation', criterionId: 'crit-3', criterionCode: 'Criterion 3', metricType: 'QlM', description: 'Startup incubation records, intellectual property filings, and hackathon reports.' },
+  { code: '3.2.2', name: 'Workshops / Seminars Conducted on Research Methodology, IPR & Entrepreneurship', criterionId: 'crit-3', criterionCode: 'Criterion 3', metricType: 'QnM', description: 'Event flyers, participant rosters, speaker profiles, and geo-tagged photos.' },
+  { code: '3.3.1', name: 'Research Papers Published in UGC CARE / Scopus / WoS Journals', criterionId: 'crit-3', criterionCode: 'Criterion 3', metricType: 'QnM', description: 'Journal publication links, paper first-page prints, and ISSN proof.' },
+  { code: '3.3.2', name: 'Books and Chapters in Edited Volumes & Conference Proceedings Published', criterionId: 'crit-3', criterionCode: 'Criterion 3', metricType: 'QnM', description: 'Book cover scans, ISBN certificates, and publisher agreements.' },
   { code: '3.4.1', name: 'Extension & Outreach Activities in Community Development (NSS/NCC)', criterionId: 'crit-3', criterionCode: 'Criterion 3', metricType: 'QnM', description: 'Reports of blood donation camps, village adoption programs, and community clinics.' },
+  { code: '3.4.2', name: 'Awards and Recognitions Received for Extension Activities', criterionId: 'crit-3', criterionCode: 'Criterion 3', metricType: 'QnM', description: 'Government certificates, NGO appreciation letters, and civic recognition trophies.' },
   { code: '3.5.1', name: 'Institutional Linkages, Corporate MoUs & Industry Collaborations', criterionId: 'crit-3', criterionCode: 'Criterion 3', metricType: 'QnM', description: 'Signed Memoranda of Understanding (MoU) with corporations and foreign universities.' },
+  { code: '3.5.2', name: 'Functional MoUs with Institutions and Corporates Ongoing During Year', criterionId: 'crit-3', criterionCode: 'Criterion 3', metricType: 'QnM', description: 'Activity reports executed under active MoUs (internships, guest lectures).' },
+
+  // Criterion 4
   { code: '4.1.1', name: 'Adequacy of Physical Infrastructure (ICT Classrooms, Labs, Seminar Halls)', criterionId: 'crit-4', criterionCode: 'Criterion 4', metricType: 'QlM', description: 'Geo-tagged photos of smart classrooms, IoT laboratories, and auditorium facilities.' },
-  { code: '4.2.1', name: 'Library as a Learning Resource & E-Journals Subscriptions', criterionId: 'crit-4', criterionCode: 'Criterion 4', metricType: 'QnM', description: 'IEEE, Springer, ScienceDirect invoice receipts, ILMS software utilization logs.' },
+  { code: '4.1.2', name: 'Facilities for Cultural Activities, Sports, Games & Gymnasium', criterionId: 'crit-4', criterionCode: 'Criterion 4', metricType: 'QlM', description: 'Sports ground dimensions, gymnasium equipment list, and cultural hall photos.' },
+  { code: '4.1.3', name: 'Classrooms and Seminar Halls with ICT Enabled Facilities & Smart Boards', criterionId: 'crit-4', criterionCode: 'Criterion 4', metricType: 'QnM', description: 'Room numbers list with projector models, LMS integration proofs, and photos.' },
+  { code: '4.2.1', name: 'Library as a Learning Resource & Integrated Library Management System', criterionId: 'crit-4', criterionCode: 'Criterion 4', metricType: 'QlM', description: 'Koha / LibSys software automation screenshots, barcode scanner logs.' },
+  { code: '4.2.2', name: 'Library E-Journals Subscriptions & Remote Access Usage Logs', criterionId: 'crit-4', criterionCode: 'Criterion 4', metricType: 'QnM', description: 'IEEE, Springer, ScienceDirect invoice receipts, ILMS software utilization logs.' },
+  { code: '4.3.1', name: 'Institution Frequently Updates IT Facilities Including Wi-Fi Bandwidth', criterionId: 'crit-4', criterionCode: 'Criterion 4', metricType: 'QlM', description: 'Internet lease line bills, firewall configuration reports, and access point maps.' },
+  { code: '4.3.2', name: 'Student - Computer Ratio for Academic Purposes', criterionId: 'crit-4', criterionCode: 'Criterion 4', metricType: 'QnM', description: 'Lab asset registers, stock registers, and computer invoices signed by HoD.' },
+  { code: '4.4.1', name: 'Expenditure Incurred on Maintenance of Physical & Academic Support Facilities', criterionId: 'crit-4', criterionCode: 'Criterion 4', metricType: 'QnM', description: 'Audited balance sheets, maintenance ledger statements, and AMC agreements.' },
+  { code: '4.4.2', name: 'Established Systems and Procedures for Maintaining Physical & Academic Facilities', criterionId: 'crit-4', criterionCode: 'Criterion 4', metricType: 'QlM', description: 'Standard operating procedures (SOP), maintenance request registers, and policies.' },
+
+  // Criterion 5
   { code: '5.1.1', name: 'Scholarships & Institutional Freeships Beneficiary Records', criterionId: 'crit-5', criterionCode: 'Criterion 5', metricType: 'QnM', description: 'Merit scholarship disbursement vouchers and government grant lists.' },
-  { code: '5.3.1', name: 'Student Sports, Cultural Competitions & National Awards', criterionId: 'crit-5', criterionCode: 'Criterion 5', metricType: 'QnM', description: 'Merit certificates, event photographs, and university sports representation proofs.' },
+  { code: '5.1.2', name: 'Capacity Building & Skills Enhancement Initiatives (Soft skills, ICT, Language)', criterionId: 'crit-5', criterionCode: 'Criterion 5', metricType: 'QnM', description: 'Skill enhancement course syllabi, attendance sheets, and trainer MOUs.' },
+  { code: '5.1.3', name: 'Guidance for Competitive Examinations and Career Counseling Offered', criterionId: 'crit-5', criterionCode: 'Criterion 5', metricType: 'QnM', description: 'GATE/GRE coaching schedules, career fair flyers, and counseling registers.' },
+  { code: '5.2.1', name: 'Placement of Outgoing Students and Progression to Higher Education', criterionId: 'crit-5', criterionCode: 'Criterion 5', metricType: 'QnM', description: 'Offer letters, employer verification emails, and admission letters for higher studies.' },
+  { code: '5.2.2', name: 'Students Qualifying in State / National / International Level Exams (GATE/NET)', criterionId: 'crit-5', criterionCode: 'Criterion 5', metricType: 'QnM', description: 'Scorecards, rank letters for GATE, CAT, GRE, GMAT, and civil service exams.' },
+  { code: '5.3.1', name: 'Student Sports, Cultural Competitions & National / International Awards', criterionId: 'crit-5', criterionCode: 'Criterion 5', metricType: 'QnM', description: 'Merit certificates, event photographs, and university sports representation proofs.' },
+  { code: '5.3.2', name: 'Presence of an Active Student Council & Student Representation on Bodies', criterionId: 'crit-5', criterionCode: 'Criterion 5', metricType: 'QlM', description: 'Student council constitution, notification circulars, and meeting minutes.' },
+  { code: '5.4.1', name: 'Registered Alumni Association Contributing Significantly to Institution', criterionId: 'crit-5', criterionCode: 'Criterion 5', metricType: 'QlM', description: 'Alumni registration certificate, guest lecture photos, and mentorship records.' },
+  { code: '5.4.2', name: 'Alumni Financial and In-kind Contribution During the Year', criterionId: 'crit-5', criterionCode: 'Criterion 5', metricType: 'QnM', description: 'Audited alumni donation statements, endowment receipts, and equipment gifts.' },
+
+  // Criterion 6
+  { code: '6.1.1', name: 'Governance Aligned with Vision and Mission of the Institution', criterionId: 'crit-6', criterionCode: 'Criterion 6', metricType: 'QlM', description: 'Governing body resolutions, perspective plan documents, and mission statements.' },
+  { code: '6.1.2', name: 'Decentralization and Participative Management in Academic & Administrative Bodies', criterionId: 'crit-6', criterionCode: 'Criterion 6', metricType: 'QlM', description: 'Committee circulars, delegation of authority matrices, and meeting minutes.' },
+  { code: '6.2.1', name: 'Strategic Perspective Plan Deployment and Implementation Proofs', criterionId: 'crit-6', criterionCode: 'Criterion 6', metricType: 'QlM', description: 'Five-year strategic plan, annual targets vs achievements, and review reports.' },
+  { code: '6.2.2', name: 'Functioning of Institutional Bodies and E-Governance Implementation Policy', criterionId: 'crit-6', criterionCode: 'Criterion 6', metricType: 'QlM', description: 'Organogram, service rules, promotion policies, and ERP user manuals.' },
+  { code: '6.2.3', name: 'Implementation of E-Governance in Administration, Finance & Examinations', criterionId: 'crit-6', criterionCode: 'Criterion 6', metricType: 'QnM', description: 'ERP software invoices, screenshots of student admission & examination portals.' },
+  { code: '6.3.1', name: 'Effective Welfare Measures for Teaching and Non-Teaching Staff', criterionId: 'crit-6', criterionCode: 'Criterion 6', metricType: 'QlM', description: 'Staff medical insurance policies, PF statements, and maternity leave records.' },
+  { code: '6.3.2', name: 'Financial Support Provided to Teachers for Conferences & Professional Memberships', criterionId: 'crit-6', criterionCode: 'Criterion 6', metricType: 'QnM', description: 'Sanction vouchers, conference registration fee receipts, and travel grants.' },
+  { code: '6.3.3', name: 'Professional Development & Administrative Training Programs Organized', criterionId: 'crit-6', criterionCode: 'Criterion 6', metricType: 'QnM', description: 'FDP flyers, participant attendance sheets, and completion certificates.' },
+  { code: '6.4.1', name: 'Institutional Financial Audits (Internal & External) Conducted Regularly', criterionId: 'crit-6', criterionCode: 'Criterion 6', metricType: 'QlM', description: 'Chartered Accountant audited balance sheets and statutory audit reports.' },
+  { code: '6.4.2', name: 'Mobilization of Funds and Resource Utilization Strategies', criterionId: 'crit-6', criterionCode: 'Criterion 6', metricType: 'QnM', description: 'Endowments, consultancy fee ledgers, and budget utilization statements.' },
   { code: '6.5.1', name: 'Internal Quality Assurance Cell (IQAC) Review & Academic Audit Reports', criterionId: 'crit-6', criterionCode: 'Criterion 6', metricType: 'QlM', description: 'IQAC quarterly meeting minutes, external peer team audits, and action taken matrices.' },
-  { code: '7.1.1', name: 'Gender Equity Promotion & Safety Measures', criterionId: 'crit-7', criterionCode: 'Criterion 7', metricType: 'QlM', description: 'Internal Complaints Committee (ICC) notices, CCTV audits, and women counseling records.' },
+  { code: '6.5.2', name: 'Quality Assurance Initiatives of the Institution (Collaborations, NIRF, ISO)', criterionId: 'crit-6', criterionCode: 'Criterion 6', metricType: 'QlM', description: 'NIRF submission copies, ISO 9001 certificates, and collaborative quality workshops.' },
+
+  // Criterion 7
+  { code: '7.1.1', name: 'Gender Equity Promotion & Safety Measures in Campus', criterionId: 'crit-7', criterionCode: 'Criterion 7', metricType: 'QlM', description: 'Internal Complaints Committee (ICC) notices, CCTV audits, and women counseling records.' },
+  { code: '7.1.2', name: 'Facilities for Alternate Energy, Solar Panels, Water Conservation & Waste Management', criterionId: 'crit-7', criterionCode: 'Criterion 7', metricType: 'QnM', description: 'Geo-tagged photos of solar rooftops, rainwater harvesting pits, and STP plants.' },
+  { code: '7.1.3', name: 'Quality Audits on Environment and Energy (Green Audit, Energy Audit)', criterionId: 'crit-7', criterionCode: 'Criterion 7', metricType: 'QlM', description: 'Third-party certified Green Audit reports, Energy Audit certificates, and clean campus awards.' },
   { code: '7.2.1', name: 'Institutional Best Practices Case Studies (Best Practice 1 & 2)', criterionId: 'crit-7', criterionCode: 'Criterion 7', metricType: 'QlM', description: 'Detailed case studies with outcome evidence on campus sustainability and industry immersion.' },
+  { code: '7.3.1', name: 'Institutional Distinctiveness in Priority Area and Thrust', criterionId: 'crit-7', criterionCode: 'Criterion 7', metricType: 'QlM', description: 'Comprehensive report highlighting unique institutional achievements and distinctive features.' },
 ];
 
 const INITIAL_NAAC_DOCUMENTS: NaacEvidenceDocument[] = [
