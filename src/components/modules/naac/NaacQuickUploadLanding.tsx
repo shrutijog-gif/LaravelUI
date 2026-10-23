@@ -1462,6 +1462,7 @@ Respond in JSON ONLY:
                 ) : (
                   <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-2xs">
                     <div className="overflow-x-auto">
+         
                       <table className="w-full text-left text-xs border-collapse">
                         <thead className="bg-slate-50 border-b border-gray-200 sticky top-0 z-10">
                           <tr className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
