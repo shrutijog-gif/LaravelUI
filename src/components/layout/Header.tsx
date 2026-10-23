@@ -52,6 +52,12 @@ export const Header: React.FC<HeaderProps> = ({
     setActiveTenantId(e.target.value);
   };
 
+  const portalType = typeof window !== 'undefined' ? localStorage.getItem('college_cms_portal_type') : null;
+  const isNaacProgram = portalType === 'naac-program';
+  const isNaacSchool = portalType === 'naac-school';
+  const isNaacUniversity = portalType === 'naac-university';
+  const isNaacPortal = isNaacProgram || isNaacSchool || isNaacUniversity || Boolean(currentUser?.role?.includes('Coordinator'));
+
   return (
     <header className="h-16 bg-white border-b border-gray-200 px-3 sm:px-6 flex items-center justify-between sticky top-0 z-30 shadow-xs">
       {/* Left: Hamburger Button + Branding Logo */}
@@ -69,9 +75,37 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Dynamic Logo with Tooltip */}
         <div 
           className="cursor-default group flex items-center"
-          title={isSuperadmin ? 'WhiteCode Master Console' : `${currentTenant.name} — ${currentTenant.subtitle}`}
+          title={isNaacPortal ? 'ITM Skills University — NAAC Portal' : isSuperadmin ? 'WhiteCode Master Console' : `${currentTenant.name} — ${currentTenant.subtitle}`}
         >
-          {isSuperadmin ? (
+          {isNaacProgram ? (
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-emerald-950 via-teal-900 to-slate-900 text-emerald-300 flex items-center justify-center font-black text-xs sm:text-sm shadow-md border border-emerald-500/40 shrink-0 group-hover:scale-105 transition-transform">
+                📋
+              </div>
+              <div className="hidden sm:block text-left">
+                <span className="block text-xs font-black text-gray-900 leading-tight">
+                  Dept. of Computer Science & Engg
+                </span>
+                <span className="block text-[10px] font-semibold text-emerald-700">
+                  School of Technology • ITM Skills University
+                </span>
+              </div>
+            </div>
+          ) : isNaacPortal ? (
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-indigo-950 via-slate-900 to-purple-950 text-indigo-300 flex items-center justify-center font-black text-xs sm:text-sm shadow-md border border-indigo-500/30 shrink-0 group-hover:scale-105 transition-transform">
+                🏛️
+              </div>
+              <div className="hidden sm:block text-left">
+                <span className="block text-xs font-black text-gray-900 leading-tight">
+                  ITM Skills University
+                </span>
+                <span className="block text-[10px] font-semibold text-indigo-600">
+                  NAAC Accreditation DMS
+                </span>
+              </div>
+            </div>
+          ) : isSuperadmin ? (
             <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-gray-900 via-indigo-950 to-slate-900 text-amber-400 flex items-center justify-center font-black text-xs sm:text-sm shadow-md border border-amber-500/30 shrink-0 group-hover:scale-105 transition-transform">
               CMS
             </div>
@@ -103,42 +137,90 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* Center Portal Switcher Pill Bar (Visible on desktop) */}
-      <div className="hidden xl:flex items-center gap-1.5 bg-gray-100 p-1.5 rounded-xl border border-gray-200 shadow-2xs">
-        <button
-          onClick={() => {
-            if (onSwitchPortalRole) onSwitchPortalRole('superadmin');
-            if (onSelectModule) onSelectModule('module-studio', 'Module Studio');
-          }}
-          className={`px-3.5 py-1.5 text-xs font-black rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
-            isSuperadmin
-              ? 'bg-[#0f172a] text-amber-400 shadow-sm ring-2 ring-amber-400/30'
-              : 'text-gray-600 hover:text-gray-900 hover:bg-white/60'
-          }`}
-        >
-          <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
-          👑 WhiteCode Master Console
-        </button>
+      {isNaacProgram ? (
+        <div className="hidden xl:flex items-center gap-2 bg-emerald-50 border border-emerald-200/80 px-3.5 py-1.5 rounded-xl shadow-2xs">
+          <span className="text-xs font-extrabold text-emerald-950 flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
+            Program Coordinator Desk
+          </span>
+          <span className="text-emerald-300">|</span>
+          <span className="text-xs font-bold text-emerald-800">
+            Prof. Anita Verma (B.Tech CSE)
+          </span>
+        </div>
+      ) : isNaacPortal ? (
+        <div className="hidden xl:flex items-center gap-2 bg-indigo-50/80 border border-indigo-200/70 px-3.5 py-1.5 rounded-xl shadow-2xs">
+          <span className="text-xs font-extrabold text-indigo-950 flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            Accreditation Cycle 1 (2025–2030)
+          </span>
+          <span className="text-indigo-300">|</span>
+          <span className="text-xs font-bold text-indigo-700">
+            {currentUser?.role || 'IQAC Coordinator'}
+          </span>
+        </div>
+      ) : (
+        <div className="hidden xl:flex items-center gap-1.5 bg-gray-100 p-1.5 rounded-xl border border-gray-200 shadow-2xs">
+          <button
+            onClick={() => {
+              if (onSwitchPortalRole) onSwitchPortalRole('superadmin');
+              if (onSelectModule) onSelectModule('module-studio', 'Module Studio');
+            }}
+            className={`px-3.5 py-1.5 text-xs font-black rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+              isSuperadmin
+                ? 'bg-[#0f172a] text-amber-400 shadow-sm ring-2 ring-amber-400/30'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-white/60'
+            }`}
+          >
+            <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+            👑 WhiteCode Master Console
+          </button>
 
-        <button
-          onClick={() => {
-            if (onSwitchPortalRole) onSwitchPortalRole('collegeadmin');
-            if (onSelectModule) onSelectModule('dashboard', 'Dashboard');
-          }}
-          className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
-            !isSuperadmin
-              ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-500/30 font-black'
-              : 'text-gray-600 hover:text-gray-900 hover:bg-white/60'
-          }`}
-        >
-          <Layers className="w-3.5 h-3.5 text-blue-300" />
-          🏛️ College Admin Panel
-        </button>
-      </div>
+          <button
+            onClick={() => {
+              if (onSwitchPortalRole) onSwitchPortalRole('collegeadmin');
+              if (onSelectModule) onSelectModule('dashboard', 'Dashboard');
+            }}
+            className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+              !isSuperadmin
+                ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-500/30 font-black'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-white/60'
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5 text-blue-300" />
+            🏛️ College Admin Panel
+          </button>
+        </div>
+      )}
 
       {/* Right Action Icons & Profile */}
       <div className="flex items-center gap-2 sm:gap-3 text-gray-600 shrink-0">
         {/* Multi-Tenant Switcher Dropdown (Only visible in College Admin Mode) */}
-        {isSuperadmin ? (
+        {isNaacProgram ? (
+          <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 text-emerald-950 px-2.5 sm:px-3 py-1 rounded-lg shadow-2xs">
+            <Building2 className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+            <div className="flex flex-col text-left">
+              <span className="hidden sm:block text-[9px] font-extrabold uppercase tracking-wider text-emerald-600 leading-none">
+                Department
+              </span>
+              <span className="text-xs font-black text-emerald-950 truncate">
+                B.Tech CSE
+              </span>
+            </div>
+          </div>
+        ) : isNaacPortal ? (
+          <div className="flex items-center gap-1.5 bg-purple-50 border border-purple-200/80 text-purple-900 px-2.5 sm:px-3 py-1 rounded-lg shadow-2xs">
+            <Building2 className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+            <div className="flex flex-col text-left">
+              <span className="hidden sm:block text-[9px] font-extrabold uppercase tracking-wider text-purple-500 leading-none">
+                Scope
+              </span>
+              <span className="text-xs font-black text-purple-900 truncate">
+                5 Schools • 18 Programs
+              </span>
+            </div>
+          </div>
+        ) : isSuperadmin ? (
           <div className="hidden sm:flex items-center gap-1.5 sm:gap-2 bg-amber-500/10 border border-amber-500/30 text-amber-800 px-2.5 py-1 rounded-lg shadow-2xs">
             <span className="text-[10px] font-black uppercase tracking-wider text-amber-700">
               Scope:
@@ -191,7 +273,11 @@ export const Header: React.FC<HeaderProps> = ({
             className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-[#0f2748] text-white flex items-center justify-center text-xs sm:text-sm font-semibold shadow-xs select-none cursor-pointer hover:ring-2 hover:ring-blue-500/50 hover:opacity-95 transition-all"
             title="Account Menu"
           >
-            SJ
+            {currentUser?.name ? (
+              currentUser.name.includes('Anita') ? 'AV' :
+              currentUser.name.includes('Rajesh') ? 'RS' :
+              currentUser.name.includes('Vikram') ? 'VM' : 'SJ'
+            ) : 'SJ'}
           </button>
 
           {isProfileOpen && (
