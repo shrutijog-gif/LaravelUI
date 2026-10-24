@@ -20,6 +20,8 @@ import { CareersAdmin } from '../modules/website/careers/CareersAdmin';
 import { NirfShowcaseAdmin } from '../modules/website/nirf/NirfShowcaseAdmin';
 import { NaacDmsWorkspace } from '../modules/naac/NaacDmsWorkspace';
 import { ProgramCoordinatorDesk } from '../modules/naac/ProgramCoordinatorDesk';
+import { SchoolCoordinatorDesk } from '../modules/naac/SchoolCoordinatorDesk';
+import { UniversityCoordinatorDesk } from '../modules/naac/UniversityCoordinatorDesk';
 
 interface LayoutProps {
   initialPortalRole?: 'superadmin' | 'collegeadmin';
@@ -35,8 +37,8 @@ export const Layout: React.FC<LayoutProps> = ({
   const getInitialModule = () => {
     const portalType = typeof window !== 'undefined' ? localStorage.getItem('college_cms_portal_type') : null;
     if (portalType === 'naac-program') return 'naac-aqar';
-    if (portalType === 'naac-school') return 'school-queue';
-    if (portalType === 'naac-university') return 'univ-dashboard';
+    if (portalType === 'naac-school') return 'naac-school';
+    if (portalType === 'naac-university') return 'naac-university';
     if (portalType && portalType.startsWith('naac-')) return 'naac-dashboard';
     return initialPortalRole === 'superadmin' ? 'module-studio' : 'dashboard';
   };
@@ -65,6 +67,8 @@ export const Layout: React.FC<LayoutProps> = ({
   const [activeModuleLabel, setActiveModuleLabel] = useState<string>(() => {
     const initMod = getInitialModule();
     if (initMod === 'naac-aqar') return 'AQAR';
+    if (initMod === 'naac-school') return 'School Coordinator';
+    if (initMod === 'naac-university') return 'University Coordinator';
     if (initMod === 'school-queue') return 'School Review Queue';
     if (initMod === 'univ-dashboard') return 'University IQAC';
     if (initMod === 'naac-dashboard') return 'NAAC Accreditation DMS';
@@ -179,6 +183,10 @@ export const Layout: React.FC<LayoutProps> = ({
               <PageAdmin />
             ) : activeModuleId === 'nirf-showcase' ? (
               <NirfShowcaseAdmin />
+            ) : activeModuleId === 'naac-school' || activeModuleId.startsWith('school-') ? (
+              <SchoolCoordinatorDesk />
+            ) : activeModuleId === 'naac-university' || activeModuleId.startsWith('univ-') ? (
+              <UniversityCoordinatorDesk />
             ) : activeModuleId === 'naac-aqar' || activeModuleId === 'naac-dms' || activeModuleId.startsWith('prog-') ? (
               <ProgramCoordinatorDesk activeSection="aqar" />
             ) : activeModuleId === 'naac-ssr' ? (

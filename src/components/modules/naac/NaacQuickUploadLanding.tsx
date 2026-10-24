@@ -46,11 +46,40 @@ import { openFileInNewTab } from '../../../utils/fileHelper';
 export interface NaacQuickUploadLandingProps {
   academicYear: string;
   onNavigateToDocumentList: (critCode?: string, metricCode?: string) => void;
+  // Role & Scope Customization
+  role?: 'program' | 'school' | 'university';
+  levelBadgeText?: string;
+  portalTitle?: string;
+  portalSubtitle?: string;
+  headingTitle?: string;
+  schoolId?: string;
+  schoolName?: string;
+  programId?: string;
+  programName?: string;
+  uploaderName?: string;
+  submitTargetName?: string;
+  initialSeedDocIds?: string[];
+  storageKeySuffix?: string;
+  topBarLeftSlot?: React.ReactNode;
 }
 
 export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
   academicYear,
   onNavigateToDocumentList,
+  role = 'program',
+  levelBadgeText,
+  portalTitle,
+  portalSubtitle,
+  headingTitle,
+  schoolId,
+  schoolName,
+  programId,
+  programName,
+  uploaderName,
+  submitTargetName,
+  initialSeedDocIds,
+  storageKeySuffix,
+  topBarLeftSlot,
 }) => {
   const [documents, setDocuments] = useState<NaacEvidenceDocument[]>(() => getStoredNaacDocuments());
   const [isDragging, setIsDragging] = useState(false);
@@ -76,14 +105,24 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
 
   // My Documents Drawer state & tracking
   const [isMyDocsDrawerOpen, setIsMyDocsDrawerOpen] = useState<boolean>(false);
+  const myDocsStorageKey = `naac_my_uploaded_doc_ids_${storageKeySuffix || role || 'v3'}`;
   const [myDocIds, setMyDocIds] = useState<string[]>(() => {
     try {
-      const saved = localStorage.getItem('naac_my_uploaded_doc_ids_v3');
+      const saved = localStorage.getItem(myDocsStorageKey);
       if (saved) return JSON.parse(saved);
     } catch (e) {
       // ignore
     }
-    // Seeded initial faculty-uploaded documents showcasing multiple docs per criterion
+    if (initialSeedDocIds && initialSeedDocIds.length > 0) {
+      return initialSeedDocIds;
+    }
+    if (role === 'school') {
+      return ['naac-doc-2', 'naac-cse-fac-5', 'naac-cse-fac-5-b', 'naac-cse-fac-3'];
+    }
+    if (role === 'university') {
+      return ['naac-doc-4', 'naac-doc-2', 'naac-cse-fac-5'];
+    }
+    // Default program coordinator
     return [
       'naac-cse-fac-5',
       'naac-cse-fac-5-b',
@@ -661,10 +700,10 @@ Respond in JSON ONLY:
       id: `doc-${Date.now()}`,
       title: docTitle,
       description: `Ingested NAAC evidence for ${cleanCritCode} › Key Indicator ${cleanKiCode} › Metric ${cleanMetricCode}.`,
-      schoolId: 'sch-eng',
-      schoolName: 'School of Engineering & Technology',
-      programId: 'prog-cse',
-      programName: 'B.Tech Computer Science & Engineering',
+      schoolId: schoolId || 'sch-tech',
+      schoolName: schoolName || 'School of Technology & Computer Engineering',
+      programId: programId || (role === 'school' ? 'school-common' : role === 'university' ? 'univ-master' : 'prog-cse'),
+      programName: programName || (role === 'school' ? 'School Level Evidence' : role === 'university' ? 'Central Institutional Evidence' : 'B.Tech Computer Science & Engineering'),
       academicYear: academicYear || '2025-26',
       criterionId: activeCrit?.id || 'crit-1',
       criterionCode: cleanCritCode,
@@ -674,7 +713,7 @@ Respond in JSON ONLY:
       fileUrl,
       fileName,
       fileSize,
-      uploadedBy: 'Program Coordinator (CSE)',
+      uploadedBy: uploaderName || (role === 'school' ? 'Dean (School Coordinator)' : role === 'university' ? 'IQAC Central Committee' : 'Program Coordinator (CSE)'),
       uploadedAt: new Date().toISOString().split('T')[0],
       status: 'draft',
       version: 'v1.0',
@@ -684,7 +723,7 @@ Respond in JSON ONLY:
     const updatedMyDocIds = [newDoc.id, ...myDocIds];
     setMyDocIds(updatedMyDocIds);
     setSelectedDocIds((prev) => [newDoc.id, ...prev]);
-    localStorage.setItem('naac_my_uploaded_doc_ids_v3', JSON.stringify(updatedMyDocIds));
+    localStorage.setItem(myDocsStorageKey, JSON.stringify(updatedMyDocIds));
     refreshDocuments();
 
     setSuccessToast(`Document "${fileName}" confirmed & dropped into ${cleanCritCode} › KI ${cleanKiCode} › Metric ${cleanMetricCode}!`);
@@ -702,7 +741,7 @@ Respond in JSON ONLY:
     setIsSubmitting(false);
   };
 
-  // Submit selected documents to Program Coordinator
+  // Submit selected documents to Coordinator / University / Archive
   const handleSubmitToCoordinator = () => {
     const docsToSubmit = myDocuments.filter((doc) => selectedDocIds.includes(doc.id));
     if (docsToSubmit.length === 0) {
@@ -710,16 +749,29 @@ Respond in JSON ONLY:
       setTimeout(() => setSuccessToast(null), 3000);
       return;
     }
+
+    const nextStatus = role === 'school'
+      ? 'approved_by_school'
+      : role === 'university'
+      ? 'university_verified'
+      : 'submitted_to_school';
+
+    const targetLabel = submitTargetName || (role === 'school' ? 'University Coordinator' : role === 'university' ? 'Permanent SSR Archive' : 'Program Coordinator');
+
     docsToSubmit.forEach((doc) => {
       addOrUpdateNaacDocument({
         ...doc,
-        status: 'submitted_to_school',
-        coordinatorReviewStatus: 'pending_review',
+        status: nextStatus,
+        coordinatorReviewStatus: role === 'program' ? 'pending_review' : doc.coordinatorReviewStatus,
+        schoolReviewedBy: role === 'school' ? (uploaderName || 'Dean (School Coordinator)') : doc.schoolReviewedBy,
+        schoolReviewedAt: role === 'school' ? new Date().toISOString() : doc.schoolReviewedAt,
+        universityVerifiedBy: role === 'university' ? (uploaderName || 'IQAC Central Committee') : doc.universityVerifiedBy,
+        universityVerifiedAt: role === 'university' ? new Date().toISOString() : doc.universityVerifiedAt,
       });
     });
     setSelectedDocIds([]);
     refreshDocuments();
-    setSuccessToast(`✨ Successfully submitted ${docsToSubmit.length} selected document${docsToSubmit.length === 1 ? '' : 's'} to Program Coordinator!`);
+    setSuccessToast(`✨ Successfully submitted ${docsToSubmit.length} selected document${docsToSubmit.length === 1 ? '' : 's'} to ${targetLabel}!`);
     setTimeout(() => setSuccessToast(null), 4500);
   };
 
@@ -730,7 +782,7 @@ Respond in JSON ONLY:
       const updated = myDocIds.filter((id) => id !== docId);
       setMyDocIds(updated);
       setSelectedDocIds((prev) => prev.filter((id) => id !== docId));
-      localStorage.setItem('naac_my_uploaded_doc_ids_v3', JSON.stringify(updated));
+      localStorage.setItem(myDocsStorageKey, JSON.stringify(updated));
       refreshDocuments();
       setSuccessToast(`Deleted "${title}" from uploaded documents.`);
       setTimeout(() => setSuccessToast(null), 3000);
@@ -785,19 +837,46 @@ Respond in JSON ONLY:
         </div>
       )}
 
-      {/* Top Subtle Navigation Bar */}
+      {/* Top Navigation Bar: Single Unified Line */}
       <div className="flex items-center justify-between py-2.5 border-b border-gray-200">
-        <div className="flex items-center gap-2 text-xs">
-          <span className="font-bold text-[#0f2748]">NAAC Proof Vault</span>
-          <span className="text-gray-300">•</span>
-          <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-mono text-[11px] font-semibold border border-blue-200">
-            AQAR {academicYear}
-          </span>
-          <span className="text-gray-300">•</span>
-          <span className="text-gray-500 font-medium">B.Tech CSE</span>
-        </div>
+        {topBarLeftSlot ? (
+          /* One Unified Line: Parent Desk Action Tabs on Left */
+          <div className="flex items-center gap-3">
+            {topBarLeftSlot}
+          </div>
+        ) : (
+          /* Default Left Branding */
+          <div className="flex items-center gap-2 text-xs flex-wrap">
+            <span className="font-bold text-[#0f2748]">NAAC Proof Vault</span>
+            <span className="text-gray-300">•</span>
+            <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-mono text-[11px] font-semibold border border-blue-200">
+              AQAR {academicYear}
+            </span>
+            {portalTitle && (
+              <>
+                <span className="text-gray-300">•</span>
+                <span className="text-gray-700 font-semibold">{portalTitle}</span>
+              </>
+            )}
+            {levelBadgeText && (
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                role === 'university' ? 'bg-purple-100 text-purple-800 border-purple-200' :
+                role === 'school' ? 'bg-blue-100 text-blue-800 border-blue-200' :
+                'bg-emerald-100 text-emerald-800 border-emerald-200'
+              }`}>
+                {levelBadgeText}
+              </span>
+            )}
+          </div>
+        )}
 
         <div className="flex items-center gap-2 sm:gap-3">
+          {topBarLeftSlot && (
+            <span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded font-mono text-xs font-semibold border border-blue-200">
+              AQAR {academicYear}
+            </span>
+          )}
+
           {/* My Documents Drawer Trigger */}
           <button
             type="button"
@@ -812,18 +891,20 @@ Respond in JSON ONLY:
             </span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => onNavigateToDocumentList()}
-            className="text-xs font-semibold text-[#0f2748] hover:text-blue-700 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors flex items-center gap-1.5 cursor-pointer"
-            title="Open Master Repository Document List"
-          >
-            <FolderOpen className="w-4 h-4 text-blue-600" />
-            <span>Master Repository</span>
-            <span className="px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold">
-              {documents.length}
-            </span>
-          </button>
+          {!topBarLeftSlot && (
+            <button
+              type="button"
+              onClick={() => onNavigateToDocumentList()}
+              className="text-xs font-semibold text-[#0f2748] hover:text-blue-700 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors flex items-center gap-1.5 cursor-pointer"
+              title="Open Master Repository Document List"
+            >
+              <FolderOpen className="w-4 h-4 text-blue-600" />
+              <span>Master Repository</span>
+              <span className="px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold">
+                {documents.length}
+              </span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -831,9 +912,14 @@ Respond in JSON ONLY:
       <div className="flex flex-col items-center justify-center min-h-[64vh] max-w-5xl w-full mx-auto px-4 text-center">
         {/* Bold Heading */}
         <div className="mb-5">
-          <h1 className="text-5xl sm:text-5xl font-black tracking-tight text-[#0f2748]  ">
-            Drop NAAC Evidence  
+          <h1 className="text-4xl sm:text-5xl font-black tracking-tight text-[#0f2748]">
+            {headingTitle || 'Drop NAAC Evidence'}
           </h1>
+          {portalSubtitle && (
+            <p className="text-xs sm:text-sm text-gray-500 mt-2 font-medium max-w-lg mx-auto">
+              {portalSubtitle}
+            </p>
+          )}
         </div>
 
         {/* Google-Style Upload Bar Form */}
@@ -1613,12 +1699,12 @@ Respond in JSON ONLY:
                   title={
                     selectedDocIds.length === 0
                       ? 'Select at least one document to submit'
-                      : `Submit ${selectedDocIds.length} selected document(s) to Program Coordinator`
+                      : `Submit ${selectedDocIds.length} selected document(s) to ${submitTargetName || (role === 'school' ? 'University Coordinator' : role === 'university' ? 'Permanent SSR Archive' : 'Program Coordinator')}`
                   }
                 >
                   <Send className="w-3.5 h-3.5 text-blue-200" />
                   <span>
-                    Submit {selectedDocIds.length > 0 ? `(${selectedDocIds.length}) ` : ''}to Program Coordinator
+                    Submit {selectedDocIds.length > 0 ? `(${selectedDocIds.length}) ` : ''}to {submitTargetName || (role === 'school' ? 'University Coordinator' : role === 'university' ? 'Permanent SSR Archive' : 'Program Coordinator')}
                   </span>
                 </button>
 

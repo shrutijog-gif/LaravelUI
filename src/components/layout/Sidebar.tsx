@@ -112,9 +112,11 @@ export const superadminMenuItems: MenuItem[] = [
     label: 'NAAC Accreditation',
     icon: 'circle',
     children: [
-      { id: 'naac-aqar', label: 'AQAR' },
-      { id: 'naac-ssr', label: 'SSR' },
-      { id: 'naac-dvv', label: 'DVV' },
+      { id: 'naac-aqar', label: 'Program Coordinator (CSE)' },
+      { id: 'naac-school', label: 'School Coordinator (Tech)' },
+      { id: 'naac-university', label: 'University Coordinator (IQAC)' },
+      { id: 'naac-ssr', label: 'SSR Dossier' },
+      { id: 'naac-dvv', label: 'DVV Clarifications' },
     ],
   },
   {
@@ -187,9 +189,11 @@ export const getCollegeAdminMenuItems = (): MenuItem[] => {
       label: 'NAAC Accreditation',
       icon: 'circle',
       children: [
-        { id: 'naac-aqar', label: 'AQAR' },
-        { id: 'naac-ssr', label: 'SSR' },
-        { id: 'naac-dvv', label: 'DVV' },
+        { id: 'naac-aqar', label: 'Program Coordinator (CSE)' },
+        { id: 'naac-school', label: 'School Coordinator (Tech)' },
+        { id: 'naac-university', label: 'University Coordinator (IQAC)' },
+        { id: 'naac-ssr', label: 'SSR Dossier' },
+        { id: 'naac-dvv', label: 'DVV Clarifications' },
       ],
     },
     {
@@ -329,9 +333,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   });
 
   const portalType = typeof window !== 'undefined' ? localStorage.getItem('college_cms_portal_type') : null;
-  const isNaacProgram = portalType === 'naac-program';
-  const isNaacSchool = portalType === 'naac-school';
-  const isNaacUniversity = portalType === 'naac-university';
+  const isNaacProgram = portalType === 'naac-program' || activeItem === 'naac-aqar' || activeItem === 'naac-ssr' || activeItem === 'naac-dvv';
+  const isNaacSchool = portalType === 'naac-school' || activeItem === 'naac-school' || activeItem.startsWith('school-');
+  const isNaacUniversity = portalType === 'naac-university' || activeItem === 'naac-university' || activeItem.startsWith('univ-');
 
   const isSuperAdmin = portalRole === 'superadmin';
   const menuList = isNaacProgram
@@ -344,24 +348,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
     ? superadminMenuItems
     : getCollegeAdminMenuItems();
 
-  const sidebarBg = isNaacProgram
+  const sidebarBg = isNaacProgram || isNaacSchool || isNaacUniversity || isSuperAdmin
     ? 'bg-[#0f172a] border-r border-slate-800 text-white'
-    : isNaacSchool
-    ? 'bg-[#0c1e36] border-r border-blue-600/30 text-white'
-    : isNaacUniversity
-    ? 'bg-[#2e1065] border-r border-purple-600/30 text-white'
-    : isSuperAdmin
-    ? 'bg-[#0f172a] border-r border-amber-500/20 text-white'
     : 'bg-[#1d4ed8] text-white';
 
   const getActiveItemBg = (isActive: boolean) => {
-    if (isNaacProgram) {
-      if (!isActive) return 'text-slate-300 hover:text-white hover:bg-white/10 font-medium';
+    if (isNaacProgram || isNaacSchool || isNaacUniversity) {
+      if (!isActive) return 'text-slate-300 hover:text-white hover:bg-slate-800/80 font-medium';
+      if (isNaacUniversity) return 'bg-purple-600 text-white font-bold shadow-xs';
+      if (isNaacSchool) return 'bg-blue-600 text-white font-bold shadow-xs';
       return 'bg-emerald-600 text-white font-bold shadow-xs';
     }
     if (!isActive) return 'text-white/90 hover:bg-white/10';
-    if (isNaacSchool) return 'bg-blue-600 text-white shadow-xs font-semibold ring-1 ring-blue-400/40';
-    if (isNaacUniversity) return 'bg-purple-600 text-white shadow-xs font-semibold ring-1 ring-purple-400/40';
     return 'bg-[#2563eb] text-white shadow-xs font-semibold';
   };
 
@@ -437,16 +435,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
       )}
 
-
-
       {isNaacSchool && (
-        <div className="p-4 pb-0 shrink-0">
-          <div className="bg-blue-900/60 border border-blue-500/30 rounded-2xl p-3 flex items-center gap-3 shadow-xs">
-            <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black text-sm shrink-0">
+        <div className="p-3.5 pb-0 shrink-0">
+          <div className="bg-slate-800/80 border border-slate-700/80 rounded-xl p-3 flex items-center gap-2.5 shadow-2xs">
+            <div className="w-8 h-8 rounded-lg bg-slate-700 text-blue-400 flex items-center justify-center font-bold text-xs shrink-0 border border-slate-600">
               🏫
             </div>
             <div className="min-w-0">
-              <span className="block text-[10px] font-extrabold uppercase text-blue-300 tracking-wider">
+              <span className="block text-[10px] font-bold uppercase text-slate-400 tracking-wider">
                 School Coordinator
               </span>
               <span className="block text-xs font-bold text-white truncate">
@@ -458,13 +454,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       )}
 
       {isNaacUniversity && (
-        <div className="p-4 pb-0 shrink-0">
-          <div className="bg-purple-900/60 border border-purple-500/30 rounded-2xl p-3 flex items-center gap-3 shadow-xs">
-            <div className="w-9 h-9 rounded-xl bg-purple-600 text-white flex items-center justify-center font-black text-sm shrink-0">
+        <div className="p-3.5 pb-0 shrink-0">
+          <div className="bg-slate-800/80 border border-slate-700/80 rounded-xl p-3 flex items-center gap-2.5 shadow-2xs">
+            <div className="w-8 h-8 rounded-lg bg-slate-700 text-purple-400 flex items-center justify-center font-bold text-xs shrink-0 border border-slate-600">
               🏛️
             </div>
             <div className="min-w-0">
-              <span className="block text-[10px] font-extrabold uppercase text-purple-300 tracking-wider">
+              <span className="block text-[10px] font-bold uppercase text-slate-400 tracking-wider">
                 University IQAC
               </span>
               <span className="block text-xs font-bold text-white truncate">
@@ -480,12 +476,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="relative">
           <input
             type="text"
-            placeholder={isNaacProgram ? "Search department..." : "Search modules..."}
+            placeholder={
+              isNaacProgram ? "Search department..." : 
+              isNaacSchool ? "Search school..." : 
+              isNaacUniversity ? "Search university..." : 
+              "Search modules..."
+            }
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className={`w-full text-xs rounded-lg pl-3 pr-8 py-2 border transition-colors ${
-              isNaacProgram
-                ? 'bg-slate-800/80 text-white placeholder-slate-400 border-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500'
+              isNaacProgram || isNaacSchool || isNaacUniversity || isSuperAdmin
+                ? `bg-slate-800/80 text-white placeholder-slate-400 border-slate-700 focus:outline-none focus:ring-1 ${
+                    isNaacUniversity ? 'focus:ring-purple-500' : isNaacSchool ? 'focus:ring-blue-500' : 'focus:ring-emerald-500'
+                  }`
                 : 'bg-white/15 text-white placeholder-white/60 border-white/10 focus:outline-none focus:ring-2 focus:ring-white/30'
             }`}
           />
@@ -498,7 +501,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {filteredMenuItems.map((item) => {
           const hasChildren = Boolean(item.children && item.children.length > 0);
           const isSubOpen = Boolean(openSubmenus[item.id]);
-          const isActive = activeItem === item.id || (item.id === 'naac-dms' && activeItem.startsWith('naac-'));
+          const isActive = 
+            activeItem === item.id || 
+            (item.id === 'naac-dms' && activeItem.startsWith('naac-')) ||
+            (isNaacUniversity && (activeItem === 'naac-university' || !activeItem) && item.id === 'univ-dashboard') ||
+            (isNaacSchool && (activeItem === 'naac-school' || !activeItem) && item.id === 'school-queue') ||
+            (isNaacProgram && (activeItem === 'naac-program' || !activeItem) && item.id === 'naac-aqar');
 
           return (
             <div key={item.id} className="space-y-1">

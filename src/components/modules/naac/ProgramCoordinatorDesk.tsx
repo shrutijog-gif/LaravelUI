@@ -658,6 +658,18 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
           {deskMode === 'quick-upload' ? (
             <NaacQuickUploadLanding
               academicYear={selectedYear || '2025-26'}
+              role="program"
+              levelBadgeText="PROGRAM / DEPT LEVEL"
+              portalTitle="Department of Computer Science & Engineering (B.Tech CSE)"
+              portalSubtitle="Upload and tag departmental evidence proofs criteria-wise for submission to School Coordinator"
+              headingTitle="Drop Program Evidence"
+              schoolId="sch-tech"
+              schoolName="School of Technology & Computer Engineering"
+              programId="prog-cse"
+              programName="B.Tech Computer Science & Engineering"
+              submitTargetName="School Coordinator"
+              uploaderName="Prof. Anita Verma (Program Coordinator)"
+              storageKeySuffix="prog_cse"
               onNavigateToDocumentList={(critCode, metricCode) => {
                 setDeskMode('repository');
                 if (critCode) {
@@ -915,6 +927,21 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
                     <span className="text-gray-400">/</span>
                     <span className="text-gray-600 font-bold">NAAC Criteria</span>
                   </div>
+
+                  {/* Quick Portal Switcher Dropdown */}
+                  <select
+                    defaultValue="naac-program"
+                    onChange={(e) => {
+                      localStorage.setItem('college_cms_portal_type', e.target.value);
+                      window.location.reload();
+                    }}
+                    className="px-2.5 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-semibold text-gray-700 hover:border-gray-400 cursor-pointer shadow-2xs ml-2"
+                    title="Quick-switch role for live demonstration"
+                  >
+                    <option value="naac-program">🟢 Program Coordinator (CSE)</option>
+                    <option value="naac-school">🔵 School Coordinator (Technology)</option>
+                    <option value="naac-university">🟣 University Coordinator (IQAC)</option>
+                  </select>
                 </div>
               </div>
 
