@@ -96,47 +96,44 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
     }
   };
 
-  const getDepartmentBadge = (doc: NaacEvidenceDocument) => {
+  const getDepartmentDot = (doc: NaacEvidenceDocument) => {
     const isCommon = doc.programId === 'school-common' || !doc.programId || doc.uploadedBy?.includes('School Coordinator');
     if (isCommon) {
-      return (
-        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200 shrink-0">
-          <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
-          School Common
-        </span>
-      );
+      return {
+        color: 'bg-purple-500 ring-2 ring-purple-200',
+        label: 'School Common Proof',
+      };
     }
+    const progId = doc.programId || '';
     const progLower = (doc.programName || '').toLowerCase();
-    if (doc.programId === 'prog-cse' || progLower.includes('cse') || progLower.includes('computer')) {
-      return (
-        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 shrink-0">
-          <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-          B.Tech CSE
-        </span>
-      );
+    if (progId === 'prog-cse' || progLower.includes('cse') || progLower.includes('computer')) {
+      return {
+        color: 'bg-blue-500 ring-2 ring-blue-200',
+        label: doc.programName || 'B.Tech CSE',
+      };
     }
-    if (doc.programId === 'prog-it' || progLower.includes('information') || progLower.includes('it')) {
-      return (
-        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-teal-50 text-teal-700 border border-teal-200 shrink-0">
-          <span className="w-1.5 h-1.5 rounded-full bg-teal-500"></span>
-          B.Tech IT
-        </span>
-      );
+    if (progId === 'prog-bca' || progId === 'prog-it' || progLower.includes('bca') || progLower.includes('cloud') || progLower.includes('information')) {
+      return {
+        color: 'bg-teal-500 ring-2 ring-teal-200',
+        label: doc.programName || 'BCA & Cloud Computing',
+      };
     }
-    if (doc.programId === 'prog-ai' || progLower.includes('ai') || progLower.includes('data')) {
-      return (
-        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 shrink-0">
-          <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
-          B.Tech AI-DS
-        </span>
-      );
+    if (progId === 'prog-cyber' || progLower.includes('cyber') || progLower.includes('forensic')) {
+      return {
+        color: 'bg-emerald-500 ring-2 ring-emerald-200',
+        label: doc.programName || 'B.Sc Cyber Security',
+      };
     }
-    return (
-      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 shrink-0">
-        <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
-        {doc.programName || 'Department Proof'}
-      </span>
-    );
+    if (progId === 'prog-ai' || progLower.includes('ai') || progLower.includes('machine learning')) {
+      return {
+        color: 'bg-indigo-500 ring-2 ring-indigo-200',
+        label: doc.programName || 'M.Tech AI & ML',
+      };
+    }
+    return {
+      color: 'bg-slate-400 ring-2 ring-slate-200',
+      label: doc.programName || 'Department Proof',
+    };
   };
 
   const refreshDocuments = () => {
@@ -170,7 +167,7 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
   const matchesProgram = (d: NaacEvidenceDocument) => {
     if (selectedProgramFilter === 'all') return true;
     if (selectedProgramFilter === 'school-common') {
-      return !d.programId || d.programId === 'school-common' || d.programId === 'sch-tech' || d.programId === 'sch-eng';
+      return !d.programId || d.programId === 'school-common' || d.programId === 'sch-tech' || d.programId === 'sch-eng' || d.uploadedBy?.includes('School Coordinator');
     }
     return d.programId === selectedProgramFilter;
   };
@@ -403,10 +400,11 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
                     className="px-2 py-1.5 bg-slate-50 border border-gray-300 rounded-lg text-xs font-semibold text-gray-800 cursor-pointer focus:ring-1 focus:ring-blue-500 max-w-[165px] truncate"
                   >
                     <option value="all">All Programs ({currentSchool.programs.length})</option>
-                    {currentSchool.programs.map(p => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                    <option value="school-common">School Common Proofs</option>
+                    <option value="prog-cse">🔵 B.Tech Computer Science & Engineering</option>
+                    <option value="prog-bca">🌐 BCA & Cloud Computing</option>
+                    <option value="prog-cyber">🟢 B.Sc Cyber Security & Digital Forensics</option>
+                    <option value="prog-ai">🤖 M.Tech Artificial Intelligence & Machine Learning</option>
+                    <option value="school-common">🟣 School Common Proofs</option>
                   </select>
                 </div>
               </div>
@@ -441,6 +439,35 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
                     Collapse All
                   </button>
                 </div>
+              </div>
+            </div>
+
+            {/* Department Color Legend Strip */}
+            <div className="bg-white px-3.5 py-2 rounded-xl border border-gray-200 shadow-2xs flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div className="flex flex-wrap items-center gap-3.5">
+                <span className="font-bold text-gray-600 text-[11px] uppercase tracking-wider">
+                  Department Key:
+                </span>
+                <span className="inline-flex items-center gap-1.5 font-medium text-gray-700 text-xs">
+                  <span className="w-2.5 h-2.5 rounded-full bg-blue-500 ring-2 ring-blue-200 shrink-0"></span>
+                  B.Tech CSE
+                </span>
+                <span className="inline-flex items-center gap-1.5 font-medium text-gray-700 text-xs">
+                  <span className="w-2.5 h-2.5 rounded-full bg-teal-500 ring-2 ring-teal-200 shrink-0"></span>
+                  BCA & Cloud
+                </span>
+                <span className="inline-flex items-center gap-1.5 font-medium text-gray-700 text-xs">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-200 shrink-0"></span>
+                  B.Sc Cyber
+                </span>
+                <span className="inline-flex items-center gap-1.5 font-medium text-gray-700 text-xs">
+                  <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 ring-2 ring-indigo-200 shrink-0"></span>
+                  M.Tech AI-ML
+                </span>
+                <span className="inline-flex items-center gap-1.5 font-medium text-gray-700 text-xs">
+                  <span className="w-2.5 h-2.5 rounded-full bg-purple-500 ring-2 ring-purple-200 shrink-0"></span>
+                  School Common
+                </span>
               </div>
             </div>
 
@@ -645,12 +672,22 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
                                         </div>
                                       </td>
 
-                                      {/* Col 4: Uploaded By & Department Badge Pill */}
+                                      {/* Col 4: Uploaded By with Department Dot (Single Line) */}
                                       <td className="py-2.5 px-3 text-gray-700 align-top text-xs">
-                                        <div className="font-semibold text-gray-900 truncate">{doc.facultyName || doc.uploadedBy}</div>
-                                        <div className="mt-1">
-                                          {getDepartmentBadge(doc)}
-                                        </div>
+                                        {(() => {
+                                          const dept = getDepartmentDot(doc);
+                                          return (
+                                            <div 
+                                              className="flex items-center gap-2 truncate"
+                                              title={`${dept.label} • ${doc.facultyName || doc.uploadedBy}`}
+                                            >
+                                              <span className={`w-2 h-2 rounded-full shrink-0 ${dept.color}`} />
+                                              <span className="font-semibold text-gray-900 truncate">
+                                                {doc.facultyName || doc.uploadedBy}
+                                              </span>
+                                            </div>
+                                          );
+                                        })()}
                                       </td>
 
                                       {/* Col 5: Date */}
@@ -701,22 +738,21 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
                 <h3 className="text-sm font-bold text-gray-900">
                   Department Submissions Awaiting School Review ({pendingReviewDocs.length})
                 </h3>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Review evidence proofs submitted by Program Coordinators across {currentSchool.name}. Approve to forward to University IQAC, or request revisions.
-                </p>
               </div>
 
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-gray-600">Filter Program:</span>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-xs font-semibold text-gray-600 whitespace-nowrap">Program:</span>
                 <select
                   value={selectedProgramFilter}
                   onChange={(e) => setSelectedProgramFilter(e.target.value)}
-                  className="px-2.5 py-1.5 bg-slate-50 border border-gray-300 rounded-lg text-xs font-semibold text-gray-800 cursor-pointer"
+                  className="px-2.5 py-1.5 bg-slate-50 border border-gray-300 rounded-lg text-xs font-semibold text-gray-800 cursor-pointer focus:ring-1 focus:ring-blue-500 max-w-[220px] truncate"
                 >
-                  <option value="all">All Programs</option>
-                  {currentSchool.programs.map(p => (
-                    <option key={p.id} value={p.id}>{p.shortCode}</option>
-                  ))}
+                  <option value="all">All Programs ({currentSchool.programs.length})</option>
+                  <option value="prog-cse">🔵 B.Tech Computer Science & Engineering</option>
+                  <option value="prog-bca">🌐 BCA & Cloud Computing</option>
+                  <option value="prog-cyber">🟢 B.Sc Cyber Security & Digital Forensics</option>
+                  <option value="prog-ai">🤖 M.Tech Artificial Intelligence & Machine Learning</option>
+                  <option value="school-common">🟣 School Common Proofs</option>
                 </select>
               </div>
             </div>
