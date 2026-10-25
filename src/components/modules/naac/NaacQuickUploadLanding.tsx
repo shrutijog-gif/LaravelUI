@@ -61,6 +61,7 @@ export interface NaacQuickUploadLandingProps {
   initialSeedDocIds?: string[];
   storageKeySuffix?: string;
   topBarLeftSlot?: React.ReactNode;
+  hideTopUploadButton?: boolean;
 }
 
 export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
@@ -80,6 +81,7 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
   initialSeedDocIds,
   storageKeySuffix,
   topBarLeftSlot,
+  hideTopUploadButton = false,
 }) => {
   const [documents, setDocuments] = useState<NaacEvidenceDocument[]>(() => getStoredNaacDocuments());
   const [isDragging, setIsDragging] = useState(false);
@@ -871,14 +873,34 @@ Respond in JSON ONLY:
         )}
 
         <div className="flex items-center gap-2 sm:gap-3">
+          {/* My Documents Drawer Trigger Button */}
           <button
             type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="px-3.5 py-1.5 bg-[#0f2748] hover:bg-[#183963] text-white font-bold text-xs rounded-lg shadow-xs inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+            onClick={() => setIsMyDocsDrawerOpen(true)}
+            className="px-3.5 py-1.5 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-lg shadow-2xs border border-slate-300 inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+            title="Open My Uploaded Documents Drawer"
           >
-            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-            <span>Upload Document</span>
+            <FolderOpen className={`w-3.5 h-3.5 ${role === 'program' ? 'text-emerald-600' : 'text-blue-600'}`} />
+            <span>My Documents</span>
+            <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold border ${
+              role === 'program' 
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                : 'bg-blue-50 text-blue-700 border-blue-200'
+            }`}>
+              {myDocuments.length}
+            </span>
           </button>
+
+          {role !== 'program' && !hideTopUploadButton && (
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="px-3.5 py-1.5 bg-[#0f2748] hover:bg-[#183963] text-white font-bold text-xs rounded-lg shadow-xs inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+              <span>Upload Document</span>
+            </button>
+          )}
 
           {topBarLeftSlot && (
             <span className={`px-2.5 py-1 rounded font-mono text-xs font-semibold border ${
@@ -1688,8 +1710,8 @@ Respond in JSON ONLY:
                 )}
               </div>
 
-              <div className="p-4 bg-slate-50 border-t border-gray-200 space-y-2 shrink-0">
-                {/* Button 1: Submit to Program Coordinator */}
+              <div className="p-4 bg-slate-50 border-t border-gray-200 shrink-0">
+                {/* Submit Action Button */}
                 <button
                   type="button"
                   onClick={handleSubmitToCoordinator}
@@ -1698,24 +1720,11 @@ Respond in JSON ONLY:
                   title={
                     selectedDocIds.length === 0
                       ? 'Select at least one document to submit'
-                      : `Submit ${selectedDocIds.length} selected document(s) to ${submitTargetName || (role === 'school' ? 'University Coordinator' : role === 'university' ? 'Permanent SSR Archive' : 'Program Coordinator')}`
+                      : `Submit ${selectedDocIds.length} selected document(s)`
                   }
                 >
                   <Send className="w-3.5 h-3.5 text-blue-200" />
-                  <span>
-                    Submit {selectedDocIds.length > 0 ? `(${selectedDocIds.length}) ` : ''}to {submitTargetName || (role === 'school' ? 'University Coordinator' : role === 'university' ? 'Permanent SSR Archive' : 'Program Coordinator')}
-                  </span>
-                </button>
-
-                {/* Button 2: View Complete Document Repository */}
-                <button
-                  type="button"
-                  onClick={handleViewCompleteRepository}
-                  className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl text-xs font-semibold text-gray-700 bg-white hover:bg-gray-100 active:scale-[0.99] border border-gray-300 shadow-2xs transition-all cursor-pointer"
-                  title="Navigate to the full Master Document Repository"
-                >
-                  <FolderOpen className="w-3.5 h-3.5 text-blue-600" />
-                  <span>View Complete Document Repository</span>
+                  <span>Submit</span>
                 </button>
               </div>
 

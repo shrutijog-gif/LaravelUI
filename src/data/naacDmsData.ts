@@ -898,6 +898,23 @@ export const submitDocumentToSchool = (docId: string): void => {
   }
 };
 
+export const submitSelectedDocumentsToSchool = (docIds: string[]): number => {
+  const current = getStoredNaacDocuments();
+  let count = 0;
+  current.forEach(doc => {
+    if (docIds.includes(doc.id)) {
+      doc.status = 'submitted_to_school';
+      doc.coordinatorReviewStatus = 'compiled';
+      doc.uploadedAt = new Date().toISOString();
+      count++;
+    }
+  });
+  if (count > 0) {
+    saveAllNaacDocuments(current);
+  }
+  return count;
+};
+
 export const reviewSchoolDocument = (docId: string, approved: boolean, note: string, reviewerName: string = 'Dr. Rajesh Sharma'): void => {
   const current = getStoredNaacDocuments();
   const doc = current.find(d => d.id === docId);

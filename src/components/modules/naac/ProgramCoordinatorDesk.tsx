@@ -53,7 +53,8 @@ import {
   requestRevisionFromFaculty,
   dispatchDepartmentDossierToSchool,
   addOrUpdateNaacDocument,
-  deleteNaacDocument
+  deleteNaacDocument,
+  submitSelectedDocumentsToSchool
 } from '../../../data/naacDmsData';
 import { openFileInNewTab } from '../../../utils/fileHelper';
 import { Drawer } from '../../common/Drawer';
@@ -277,6 +278,41 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
 
   const pendingDocs = deptDocs.filter(d => d.status === 'draft' || !d.status);
   const submittedDocs = deptDocs.filter(d => d.status === 'submitted_to_school');
+
+  // Document selection checkboxes for Program Repository
+  const [selectedRepoDocIds, setSelectedRepoDocIds] = useState<string[]>([]);
+
+  const handleToggleSelectRepoDoc = (docId: string) => {
+    setSelectedRepoDocIds(prev =>
+      prev.includes(docId) ? prev.filter(id => id !== docId) : [...prev, docId]
+    );
+  };
+
+  const handleToggleSelectAllRepoDocs = (eligibleDocs: NaacEvidenceDocument[]) => {
+    const unsubmitted = eligibleDocs.filter(d => d.status !== 'submitted_to_school');
+    const allSelected = unsubmitted.length > 0 && unsubmitted.every(d => selectedRepoDocIds.includes(d.id));
+    if (allSelected) {
+      setSelectedRepoDocIds([]);
+    } else {
+      setSelectedRepoDocIds(unsubmitted.map(d => d.id));
+    }
+  };
+
+  const handleBatchSubmitSelectedToSchool = () => {
+    const targetIds = selectedRepoDocIds.length > 0 
+      ? selectedRepoDocIds 
+      : pendingDocs.map(d => d.id);
+
+    if (targetIds.length === 0) {
+      showToast('No unsubmitted documents available to submit');
+      return;
+    }
+
+    const count = submitSelectedDocumentsToSchool(targetIds);
+    setSelectedRepoDocIds([]);
+    setDocuments(getStoredNaacDocuments());
+    showToast(`✨ Successfully submitted ${count} document${count > 1 ? 's' : ''} to School Coordinator (Dr. Rajesh Sharma) for review`);
+  };
 
   const compiledDocs = deptDocs.filter(d => 
     d.coordinatorReviewStatus === 'compiled' || d.status === 'submitted_to_school' || d.status === 'approved_by_school'
@@ -674,7 +710,7 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
               role="program"
               levelBadgeText="PROGRAM / DEPT LEVEL"
               portalTitle="Department of Computer Science & Engineering (B.Tech CSE)"
-              portalSubtitle="Upload and tag departmental evidence proofs criteria-wise for submission to School Coordinator"
+              hideTopUploadButton={true}
               topBarLeftSlot={
                 <div className="inline-flex items-center p-1 bg-slate-100 rounded-xl border border-slate-200">
                   <button
@@ -699,7 +735,7 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
                   </button>
                 </div>
               }
-              headingTitle="Drop Program Evidence"
+              headingTitle="Drop NAAC Evidence"
               schoolId="sch-tech"
               schoolName="School of Technology & Computer Engineering"
               programId="prog-cse"
@@ -964,85 +1000,111 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
                 return (
                   <div className="space-y-3">
                     {/* Filter, Search & Expand/Collapse Controls */}
-                    <div className="bg-white p-3 rounded-lg border border-gray-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-                      <div className="flex flex-wrap items-center gap-2.5">
-                        <span className="font-semibold text-gray-600">Filter Criterion:</span>
+                    <div className="bg-white p-2.5 rounded-lg border border-gray-200 shadow-xs flex items-center justify-between gap-2.5 text-xs overflow-x-auto">
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="font-semibold text-gray-600 whitespace-nowrap">Filter:</span>
                         <select
                           value={tableCriterionFilter}
                           onChange={(e) => setTableCriterionFilter(e.target.value)}
-                          className="px-2.5 py-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-blue-500 bg-white cursor-pointer"
+                          className="px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-blue-500 bg-white cursor-pointer max-w-[170px] truncate"
                         >
                           <option value="all">All Criteria (1–7)</option>
-                          <option value="coordinator">Coordinator: Prof. Anita Verma</option>
+                          <option value="coordinator">Coordinator: Anita Verma</option>
                           {NAAC_CRITERIA_SUMMARY.map(c => (
                             <option key={c.id} value={c.code}>{c.code}: {c.name}</option>
                           ))}
                         </select>
                       </div>
 
-                      <div className="flex flex-wrap items-center gap-3">
+                      <div className="flex items-center gap-2 shrink-0">
                         {/* Search Input */}
                         <div className="relative">
-                          <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-2.5" />
+                          <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2 top-2" />
                           <input
                             type="text"
-                            placeholder="Search criteria, indicator, metric, or file..."
+                            placeholder="Search criteria, files..."
                             value={tableSearchQuery}
                             onChange={(e) => setTableSearchQuery(e.target.value)}
-                            className="pl-8 pr-3 py-1.5 border border-gray-300 rounded text-xs w-64 focus:ring-1 focus:ring-blue-500"
+                            className="pl-7 pr-2 py-1.5 border border-gray-300 rounded text-xs w-36 lg:w-44 focus:ring-1 focus:ring-blue-500"
                           />
                         </div>
 
                         {/* Expand / Collapse All */}
-                        <div className="inline-flex items-center gap-1 border border-gray-200 rounded p-0.5 bg-gray-50">
+                        <div className="inline-flex items-center gap-0.5 border border-gray-200 rounded p-0.5 bg-gray-50 shrink-0">
                           <button
                             type="button"
                             onClick={expandAllHierarchy}
-                            className="px-2 py-1 text-[11px] font-semibold text-gray-700 hover:bg-white rounded cursor-pointer transition-colors"
+                            className="px-2 py-1 text-[11px] font-semibold text-gray-700 hover:bg-white rounded cursor-pointer transition-colors whitespace-nowrap"
                           >
-                            Expand All
+                            Expand
                           </button>
                           <span className="text-gray-300">|</span>
                           <button
                             type="button"
                             onClick={collapseAllHierarchy}
-                            className="px-2 py-1 text-[11px] font-semibold text-gray-700 hover:bg-white rounded cursor-pointer transition-colors"
+                            className="px-2 py-1 text-[11px] font-semibold text-gray-700 hover:bg-white rounded cursor-pointer transition-colors whitespace-nowrap"
                           >
-                            Collapse All
+                            Collapse
                           </button>
                         </div>
 
-                        {/* Submit for Review Action */}
-                        {pendingDocs.length === 0 && submittedDocs.length > 0 ? (
-                          <span className="inline-flex items-center gap-1.5 text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg text-xs font-semibold">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                            <span>Submitted to School ({submittedDocs.length})</span>
-                          </span>
-                        ) : submittedDocs.length > 0 && pendingDocs.length > 0 ? (
-                          <div className="flex items-center gap-2">
-                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-gray-600 bg-gray-100 px-2 py-1.5 rounded-lg border border-gray-200">
-                              <span>{submittedDocs.length} Submitted</span>
+                        {/* Submit for Review Action & Selected Batch Bar */}
+                        <div className="flex items-center gap-2 shrink-0">
+                          {selectedRepoDocIds.length > 0 ? (
+                            <div className="inline-flex items-center gap-2 bg-emerald-50 border border-emerald-300 px-2.5 py-1 rounded-lg shadow-2xs shrink-0">
+                              <span className="text-xs font-bold text-emerald-900 whitespace-nowrap">
+                                {selectedRepoDocIds.length} Selected
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedRepoDocIds([])}
+                                className="text-[11px] text-gray-500 hover:text-gray-800 underline cursor-pointer whitespace-nowrap"
+                              >
+                                Clear
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleBatchSubmitSelectedToSchool}
+                                className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded shadow-xs inline-flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap shrink-0"
+                              >
+                                <Send className="w-3.5 h-3.5" />
+                                <span>Submit to School Coordinator ({selectedRepoDocIds.length})</span>
+                              </button>
+                            </div>
+                          ) : pendingDocs.length === 0 && submittedDocs.length > 0 ? (
+                            <span className="inline-flex items-center gap-1.5 text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap shrink-0">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>Submitted to School ({submittedDocs.length})</span>
                             </span>
-                            <button
-                              type="button"
-                              onClick={() => setShowSubmitModal(true)}
-                              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-xs inline-flex items-center gap-1.5 cursor-pointer transition-colors"
-                            >
-                              <Send className="w-3.5 h-3.5" />
-                              <span>Submit Additional ({pendingDocs.length}) ➔</span>
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => setShowSubmitModal(true)}
-                            disabled={deptDocs.length === 0}
-                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold text-xs rounded-lg shadow-xs inline-flex items-center gap-1.5 cursor-pointer transition-colors"
-                          >
-                            <Send className="w-3.5 h-3.5" />
-                            <span>Submit for Review ({deptDocs.length}) ➔</span>
-                          </button>
-                        )}
+                          ) : (
+                            <div className="flex items-center gap-2 shrink-0">
+                              {pendingDocs.length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleSelectAllRepoDocs(pendingDocs)}
+                                  className="px-2.5 py-1.5 border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 font-semibold text-xs rounded cursor-pointer transition-colors whitespace-nowrap shrink-0"
+                                >
+                                  Select All ({pendingDocs.length})
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (selectedRepoDocIds.length > 0) {
+                                    handleBatchSubmitSelectedToSchool();
+                                  } else {
+                                    setShowSubmitModal(true);
+                                  }
+                                }}
+                                disabled={deptDocs.length === 0}
+                                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold text-xs rounded-lg shadow-xs inline-flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap shrink-0"
+                              >
+                                <Send className="w-3.5 h-3.5" />
+                                <span>Submit to School Coordinator</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
 
@@ -1052,9 +1114,20 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
                         <table className="w-full text-left text-xs border-collapse">
                           <thead className="bg-gray-50 border-b border-gray-200 text-gray-600 font-semibold text-[11px] uppercase tracking-wider">
                             <tr>
-                              <th className="py-2.5 px-4 w-[38%]">Metric / NAAC Hierarchy</th>
-                              <th className="py-2.5 px-3 w-[12%]">Type</th>
-                              <th className="py-2.5 px-3 w-[26%]">Attached Document</th>
+                              <th className="py-2.5 px-4 w-[36%]">Metric / NAAC Hierarchy</th>
+                              <th className="py-2.5 px-3 w-[10%]">Type</th>
+                              <th className="py-2.5 px-3 w-[30%]">
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="checkbox"
+                                    checked={pendingDocs.length > 0 && pendingDocs.every(d => selectedRepoDocIds.includes(d.id))}
+                                    onChange={() => handleToggleSelectAllRepoDocs(pendingDocs)}
+                                    className="w-3.5 h-3.5 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer shrink-0"
+                                    title="Select/Deselect all unsubmitted documents"
+                                  />
+                                  <span>Attached Document</span>
+                                </div>
+                              </th>
                               <th className="py-2.5 px-3 w-[12%]">Uploaded By</th>
                               <th className="py-2.5 px-3 w-[8%]">Date</th>
                               <th className="py-2.5 px-2 w-[4%] text-center">Action</th>
@@ -1229,18 +1302,31 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
                                                   </>
                                                 ) : null}
 
-                                                {/* Col 3: Attached Supporting Document Link */}
+                                                {/* Col 3: Attached Supporting Document Link & Checkbox */}
                                                 <td className="py-2.5 px-3 align-top">
-                                                  <div className="flex items-center gap-1.5">
+                                                  <div className="flex items-center gap-2">
+                                                    <input
+                                                      type="checkbox"
+                                                      checked={selectedRepoDocIds.includes(doc.id)}
+                                                      disabled={doc.status === 'submitted_to_school'}
+                                                      onChange={() => doc.status !== 'submitted_to_school' && handleToggleSelectRepoDoc(doc.id)}
+                                                      className="w-3.5 h-3.5 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-30 disabled:bg-gray-100 shrink-0"
+                                                      title={doc.status === 'submitted_to_school' ? 'Already submitted to School' : `Select "${doc.fileName || doc.title}"`}
+                                                    />
                                                     <FileText className="w-3.5 h-3.5 text-red-500 shrink-0" />
                                                     <button
                                                       type="button"
                                                       onClick={() => openFileInNewTab(doc.fileUrl)}
-                                                      className="text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline truncate text-left cursor-pointer"
+                                                      className="text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline truncate text-left cursor-pointer max-w-[180px]"
                                                       title={`Open ${doc.fileName || doc.title}`}
                                                     >
                                                       {doc.fileName || doc.title}
                                                     </button>
+                                                    {doc.status === 'submitted_to_school' && (
+                                                      <span className="px-1.5 py-0.2 bg-blue-50 text-blue-700 border border-blue-200 rounded text-[10px] font-semibold shrink-0">
+                                                        With School
+                                                      </span>
+                                                    )}
                                                   </div>
                                                 </td>
 
@@ -1507,6 +1593,16 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
                       </div>
 
                       <div className="flex items-center gap-2">
+                        {selectedRepoDocIds.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={handleBatchSubmitSelectedToSchool}
+                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded shadow-xs inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+                          >
+                            <Send className="w-3.5 h-3.5" />
+                            <span>Submit to School Coordinator ({selectedRepoDocIds.length})</span>
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => {
@@ -1528,7 +1624,17 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
                       <table className="w-full text-left text-xs">
                         <thead className="bg-gray-100/70 text-gray-700 uppercase font-semibold text-[10px] border-b border-gray-200">
                           <tr>
-                            <th className="py-2.5 px-4">Metric & Title</th>
+                            <th className="py-2.5 px-4">
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  checked={teamDisplayedDocs.length > 0 && teamDisplayedDocs.filter(d => d.status !== 'submitted_to_school').every(d => selectedRepoDocIds.includes(d.id))}
+                                  onChange={() => handleToggleSelectAllRepoDocs(teamDisplayedDocs)}
+                                  className="w-3.5 h-3.5 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer shrink-0"
+                                />
+                                <span>Metric & Title</span>
+                              </div>
+                            </th>
                             <th className="py-2.5 px-4">Criterion</th>
                             <th className="py-2.5 px-4">Faculty Contributor</th>
                             <th className="py-2.5 px-4">File & Size</th>
@@ -1546,12 +1652,24 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
                                 <tr key={doc.id} className="hover:bg-gray-50/80 transition-colors">
                                   {/* Metric & Title */}
                                   <td className="py-3 px-4">
-                                    <span className="inline-block text-[10px] font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200 mb-1">
-                                      Metric {doc.metricCode} ({doc.metricType})
-                                    </span>
-                                    <h4 className="font-bold text-gray-900 leading-snug">
-                                      {doc.title}
-                                    </h4>
+                                    <div className="flex items-start gap-2.5">
+                                      <input
+                                        type="checkbox"
+                                        checked={selectedRepoDocIds.includes(doc.id)}
+                                        disabled={doc.status === 'submitted_to_school'}
+                                        onChange={() => doc.status !== 'submitted_to_school' && handleToggleSelectRepoDoc(doc.id)}
+                                        className="w-3.5 h-3.5 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-30 disabled:bg-gray-100 shrink-0 mt-0.5"
+                                        title={doc.status === 'submitted_to_school' ? 'Already submitted to School' : `Select "${doc.title}"`}
+                                      />
+                                      <div>
+                                        <span className="inline-block text-[10px] font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200 mb-1">
+                                          Metric {doc.metricCode} ({doc.metricType})
+                                        </span>
+                                        <h4 className="font-bold text-gray-900 leading-snug">
+                                          {doc.title}
+                                        </h4>
+                                      </div>
+                                    </div>
                                   </td>
 
                                   {/* Criterion */}
@@ -2465,7 +2583,7 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
               className="text-xs font-bold px-5 py-2.5 bg-[#2563eb] hover:bg-blue-700 text-white rounded-lg shadow-xs inline-flex items-center gap-2 cursor-pointer transition-colors"
             >
               <Send className="w-3.5 h-3.5" />
-              <span>Submit for Review ➔</span>
+              <span>Submit</span>
             </button>
           </div>
         }
