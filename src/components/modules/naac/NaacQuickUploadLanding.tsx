@@ -891,7 +891,7 @@ Respond in JSON ONLY:
             </span>
           </button>
 
-          {role !== 'program' && !hideTopUploadButton && (
+          {role !== 'program' && role !== 'school' && !hideTopUploadButton && (
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
@@ -1641,10 +1641,14 @@ Respond in JSON ONLY:
                                       <td className="py-2 px-3 text-center align-middle">
                                         <input
                                           type="checkbox"
-                                          checked={isChecked}
+                                          checked={!isSubmitted && isChecked}
                                           disabled={isSubmitted}
                                           onChange={() => !isSubmitted && handleToggleSelectDoc(doc.id)}
-                                          className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-30 disabled:bg-gray-100 accent-[#0f2748]"
+                                          className={`w-3.5 h-3.5 rounded shrink-0 transition-opacity ${
+                                            isSubmitted
+                                              ? 'opacity-25 cursor-not-allowed bg-gray-200 accent-gray-400'
+                                              : 'text-blue-600 focus:ring-blue-500 cursor-pointer accent-[#0f2748]'
+                                          }`}
                                           title={isSubmitted ? 'Already submitted' : `Select "${doc.fileName}"`}
                                         />
                                       </td>

@@ -329,6 +329,7 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
           <NaacQuickUploadLanding
             academicYear={academicYear}
             role="school"
+            hideTopUploadButton={true}
             topBarLeftSlot={
               <div className="inline-flex items-center p-1 bg-slate-100 rounded-xl border border-slate-200">
                 <button

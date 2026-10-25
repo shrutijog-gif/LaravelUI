@@ -276,20 +276,27 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
     d.programId === 'prog-cse' || d.programName.includes('Computer Science')
   );
 
-  const pendingDocs = deptDocs.filter(d => d.status === 'draft' || !d.status);
-  const submittedDocs = deptDocs.filter(d => d.status === 'submitted_to_school');
+  const isDocSubmittedStatus = (status?: string) => 
+    status === 'submitted_to_school' || 
+    status === 'approved_by_school' || 
+    status === 'university_verified';
+
+  const pendingDocs = deptDocs.filter(d => !isDocSubmittedStatus(d.status));
+  const submittedDocs = deptDocs.filter(d => isDocSubmittedStatus(d.status));
 
   // Document selection checkboxes for Program Repository
   const [selectedRepoDocIds, setSelectedRepoDocIds] = useState<string[]>([]);
 
   const handleToggleSelectRepoDoc = (docId: string) => {
+    const doc = documents.find(d => d.id === docId);
+    if (doc && isDocSubmittedStatus(doc.status)) return;
     setSelectedRepoDocIds(prev =>
       prev.includes(docId) ? prev.filter(id => id !== docId) : [...prev, docId]
     );
   };
 
   const handleToggleSelectAllRepoDocs = (eligibleDocs: NaacEvidenceDocument[]) => {
-    const unsubmitted = eligibleDocs.filter(d => d.status !== 'submitted_to_school');
+    const unsubmitted = eligibleDocs.filter(d => !isDocSubmittedStatus(d.status));
     const allSelected = unsubmitted.length > 0 && unsubmitted.every(d => selectedRepoDocIds.includes(d.id));
     if (allSelected) {
       setSelectedRepoDocIds([]);
@@ -1122,8 +1129,13 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
                                     type="checkbox"
                                     checked={pendingDocs.length > 0 && pendingDocs.every(d => selectedRepoDocIds.includes(d.id))}
                                     onChange={() => handleToggleSelectAllRepoDocs(pendingDocs)}
-                                    className="w-3.5 h-3.5 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer shrink-0"
-                                    title="Select/Deselect all unsubmitted documents"
+                                    disabled={pendingDocs.length === 0}
+                                    className={`w-3.5 h-3.5 rounded border-gray-300 shrink-0 ${
+                                      pendingDocs.length === 0
+                                        ? 'opacity-25 cursor-not-allowed bg-gray-200'
+                                        : 'text-emerald-600 focus:ring-emerald-500 cursor-pointer'
+                                    }`}
+                                    title={pendingDocs.length === 0 ? 'No unsubmitted documents to select' : 'Select/Deselect all unsubmitted documents'}
                                   />
                                   <span>Attached Document</span>
                                 </div>
@@ -1304,30 +1316,39 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
 
                                                 {/* Col 3: Attached Supporting Document Link & Checkbox */}
                                                 <td className="py-2.5 px-3 align-top">
-                                                  <div className="flex items-center gap-2">
-                                                    <input
-                                                      type="checkbox"
-                                                      checked={selectedRepoDocIds.includes(doc.id)}
-                                                      disabled={doc.status === 'submitted_to_school'}
-                                                      onChange={() => doc.status !== 'submitted_to_school' && handleToggleSelectRepoDoc(doc.id)}
-                                                      className="w-3.5 h-3.5 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-30 disabled:bg-gray-100 shrink-0"
-                                                      title={doc.status === 'submitted_to_school' ? 'Already submitted to School' : `Select "${doc.fileName || doc.title}"`}
-                                                    />
-                                                    <FileText className="w-3.5 h-3.5 text-red-500 shrink-0" />
-                                                    <button
-                                                      type="button"
-                                                      onClick={() => openFileInNewTab(doc.fileUrl)}
-                                                      className="text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline truncate text-left cursor-pointer max-w-[180px]"
-                                                      title={`Open ${doc.fileName || doc.title}`}
-                                                    >
-                                                      {doc.fileName || doc.title}
-                                                    </button>
-                                                    {doc.status === 'submitted_to_school' && (
-                                                      <span className="px-1.5 py-0.2 bg-blue-50 text-blue-700 border border-blue-200 rounded text-[10px] font-semibold shrink-0">
-                                                        With School
-                                                      </span>
-                                                    )}
-                                                  </div>
+                                                  {(() => {
+                                                    const isDocSubmitted = isDocSubmittedStatus(doc.status);
+                                                    return (
+                                                      <div className="flex items-center gap-2">
+                                                        <input
+                                                          type="checkbox"
+                                                          checked={!isDocSubmitted && selectedRepoDocIds.includes(doc.id)}
+                                                          disabled={isDocSubmitted}
+                                                          onChange={() => !isDocSubmitted && handleToggleSelectRepoDoc(doc.id)}
+                                                          className={`w-3.5 h-3.5 rounded border-gray-300 shrink-0 transition-opacity ${
+                                                            isDocSubmitted
+                                                              ? 'opacity-25 cursor-not-allowed bg-gray-200 accent-gray-400'
+                                                              : 'text-emerald-600 focus:ring-emerald-500 cursor-pointer accent-[#0f2748]'
+                                                          }`}
+                                                          title={isDocSubmitted ? 'Already submitted to School Coordinator' : `Select "${doc.fileName || doc.title}"`}
+                                                        />
+                                                        <FileText className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                                                        <button
+                                                          type="button"
+                                                          onClick={() => openFileInNewTab(doc.fileUrl)}
+                                                          className="text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline truncate text-left cursor-pointer max-w-[180px]"
+                                                          title={`Open ${doc.fileName || doc.title}`}
+                                                        >
+                                                          {doc.fileName || doc.title}
+                                                        </button>
+                                                        {isDocSubmitted && (
+                                                          <span className="px-1.5 py-0.2 bg-blue-50 text-blue-700 border border-blue-200 rounded text-[10px] font-semibold shrink-0">
+                                                            With School
+                                                          </span>
+                                                        )}
+                                                      </div>
+                                                    );
+                                                  })()}
                                                 </td>
 
                                                 {/* Col 4: Uploaded By */}
@@ -1628,9 +1649,15 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
                               <div className="flex items-center gap-2">
                                 <input
                                   type="checkbox"
-                                  checked={teamDisplayedDocs.length > 0 && teamDisplayedDocs.filter(d => d.status !== 'submitted_to_school').every(d => selectedRepoDocIds.includes(d.id))}
+                                  checked={teamDisplayedDocs.filter(d => !isDocSubmittedStatus(d.status)).length > 0 && teamDisplayedDocs.filter(d => !isDocSubmittedStatus(d.status)).every(d => selectedRepoDocIds.includes(d.id))}
                                   onChange={() => handleToggleSelectAllRepoDocs(teamDisplayedDocs)}
-                                  className="w-3.5 h-3.5 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer shrink-0"
+                                  disabled={teamDisplayedDocs.filter(d => !isDocSubmittedStatus(d.status)).length === 0}
+                                  className={`w-3.5 h-3.5 rounded border-gray-300 shrink-0 ${
+                                    teamDisplayedDocs.filter(d => !isDocSubmittedStatus(d.status)).length === 0
+                                      ? 'opacity-25 cursor-not-allowed bg-gray-200'
+                                      : 'text-emerald-600 focus:ring-emerald-500 cursor-pointer'
+                                  }`}
+                                  title={teamDisplayedDocs.filter(d => !isDocSubmittedStatus(d.status)).length === 0 ? 'No unsubmitted documents to select' : 'Select/Deselect all unsubmitted documents'}
                                 />
                                 <span>Metric & Title</span>
                               </div>
@@ -1653,14 +1680,23 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
                                   {/* Metric & Title */}
                                   <td className="py-3 px-4">
                                     <div className="flex items-start gap-2.5">
-                                      <input
-                                        type="checkbox"
-                                        checked={selectedRepoDocIds.includes(doc.id)}
-                                        disabled={doc.status === 'submitted_to_school'}
-                                        onChange={() => doc.status !== 'submitted_to_school' && handleToggleSelectRepoDoc(doc.id)}
-                                        className="w-3.5 h-3.5 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-30 disabled:bg-gray-100 shrink-0 mt-0.5"
-                                        title={doc.status === 'submitted_to_school' ? 'Already submitted to School' : `Select "${doc.title}"`}
-                                      />
+                                      {(() => {
+                                        const isDocSubmitted = isDocSubmittedStatus(doc.status);
+                                        return (
+                                          <input
+                                            type="checkbox"
+                                            checked={!isDocSubmitted && selectedRepoDocIds.includes(doc.id)}
+                                            disabled={isDocSubmitted}
+                                            onChange={() => !isDocSubmitted && handleToggleSelectRepoDoc(doc.id)}
+                                            className={`w-3.5 h-3.5 rounded border-gray-300 shrink-0 mt-0.5 transition-opacity ${
+                                              isDocSubmitted
+                                                ? 'opacity-25 cursor-not-allowed bg-gray-200 accent-gray-400'
+                                                : 'text-emerald-600 focus:ring-emerald-500 cursor-pointer accent-[#0f2748]'
+                                            }`}
+                                            title={isDocSubmitted ? 'Already submitted to School Coordinator' : `Select "${doc.title}"`}
+                                          />
+                                        );
+                                      })()}
                                       <div>
                                         <span className="inline-block text-[10px] font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200 mb-1">
                                           Metric {doc.metricCode} ({doc.metricType})
