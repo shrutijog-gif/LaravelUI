@@ -50,6 +50,7 @@ export const UniversityCoordinatorDesk: React.FC<UniversityCoordinatorDeskProps>
   // Filters
   const [selectedSchoolFilter, setSelectedSchoolFilter] = useState<string>('all');
   const [selectedCriterionFilter, setSelectedCriterionFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'locked' | 'approved'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [academicYear, setAcademicYear] = useState<string>('2025-26');
 
@@ -194,22 +195,6 @@ export const UniversityCoordinatorDesk: React.FC<UniversityCoordinatorDeskProps>
 
               <button
                 type="button"
-                onClick={() => setDeskMode('repository')}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  deskMode === 'repository'
-                    ? 'bg-white text-purple-700 shadow-2xs border border-slate-200/80'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                <FolderOpen className="w-3.5 h-3.5 text-purple-600" />
-                <span>University Repository</span>
-                <span className="text-[10px] bg-purple-50 text-purple-700 border border-purple-200 px-1.5 rounded-full font-bold">
-                  {documents.length}
-                </span>
-              </button>
-
-              <button
-                type="button"
                 onClick={() => setDeskMode('verification-queue')}
                 className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                   deskMode === 'verification-queue'
@@ -224,6 +209,22 @@ export const UniversityCoordinatorDesk: React.FC<UniversityCoordinatorDeskProps>
                     {pendingVerificationDocs.length}
                   </span>
                 )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setDeskMode('repository')}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  deskMode === 'repository'
+                    ? 'bg-white text-purple-700 shadow-2xs border border-slate-200/80'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <FolderOpen className="w-3.5 h-3.5 text-purple-600" />
+                <span>University Repository</span>
+                <span className="text-[10px] bg-purple-50 text-purple-700 border border-purple-200 px-1.5 rounded-full font-bold">
+                  {documents.length}
+                </span>
               </button>
 
               <button
@@ -271,18 +272,6 @@ export const UniversityCoordinatorDesk: React.FC<UniversityCoordinatorDeskProps>
 
                 <button
                   type="button"
-                  onClick={() => setDeskMode('repository')}
-                  className="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer text-gray-600 hover:text-gray-900"
-                >
-                  <FolderOpen className="w-3.5 h-3.5 text-purple-600" />
-                  <span>University Repository</span>
-                  <span className="text-[10px] bg-purple-50 text-purple-700 border border-purple-200 px-1.5 rounded-full font-bold">
-                    {documents.length}
-                  </span>
-                </button>
-
-                <button
-                  type="button"
                   onClick={() => setDeskMode('verification-queue')}
                   className="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer text-gray-600 hover:text-gray-900"
                 >
@@ -293,6 +282,18 @@ export const UniversityCoordinatorDesk: React.FC<UniversityCoordinatorDeskProps>
                       {pendingVerificationDocs.length}
                     </span>
                   )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setDeskMode('repository')}
+                  className="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer text-gray-600 hover:text-gray-900"
+                >
+                  <FolderOpen className="w-3.5 h-3.5 text-purple-600" />
+                  <span>University Repository</span>
+                  <span className="text-[10px] bg-purple-50 text-purple-700 border border-purple-200 px-1.5 rounded-full font-bold">
+                    {documents.length}
+                  </span>
                 </button>
 
                 <button
@@ -327,18 +328,18 @@ export const UniversityCoordinatorDesk: React.FC<UniversityCoordinatorDeskProps>
         {/* VIEW 2: MASTER UNIVERSITY DOCUMENT REPOSITORY (GRID) */}
         {deskMode === 'repository' && (
           <div className="space-y-4 animate-in fade-in">
-            {/* Top Filter and Search Bar */}
-            <div className="bg-white p-3.5 rounded-xl border border-gray-200 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
-              <div className="flex flex-wrap items-center gap-3">
+            {/* Top Filter and Search Bar (Single-Line Compact Bar) */}
+            <div className="bg-white p-2.5 rounded-lg border border-gray-200 shadow-xs flex items-center justify-between gap-2.5 text-xs overflow-x-auto flex-nowrap whitespace-nowrap">
+              <div className="flex items-center gap-2.5 shrink-0">
                 {/* School Filter */}
-                <div className="flex items-center gap-1.5">
-                  <span className="font-bold text-gray-600">School:</span>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="font-semibold text-gray-600">School:</span>
                   <select
                     value={selectedSchoolFilter}
                     onChange={(e) => setSelectedSchoolFilter(e.target.value)}
-                    className="px-2.5 py-1.5 bg-slate-50 border border-gray-300 rounded-lg text-xs font-semibold text-gray-800 cursor-pointer focus:ring-1 focus:ring-purple-500"
+                    className="px-2 py-1.5 bg-slate-50 border border-gray-300 rounded text-xs font-medium text-gray-800 cursor-pointer focus:ring-1 focus:ring-purple-500 max-w-[170px] truncate"
                   >
-                    <option value="all">All 5 Constituent Schools</option>
+                    <option value="all">All 5 Schools</option>
                     {ITM_SCHOOLS.map(s => (
                       <option key={s.id} value={s.id}>{s.name}</option>
                     ))}
@@ -347,12 +348,12 @@ export const UniversityCoordinatorDesk: React.FC<UniversityCoordinatorDeskProps>
                 </div>
 
                 {/* Criterion Filter */}
-                <div className="flex items-center gap-1.5">
-                  <span className="font-bold text-gray-600">Criterion:</span>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="font-semibold text-gray-600">Criterion:</span>
                   <select
                     value={selectedCriterionFilter}
                     onChange={(e) => setSelectedCriterionFilter(e.target.value)}
-                    className="px-2.5 py-1.5 bg-slate-50 border border-gray-300 rounded-lg text-xs font-semibold text-gray-800 cursor-pointer focus:ring-1 focus:ring-purple-500"
+                    className="px-2 py-1.5 bg-slate-50 border border-gray-300 rounded text-xs font-medium text-gray-800 cursor-pointer focus:ring-1 focus:ring-purple-500 max-w-[160px] truncate"
                   >
                     <option value="all">All Criteria (1–7)</option>
                     {NAAC_CRITERIA_SUMMARY.map(c => (
@@ -360,22 +361,55 @@ export const UniversityCoordinatorDesk: React.FC<UniversityCoordinatorDeskProps>
                     ))}
                   </select>
                 </div>
+
+                {/* Quick Status Filter Pills */}
+                <div className="flex items-center gap-1 bg-gray-100 p-0.5 rounded border border-gray-200 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setStatusFilter('all')}
+                    className={`px-2 py-1 rounded text-[11px] font-semibold transition-colors cursor-pointer ${
+                      statusFilter === 'all' ? 'bg-white text-purple-700 shadow-2xs font-bold' : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    All Proofs ({documents.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStatusFilter('locked')}
+                    className={`px-2 py-1 rounded text-[11px] font-semibold transition-colors cursor-pointer flex items-center gap-1 ${
+                      statusFilter === 'locked' ? 'bg-white text-purple-700 shadow-2xs font-bold' : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    <Lock className="w-2.5 h-2.5 text-purple-600" />
+                    <span>Locked ({verifiedDocs.length})</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStatusFilter('approved')}
+                    className={`px-2 py-1 rounded text-[11px] font-semibold transition-colors cursor-pointer flex items-center gap-1 ${
+                      statusFilter === 'approved' ? 'bg-white text-emerald-700 shadow-2xs font-bold' : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" />
+                    <span>Awaiting Lock ({pendingVerificationDocs.length})</span>
+                  </button>
+                </div>
               </div>
 
-              {/* Search + Expand/Collapse */}
-              <div className="flex flex-wrap items-center gap-2.5">
+              {/* Right: Search + Expand/Collapse */}
+              <div className="flex items-center gap-2 shrink-0">
                 <div className="relative">
-                  <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-2.5" />
+                  <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2 top-2" />
                   <input
                     type="text"
-                    placeholder="Search university evidence archive..."
+                    placeholder="Search proofs, files..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-8 pr-3 py-1.5 border border-gray-300 rounded-lg text-xs w-60 focus:ring-1 focus:ring-purple-500 bg-white"
+                    className="pl-7 pr-2.5 py-1.5 border border-gray-300 rounded text-xs w-36 lg:w-48 focus:ring-1 focus:ring-purple-500 bg-white"
                   />
                 </div>
 
-                <div className="inline-flex items-center gap-1 border border-gray-200 rounded-lg p-0.5 bg-gray-50 text-[11px] font-semibold text-gray-600">
+                <div className="inline-flex items-center gap-0.5 border border-gray-200 rounded p-0.5 bg-gray-50 text-[11px] font-semibold text-gray-600 shrink-0">
                   <button
                     type="button"
                     onClick={expandAll}
@@ -401,11 +435,12 @@ export const UniversityCoordinatorDesk: React.FC<UniversityCoordinatorDeskProps>
                 <table className="w-full text-left text-xs border-collapse">
                   <thead className="bg-slate-50 border-b border-gray-200 text-gray-600 font-bold text-[11px] uppercase tracking-wider">
                     <tr>
-                      <th className="py-2.5 px-4 w-[38%]">Metric / NAAC Hierarchy</th>
-                      <th className="py-2.5 px-3 w-[10%]">Type</th>
-                      <th className="py-2.5 px-3 w-[26%]">Evidence Proof</th>
-                      <th className="py-2.5 px-3 w-[14%]">School & Dept</th>
-                      <th className="py-2.5 px-3 w-[12%] text-center">SSR Status</th>
+                      <th className="py-2.5 px-4 w-[28%]">Metric / NAAC Hierarchy</th>
+                      <th className="py-2.5 px-3 w-[7%]">Type</th>
+                      <th className="py-2.5 px-3 w-[33%]">Evidence Proof</th>
+                      <th className="py-2.5 px-3 w-[18%]">School & Department</th>
+                      <th className="py-2.5 px-3 w-[10%] text-center">SSR Status</th>
+                      <th className="py-2.5 px-2 w-[4%] text-center">View</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
@@ -432,7 +467,7 @@ export const UniversityCoordinatorDesk: React.FC<UniversityCoordinatorDeskProps>
                             onClick={() => toggleCriterion(crit.code)}
                             className="bg-slate-100/80 hover:bg-slate-200/70 border-y border-slate-300/80 cursor-pointer select-none transition-colors"
                           >
-                            <td colSpan={5} className="py-2.5 px-4">
+                            <td colSpan={6} className="py-2.5 px-4">
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
                                   {isCritCollapsed ? (
@@ -473,7 +508,7 @@ export const UniversityCoordinatorDesk: React.FC<UniversityCoordinatorDeskProps>
                                   onClick={() => toggleKeyIndicator(ki.code)}
                                   className="bg-purple-50/40 hover:bg-purple-100/40 border-b border-purple-100 cursor-pointer select-none transition-colors"
                                 >
-                                  <td colSpan={5} className="py-2 px-6">
+                                  <td colSpan={6} className="py-2 px-6">
                                     <div className="flex items-center justify-between">
                                       <div className="flex items-center gap-2">
                                         {isKiCollapsed ? (
@@ -500,26 +535,31 @@ export const UniversityCoordinatorDesk: React.FC<UniversityCoordinatorDeskProps>
                                   const metricDocs = documents.filter(d => {
                                     const matchM = d.metricCode === metric.code;
                                     const matchSchool = selectedSchoolFilter === 'all' || d.schoolId === selectedSchoolFilter;
+                                    const matchStatus = 
+                                      statusFilter === 'all' ? true :
+                                      statusFilter === 'locked' ? d.status === 'university_verified' :
+                                      d.status === 'approved_by_school';
                                     const matchQ = !searchQuery.trim() || 
-                                      d.fileName.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                                      (d.fileName || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
+                                      (d.title || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
+                                      (d.schoolName || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
+                                      (d.programName || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
                                       d.metricCode.includes(searchQuery);
-                                    return matchM && matchSchool && matchQ;
+                                    return matchM && matchSchool && matchStatus && matchQ;
                                   });
 
-                                  return (
-                                    <React.Fragment key={metric.code}>
-                                      <tr className="hover:bg-slate-50/80 transition-colors border-b border-gray-100">
-                                        <td className="py-2.5 px-8">
-                                          <div className="flex items-center gap-2">
-                                            <span className="font-mono text-xs font-bold text-gray-700 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200 shrink-0">
+                                  if (metricDocs.length === 0) {
+                                    return (
+                                      <tr key={metric.code} className="hover:bg-slate-50/60 transition-colors border-b border-gray-100 text-xs">
+                                        <td className="py-2.5 px-4 pl-12 align-top">
+                                          <div className="flex items-start gap-2">
+                                            <span className="font-mono text-[11px] font-bold text-gray-700 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200 shrink-0">
                                               {metric.code}
                                             </span>
-                                            <span className="text-xs text-gray-800 font-medium">
-                                              {metric.name}
-                                            </span>
+                                            <span className="font-medium text-gray-900 leading-tight">{metric.name}</span>
                                           </div>
                                         </td>
-                                        <td className="py-2.5 px-3">
+                                        <td className="py-2.5 px-3 text-gray-600 align-top whitespace-nowrap text-[11px]">
                                           <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
                                             metric.metricType === 'QnM'
                                               ? 'bg-purple-50 text-purple-700 border-purple-200'
@@ -528,65 +568,111 @@ export const UniversityCoordinatorDesk: React.FC<UniversityCoordinatorDeskProps>
                                             {metric.metricType}
                                           </span>
                                         </td>
-                                        <td className="py-2.5 px-3">
-                                          {metricDocs.length > 0 ? (
-                                            <div className="space-y-1">
-                                              {metricDocs.map(d => (
-                                                <div 
-                                                  key={d.id}
-                                                  onClick={() => openFileInNewTab(d.fileUrl)}
-                                                  className="font-medium text-gray-800 hover:text-purple-700 truncate cursor-pointer text-xs"
-                                                  title={d.fileName}
-                                                >
-                                                  {d.fileName}
-                                                </div>
-                                              ))}
-                                            </div>
-                                          ) : (
-                                            <span className="text-[11px] text-gray-400 italic">No proofs attached yet</span>
-                                          )}
-                                        </td>
-                                        <td className="py-2.5 px-3">
-                                          {metricDocs.length > 0 ? (
-                                            <div className="space-y-1">
-                                              {metricDocs.map(d => (
-                                                <div key={d.id} className="text-[11px] leading-tight">
-                                                  <span className="font-bold text-gray-800 block truncate">{d.schoolName}</span>
-                                                  <span className="text-gray-500 truncate block text-[10px]">{d.programName}</span>
-                                                </div>
-                                              ))}
-                                            </div>
-                                          ) : (
-                                            <span className="text-gray-400">—</span>
-                                          )}
-                                        </td>
-                                        <td className="py-2.5 px-3 text-center whitespace-nowrap">
-                                          {metricDocs.length > 0 ? (
-                                            <div className="space-y-1">
-                                              {metricDocs.map(d => {
-                                                const isVerified = d.status === 'university_verified';
-                                                return (
-                                                  <div key={d.id}>
-                                                    {isVerified ? (
-                                                      <span className="inline-block text-[10px] font-bold text-purple-800 bg-purple-50 border border-purple-300 px-2 py-0.5 rounded-full">
-                                                        SSR Locked 🔒
-                                                      </span>
-                                                    ) : (
-                                                      <span className="inline-block text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
-                                                        School Approved
-                                                      </span>
-                                                    )}
-                                                  </div>
-                                                );
-                                              })}
-                                            </div>
-                                          ) : (
-                                            <span className="text-gray-400">—</span>
-                                          )}
+                                        <td colSpan={4} className="py-2.5 px-3 text-gray-400 italic text-[11px] align-middle">
+                                          No proofs attached yet for this metric
                                         </td>
                                       </tr>
-                                    </React.Fragment>
-                                  );
+                                    );
+                                  }
+
+                                  return metricDocs.map((doc, dIdx) => {
+                                    const isVerified = doc.status === 'university_verified';
+                                    const isApproved = doc.status === 'approved_by_school';
+
+                                    return (
+                                      <tr key={doc.id} className="hover:bg-purple-50/20 transition-colors border-b border-gray-100 text-xs group">
+                                        {/* Col 1 & 2: Metric Code & Name (Spans across all docs for this metric) */}
+                                        {dIdx === 0 ? (
+                                          <>
+                                            <td rowSpan={metricDocs.length} className="py-2.5 px-4 pl-12 align-top border-r border-gray-100 bg-slate-50/20">
+                                              <div className="flex items-start gap-2">
+                                                <span className="font-mono text-[11px] font-bold text-purple-800 bg-purple-100 px-1.5 py-0.5 rounded shrink-0">
+                                                  {metric.code}
+                                                </span>
+                                                <span className="font-semibold text-gray-900 leading-tight">{metric.name}</span>
+                                              </div>
+                                            </td>
+
+                                            <td rowSpan={metricDocs.length} className="py-2.5 px-3 align-top whitespace-nowrap text-[11px] border-r border-gray-100 bg-slate-50/20">
+                                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
+                                                metric.metricType === 'QnM'
+                                                  ? 'bg-purple-50 text-purple-700 border-purple-200'
+                                                  : 'bg-teal-50 text-teal-700 border-teal-200'
+                                              }`}>
+                                                {metric.metricType}
+                                              </span>
+                                            </td>
+                                          </>
+                                        ) : null}
+
+                                        {/* Col 3: Evidence Proof Link & Details */}
+                                        <td className="py-2.5 px-3 align-top">
+                                          <div className="flex items-start gap-2">
+                                            <FileText className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                                            <div className="min-w-0">
+                                              <button
+                                                type="button"
+                                                onClick={() => openFileInNewTab(doc.fileUrl)}
+                                                className="text-xs font-semibold text-blue-700 hover:text-purple-800 hover:underline truncate text-left cursor-pointer block max-w-[280px]"
+                                                title={`Open ${doc.fileName || doc.title}`}
+                                              >
+                                                {doc.title || doc.fileName}
+                                              </button>
+                                              <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-gray-500 font-mono">
+                                                <span className="truncate max-w-[210px]" title={doc.fileName}>{doc.fileName}</span>
+                                                {doc.fileSize && (
+                                                  <span className="text-gray-400 shrink-0">• {doc.fileSize}</span>
+                                                )}
+                                              </div>
+                                            </div>
+                                          </div>
+                                        </td>
+
+                                        {/* Col 4: School & Department */}
+                                        <td className="py-2.5 px-3 align-top">
+                                          <div className="leading-tight">
+                                            <span className="font-semibold text-gray-900 block text-xs truncate" title={doc.schoolName}>
+                                              {doc.schoolName}
+                                            </span>
+                                            <span className="text-[10px] font-medium text-purple-700 bg-purple-50 border border-purple-200/80 px-1.5 py-0.5 rounded inline-block mt-0.5 truncate max-w-[190px]" title={doc.programName}>
+                                              {doc.programName}
+                                            </span>
+                                          </div>
+                                        </td>
+
+                                        {/* Col 5: SSR Status */}
+                                        <td className="py-2.5 px-3 text-center align-middle whitespace-nowrap">
+                                          {isVerified ? (
+                                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-purple-900 bg-purple-100 border border-purple-300 px-2.5 py-0.5 rounded-full shadow-2xs">
+                                              <Lock className="w-2.5 h-2.5 text-purple-700" />
+                                              SSR Locked
+                                            </span>
+                                          ) : isApproved ? (
+                                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                                              <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" />
+                                              School Approved
+                                            </span>
+                                          ) : (
+                                            <span className="inline-block text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                                              Pending
+                                            </span>
+                                          )}
+                                        </td>
+
+                                        {/* Col 6: Quick View Action */}
+                                        <td className="py-2.5 px-2 text-center align-middle">
+                                          <button
+                                            type="button"
+                                            onClick={() => openFileInNewTab(doc.fileUrl)}
+                                            className="p-1 text-gray-400 hover:text-purple-700 hover:bg-purple-100 rounded transition-colors cursor-pointer inline-flex items-center justify-center"
+                                            title="Open Document PDF in new tab"
+                                          >
+                                            <ExternalLink className="w-3.5 h-3.5" />
+                                          </button>
+                                        </td>
+                                      </tr>
+                                    );
+                                  });
                                 })}
                               </React.Fragment>
                             );
