@@ -23,7 +23,8 @@ import {
   Send,
   Eye,
   MessageSquare,
-  Trash2
+  Trash2,
+  Info
 } from 'lucide-react';
 import { 
   ITM_SCHOOLS, 
@@ -102,6 +103,8 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
       return {
         color: 'bg-purple-500 ring-2 ring-purple-200',
         label: 'School Common Proof',
+        shortName: 'School Common',
+        emoji: '🟣'
       };
     }
     const progId = doc.programId || '';
@@ -110,29 +113,39 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
       return {
         color: 'bg-blue-500 ring-2 ring-blue-200',
         label: doc.programName || 'B.Tech CSE',
+        shortName: 'B.Tech CSE',
+        emoji: '🔵'
       };
     }
     if (progId === 'prog-bca' || progId === 'prog-it' || progLower.includes('bca') || progLower.includes('cloud') || progLower.includes('information')) {
       return {
         color: 'bg-teal-500 ring-2 ring-teal-200',
         label: doc.programName || 'BCA & Cloud Computing',
+        shortName: 'BCA & Cloud',
+        emoji: '🟢'
       };
     }
     if (progId === 'prog-cyber' || progLower.includes('cyber') || progLower.includes('forensic')) {
       return {
         color: 'bg-emerald-500 ring-2 ring-emerald-200',
         label: doc.programName || 'B.Sc Cyber Security',
+        shortName: 'B.Sc Cyber',
+        emoji: '🟢'
       };
     }
     if (progId === 'prog-ai' || progLower.includes('ai') || progLower.includes('machine learning')) {
       return {
         color: 'bg-indigo-500 ring-2 ring-indigo-200',
         label: doc.programName || 'M.Tech AI & ML',
+        shortName: 'M.Tech AI-ML',
+        emoji: '🟣'
       };
     }
     return {
       color: 'bg-slate-400 ring-2 ring-slate-200',
       label: doc.programName || 'Department Proof',
+      shortName: 'Department',
+      emoji: '⚪'
     };
   };
 
@@ -397,14 +410,14 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
                   <select
                     value={selectedProgramFilter}
                     onChange={(e) => setSelectedProgramFilter(e.target.value)}
-                    className="px-2 py-1.5 bg-slate-50 border border-gray-300 rounded-lg text-xs font-semibold text-gray-800 cursor-pointer focus:ring-1 focus:ring-blue-500 max-w-[165px] truncate"
+                    className="px-2 py-1.5 bg-slate-50 border border-gray-300 rounded-lg text-xs font-semibold text-gray-800 cursor-pointer focus:ring-1 focus:ring-blue-500 max-w-[170px] truncate"
                   >
                     <option value="all">All Programs ({currentSchool.programs.length})</option>
-                    <option value="prog-cse">🔵 B.Tech Computer Science & Engineering</option>
-                    <option value="prog-bca">🌐 BCA & Cloud Computing</option>
-                    <option value="prog-cyber">🟢 B.Sc Cyber Security & Digital Forensics</option>
-                    <option value="prog-ai">🤖 M.Tech Artificial Intelligence & Machine Learning</option>
-                    <option value="school-common">🟣 School Common Proofs</option>
+                    <option value="prog-cse">🔵 B.Tech CSE</option>
+                    <option value="prog-bca">🟢 BCA & Cloud</option>
+                    <option value="prog-cyber">🟢 B.Sc Cyber</option>
+                    <option value="prog-ai">🟣 M.Tech AI-ML</option>
+                    <option value="school-common">🟣 School Common</option>
                   </select>
                 </div>
               </div>
@@ -442,37 +455,38 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
               </div>
             </div>
 
-            {/* Department Color Legend Strip */}
-            <div className="bg-white px-3.5 py-2 rounded-xl border border-gray-200 shadow-2xs flex flex-wrap items-center justify-between gap-2 text-xs">
-              <div className="flex flex-wrap items-center gap-3.5">
-                <span className="font-bold text-gray-600 text-[11px] uppercase tracking-wider">
-                  Department Key:
-                </span>
-                <span className="inline-flex items-center gap-1.5 font-medium text-gray-700 text-xs">
-                  <span className="w-2.5 h-2.5 rounded-full bg-blue-500 ring-2 ring-blue-200 shrink-0"></span>
-                  B.Tech CSE
-                </span>
-                <span className="inline-flex items-center gap-1.5 font-medium text-gray-700 text-xs">
-                  <span className="w-2.5 h-2.5 rounded-full bg-teal-500 ring-2 ring-teal-200 shrink-0"></span>
-                  BCA & Cloud
-                </span>
-                <span className="inline-flex items-center gap-1.5 font-medium text-gray-700 text-xs">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-200 shrink-0"></span>
-                  B.Sc Cyber
-                </span>
-                <span className="inline-flex items-center gap-1.5 font-medium text-gray-700 text-xs">
-                  <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 ring-2 ring-indigo-200 shrink-0"></span>
-                  M.Tech AI-ML
-                </span>
-                <span className="inline-flex items-center gap-1.5 font-medium text-gray-700 text-xs">
-                  <span className="w-2.5 h-2.5 rounded-full bg-purple-500 ring-2 ring-purple-200 shrink-0"></span>
-                  School Common
-                </span>
-              </div>
-            </div>
-
-            {/* School Repository Hierarchical Table matching screenshot */}
+            {/* School Repository Hierarchical Table with Integrated Department Key */}
             <div className="bg-white rounded-lg border border-gray-200 shadow-xs overflow-hidden">
+              {/* Integrated Department Color Key Strip */}
+              <div className="bg-slate-50/90 border-b border-gray-200 px-4 py-2 flex flex-wrap items-center justify-between gap-2.5 text-xs">
+                <div className="flex items-center gap-1.5 text-slate-700 font-bold text-[11px] uppercase tracking-wider">
+                  <Info className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                  <span>Department Key:</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs font-semibold text-gray-700">
+                  <span className="inline-flex items-center gap-1.5 hover:text-blue-600 transition-colors cursor-default" title="B.Tech Computer Science & Engineering (Prof. Anita Verma)">
+                    <span className="w-2.5 h-2.5 rounded-full bg-blue-500 ring-2 ring-blue-200 shrink-0"></span>
+                    <span>B.Tech CSE</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 hover:text-teal-600 transition-colors cursor-default" title="BCA & Cloud Computing">
+                    <span className="w-2.5 h-2.5 rounded-full bg-teal-500 ring-2 ring-teal-200 shrink-0"></span>
+                    <span>BCA & Cloud</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 hover:text-emerald-600 transition-colors cursor-default" title="B.Sc Cyber Security & Digital Forensics">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-200 shrink-0"></span>
+                    <span>B.Sc Cyber</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 hover:text-indigo-600 transition-colors cursor-default" title="M.Tech Artificial Intelligence & Machine Learning">
+                    <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 ring-2 ring-indigo-200 shrink-0"></span>
+                    <span>M.Tech AI-ML</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 hover:text-purple-600 transition-colors cursor-default" title="School Common Proofs (All Programs)">
+                    <span className="w-2.5 h-2.5 rounded-full bg-purple-500 ring-2 ring-purple-200 shrink-0"></span>
+                    <span>School Common</span>
+                  </span>
+                </div>
+              </div>
+
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead className="bg-gray-50 border-b border-gray-200 text-gray-600 font-semibold text-[11px] uppercase tracking-wider">
@@ -480,7 +494,17 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
                       <th className="py-2.5 px-4 w-[36%]">Metric / NAAC Hierarchy</th>
                       <th className="py-2.5 px-3 w-[8%]">Type</th>
                       <th className="py-2.5 px-3 w-[26%]">Attached Document</th>
-                      <th className="py-2.5 px-3 w-[16%]">Uploaded By</th>
+                      <th className="py-2.5 px-3 w-[16%]">
+                        <div className="flex items-center gap-1.5">
+                          <span>Uploaded By</span>
+                          <span 
+                            className="cursor-help text-slate-400 hover:text-blue-600 inline-flex items-center" 
+                            title="Colored dots identify the submitting Department (see Department Key above)"
+                          >
+                            <Info className="w-3 h-3" />
+                          </span>
+                        </div>
+                      </th>
                       <th className="py-2.5 px-3 w-[10%]"></th>
                       <th className="py-2.5 px-2 w-[4%] text-center"></th>
                     </tr>
@@ -681,7 +705,7 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
                                               className="flex items-center gap-2 truncate"
                                               title={`${dept.label} • ${doc.facultyName || doc.uploadedBy}`}
                                             >
-                                              <span className={`w-2 h-2 rounded-full shrink-0 ${dept.color}`} />
+                                              <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${dept.color}`} title={`Department: ${dept.label}`} />
                                               <span className="font-semibold text-gray-900 truncate">
                                                 {doc.facultyName || doc.uploadedBy}
                                               </span>
@@ -745,14 +769,14 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
                 <select
                   value={selectedProgramFilter}
                   onChange={(e) => setSelectedProgramFilter(e.target.value)}
-                  className="px-2.5 py-1.5 bg-slate-50 border border-gray-300 rounded-lg text-xs font-semibold text-gray-800 cursor-pointer focus:ring-1 focus:ring-blue-500 max-w-[220px] truncate"
+                  className="px-2.5 py-1.5 bg-slate-50 border border-gray-300 rounded-lg text-xs font-semibold text-gray-800 cursor-pointer focus:ring-1 focus:ring-blue-500 max-w-[200px] truncate"
                 >
                   <option value="all">All Programs ({currentSchool.programs.length})</option>
-                  <option value="prog-cse">🔵 B.Tech Computer Science & Engineering</option>
-                  <option value="prog-bca">🌐 BCA & Cloud Computing</option>
-                  <option value="prog-cyber">🟢 B.Sc Cyber Security & Digital Forensics</option>
-                  <option value="prog-ai">🤖 M.Tech Artificial Intelligence & Machine Learning</option>
-                  <option value="school-common">🟣 School Common Proofs</option>
+                  <option value="prog-cse">🔵 B.Tech CSE</option>
+                  <option value="prog-bca">🟢 BCA & Cloud</option>
+                  <option value="prog-cyber">🟢 B.Sc Cyber</option>
+                  <option value="prog-ai">🟣 M.Tech AI-ML</option>
+                  <option value="school-common">🟣 School Common</option>
                 </select>
               </div>
             </div>
@@ -777,6 +801,36 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
               </div>
             ) : (
               <div className="bg-white rounded-xl border border-gray-200 shadow-2xs overflow-hidden">
+                {/* Integrated Department Color Key Strip */}
+                <div className="bg-slate-50/90 border-b border-gray-200 px-4 py-2 flex flex-wrap items-center justify-between gap-2.5 text-xs">
+                  <div className="flex items-center gap-1.5 text-slate-700 font-bold text-[11px] uppercase tracking-wider">
+                    <Info className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                    <span>Department Key:</span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs font-semibold text-gray-700">
+                    <span className="inline-flex items-center gap-1.5 hover:text-blue-600 transition-colors cursor-default" title="B.Tech Computer Science & Engineering">
+                      <span className="w-2.5 h-2.5 rounded-full bg-blue-500 ring-2 ring-blue-200 shrink-0"></span>
+                      <span>B.Tech CSE</span>
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 hover:text-teal-600 transition-colors cursor-default" title="BCA & Cloud Computing">
+                      <span className="w-2.5 h-2.5 rounded-full bg-teal-500 ring-2 ring-teal-200 shrink-0"></span>
+                      <span>BCA & Cloud</span>
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 hover:text-emerald-600 transition-colors cursor-default" title="B.Sc Cyber Security & Digital Forensics">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-200 shrink-0"></span>
+                      <span>B.Sc Cyber</span>
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 hover:text-indigo-600 transition-colors cursor-default" title="M.Tech Artificial Intelligence & Machine Learning">
+                      <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 ring-2 ring-indigo-200 shrink-0"></span>
+                      <span>M.Tech AI-ML</span>
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 hover:text-purple-600 transition-colors cursor-default" title="School Common Proofs (All Programs)">
+                      <span className="w-2.5 h-2.5 rounded-full bg-purple-500 ring-2 ring-purple-200 shrink-0"></span>
+                      <span>School Common</span>
+                    </span>
+                  </div>
+                </div>
+
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs border-collapse">
                     <thead className="bg-slate-50 border-b border-gray-200 text-gray-600 font-bold text-[11px] uppercase tracking-wider">
@@ -834,10 +888,18 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
 
                             {/* Submitted By */}
                             <td className="py-3 px-3 align-top">
-                              <span className="font-semibold text-gray-800 block text-xs">
-                                {doc.uploadedBy}
-                              </span>
-                              <span className="text-[10px] text-gray-400">
+                              {(() => {
+                                const dept = getDepartmentDot(doc);
+                                return (
+                                  <div className="flex items-center gap-1.5 truncate" title={`Department: ${dept.label} • Submitted by ${doc.uploadedBy}`}>
+                                    <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${dept.color}`} title={`Department: ${dept.label}`} />
+                                    <span className="font-semibold text-gray-800 block text-xs truncate">
+                                      {doc.uploadedBy}
+                                    </span>
+                                  </div>
+                                );
+                              })()}
+                              <span className="text-[10px] text-gray-400 block pl-4 mt-0.5">
                                 {doc.uploadedAt ? doc.uploadedAt.split('T')[0] : 'Recent'}
                               </span>
                             </td>

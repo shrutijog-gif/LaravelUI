@@ -23,6 +23,7 @@ import {
   CheckCircle2,
   AlertTriangle,
   FileCheck,
+  FileCheck2,
   FolderOpen,
   ArrowRight,
   ShieldCheck,
@@ -137,8 +138,8 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
   const [selectedCriterionCode, setSelectedCriterionCode] = useState<string | null>(null);
   const [openIndicatorAccordion, setOpenIndicatorAccordion] = useState<string | null>(null);
   
-  // Top-level Desk Mode: 'quick-upload' (Google-style upload landing) vs 'repository' (Document List & Criteria Cards)
-  const [deskMode, setDeskMode] = useState<'quick-upload' | 'repository'>('quick-upload');
+  // Top-level Desk Mode: 'quick-upload' vs 'repository' vs 'review-queue'
+  const [deskMode, setDeskMode] = useState<'quick-upload' | 'repository' | 'review-queue'>('quick-upload');
 
   // Desk tab: Criteria cards vs Document list
   const [activeDeskTab, setActiveDeskTab] = useState<'criteria' | 'team'>('criteria');
@@ -279,6 +280,18 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
 
   const compiledDocs = deptDocs.filter(d => 
     d.coordinatorReviewStatus === 'compiled' || d.status === 'submitted_to_school' || d.status === 'approved_by_school'
+  );
+
+  // Pending faculty uploads awaiting Program Coordinator review/compilation
+  const pendingFacultyDocs = deptDocs.filter(d => 
+    d.submittedByFacultyId !== 'coord-anita-verma' && 
+    d.coordinatorReviewStatus !== 'compiled'
+  );
+
+  const anitaDocs = deptDocs.filter(d => 
+    d.uploadedBy?.toLowerCase().includes('anita') || 
+    d.facultyName?.toLowerCase().includes('anita') || 
+    d.submittedByFacultyId === 'coord-anita-verma'
   );
 
   const isDispatchedToSchool = submittedDocs.length > 0;
@@ -535,7 +548,7 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
     : deptDocs;
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 pb-16 font-sans">
+    <div className="min-h-screen bg-slate-50/50 pb-16 font-sans">
       {/* Toast Alert */}
       {toastMessage && (
         <div className="fixed top-20 right-6 z-50 bg-emerald-50 border border-emerald-300 text-emerald-950 px-4 py-3 rounded-xl shadow-xl flex items-center justify-between text-xs font-semibold gap-3 animate-in fade-in">
@@ -553,7 +566,7 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
           MODULE VIEW: SSR (Self Study Report) - 5-Year Master Accreditation
          ========================================================================= */}
       {activeSection === 'ssr' && (
-        <div className="space-y-6 animate-in fade-in">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-6 space-y-6 animate-in fade-in">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-200 pb-3">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded bg-[#2563eb] text-white flex items-center justify-center shadow-xs">
@@ -611,7 +624,7 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
           MODULE VIEW: DVV (Data Validation & Verification) Clarifications
          ========================================================================= */}
       {activeSection === 'dvv' && (
-        <div className="space-y-6 animate-in fade-in">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-6 space-y-6 animate-in fade-in">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-200 pb-3">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded bg-[#2563eb] text-white flex items-center justify-center shadow-xs">
@@ -662,6 +675,30 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
               levelBadgeText="PROGRAM / DEPT LEVEL"
               portalTitle="Department of Computer Science & Engineering (B.Tech CSE)"
               portalSubtitle="Upload and tag departmental evidence proofs criteria-wise for submission to School Coordinator"
+              topBarLeftSlot={
+                <div className="inline-flex items-center p-1 bg-slate-100 rounded-xl border border-slate-200">
+                  <button
+                    type="button"
+                    onClick={() => setDeskMode('quick-upload')}
+                    className="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer bg-white text-emerald-700 shadow-2xs border border-slate-200/80"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Quick Proof Drop</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setDeskMode('repository')}
+                    className="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer text-gray-600 hover:text-gray-900"
+                  >
+                    <FolderOpen className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Program Repository</span>
+                    <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 rounded-full font-bold">
+                      {deptDocs.length}
+                    </span>
+                  </button>
+                </div>
+              }
               headingTitle="Drop Program Evidence"
               schoolId="sch-tech"
               schoolName="School of Technology & Computer Engineering"
@@ -682,22 +719,69 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
               }}
             />
           ) : (
-            <>
-              {/* ---------------------------------------------------------------------
-                  LEVEL 1: AQAR YEAR MASTER TABLE (Matches Screenshot 1 Exactly)
-                 --------------------------------------------------------------------- */}
-              {!selectedYear && (
-                <div className="space-y-6 animate-in fade-in">
-              {/* Blue House Header & Initiate AQAR Button (Matches Screenshot 1) */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-200 pb-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded bg-[#2563eb] text-white flex items-center justify-center shadow-xs">
-                    <Home className="w-4 h-4" />
+            <div className="space-y-4 animate-in fade-in">
+              {/* TOP UNIFIED HORIZONTAL NAVIGATION BAR (Matches School Coordinator Header Strip) */}
+              <div className="bg-white border-b border-gray-200 sticky top-0 z-20 shadow-2xs">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-between">
+                  <div className="inline-flex items-center p-1 bg-slate-100 rounded-xl border border-slate-200">
+                    <button
+                      type="button"
+                      onClick={() => setDeskMode('quick-upload')}
+                      className="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer text-gray-600 hover:text-gray-900"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Quick Proof Drop</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setDeskMode('repository')}
+                      className="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer bg-white text-emerald-700 shadow-2xs border border-slate-200/80"
+                    >
+                      <FolderOpen className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Program Repository</span>
+                      <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 rounded-full font-bold">
+                        {deptDocs.length}
+                      </span>
+                    </button>
                   </div>
-                  <h1 className="text-sm sm:text-base font-bold text-gray-800">
-                    AQAR (Annual Quality Assurance Report)
-                  </h1>
+
+                  <div className="flex items-center gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setModalCriterionCode('Criterion 1');
+                        setSelectedIndicatorCode('1.1');
+                        setSelectedMetricCode('1.1.1');
+                        const lead = CSE_DEPARTMENT_FACULTY.find(f => f.criterionAssigned.includes('Criterion 1'));
+                        if (lead) setSelectedFacultyId(lead.id);
+                        setShowAddModal(true);
+                      }}
+                      className="px-3.5 py-1.5 bg-[#0f2748] hover:bg-[#183963] text-white font-bold text-xs rounded-lg shadow-xs inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+                    >
+                      <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                      <span>Upload Document</span>
+                    </button>
+
+                    <span className="bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded font-mono text-xs font-semibold border border-emerald-200">
+                      AQAR {selectedYear || '2025-26'}
+                    </span>
+                  </div>
                 </div>
+              </div>
+
+              {!selectedYear && (
+                    <div className="space-y-6 animate-in fade-in">
+                  {/* Blue House Header & Initiate AQAR Button (Matches Screenshot 1) */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-200 pb-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded bg-[#2563eb] text-white flex items-center justify-center shadow-xs">
+                        <Home className="w-4 h-4" />
+                      </div>
+                      <h1 className="text-sm sm:text-base font-bold text-gray-800">
+                        AQAR (Annual Quality Assurance Report)
+                      </h1>
+                    </div>
 
                 <div className="flex items-center gap-2">
                   <button
@@ -846,104 +930,8 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
               LEVEL 2: 7 CRITERIA CARDS GRID FOR SELECTED YEAR (Matches Screenshot 2)
              --------------------------------------------------------------------- */}
           {selectedYear && !selectedCriterionCode && (
-            <div className="space-y-6 animate-in fade-in">
-              {/* Header with Breadcrumb back to AQAR Year Table */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-200 pb-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded bg-[#2563eb] text-white flex items-center justify-center shadow-xs">
-                    <Home className="w-4 h-4" />
-                  </div>
-                  <h1 className="text-sm sm:text-base font-bold text-gray-800">
-                    AQAR Supporting Documents for {selectedYear}
-                  </h1>
-                </div>
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-2 space-y-4 animate-in fade-in">
 
-                {/* Breadcrumb & Action */}
-                <div className="flex items-center gap-2.5">
-                  <button
-                    type="button"
-                    onClick={() => setDeskMode('quick-upload')}
-                    className="px-3 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs rounded-md shadow-xs inline-flex items-center gap-1.5 cursor-pointer transition-all"
-                    title="Switch to Google-like Quick Proof Drop"
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>Quick Proof Drop</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setModalCriterionCode('Criterion 1');
-                      setSelectedIndicatorCode('1.1');
-                      setSelectedMetricCode('1.1.1');
-                      const lead = CSE_DEPARTMENT_FACULTY.find(f => f.criterionAssigned.includes('Criterion 1'));
-                      if (lead) setSelectedFacultyId(lead.id);
-                      setShowAddModal(true);
-                    }}
-                    className="px-3.5 py-1.5 bg-[#2563eb] hover:bg-blue-700 text-white font-bold text-xs rounded-md shadow-xs inline-flex items-center gap-1.5 cursor-pointer transition-colors"
-                  >
-                    <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-                    <span>Add Document</span>
-                  </button>
-
-                  {pendingDocs.length === 0 && submittedDocs.length > 0 ? (
-                    <span className="inline-flex items-center gap-1.5 text-blue-700 bg-blue-50 border border-blue-200 px-3 py-1.5 rounded text-xs font-semibold">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-blue-600" />
-                      <span>Submitted for Review ({submittedDocs.length})</span>
-                    </span>
-                  ) : submittedDocs.length > 0 && pendingDocs.length > 0 ? (
-                    <div className="flex items-center gap-2">
-                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-gray-600 bg-gray-100 px-2.5 py-1.5 rounded border border-gray-200">
-                        <span>{submittedDocs.length} Submitted</span>
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setShowSubmitModal(true)}
-                        className="px-3 py-1.5 bg-[#2563eb] hover:bg-blue-700 text-white font-bold text-xs rounded shadow-xs inline-flex items-center gap-1.5 cursor-pointer transition-colors"
-                      >
-                        <Send className="w-3.5 h-3.5" />
-                        <span>Submit Additional ({pendingDocs.length}) ➔</span>
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setShowSubmitModal(true)}
-                      disabled={deptDocs.length === 0}
-                      className="px-3.5 py-1.5 bg-[#2563eb] hover:bg-blue-700 disabled:bg-gray-300 text-white font-bold text-xs rounded shadow-xs inline-flex items-center gap-1.5 cursor-pointer transition-colors"
-                    >
-                      <Send className="w-3.5 h-3.5" />
-                      <span>Submit for Review ({deptDocs.length}) ➔</span>
-                    </button>
-                  )}
-
-                  <div className="text-xs text-blue-600 font-medium flex items-center gap-1.5 pl-2 border-l border-gray-200">
-                    <button 
-                      onClick={() => setSelectedYear(null)} 
-                      className="hover:underline cursor-pointer"
-                    >
-                      AQAR
-                    </button>
-                    <span className="text-gray-400">/</span>
-                    <span className="text-gray-600 font-bold">NAAC Criteria</span>
-                  </div>
-
-                  {/* Quick Portal Switcher Dropdown */}
-                  <select
-                    defaultValue="naac-program"
-                    onChange={(e) => {
-                      localStorage.setItem('college_cms_portal_type', e.target.value);
-                      window.location.reload();
-                    }}
-                    className="px-2.5 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-semibold text-gray-700 hover:border-gray-400 cursor-pointer shadow-2xs ml-2"
-                    title="Quick-switch role for live demonstration"
-                  >
-                    <option value="naac-program">🟢 Program Coordinator (CSE)</option>
-                    <option value="naac-school">🔵 School Coordinator (Technology)</option>
-                    <option value="naac-university">🟣 University Coordinator (IQAC)</option>
-                  </select>
-                </div>
-              </div>
 
               {/* 3-TIER HIERARCHICAL DOCUMENT LIST TABLE */}
               {(() => {
@@ -1023,6 +1011,38 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
                             Collapse All
                           </button>
                         </div>
+
+                        {/* Submit for Review Action */}
+                        {pendingDocs.length === 0 && submittedDocs.length > 0 ? (
+                          <span className="inline-flex items-center gap-1.5 text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg text-xs font-semibold">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Submitted to School ({submittedDocs.length})</span>
+                          </span>
+                        ) : submittedDocs.length > 0 && pendingDocs.length > 0 ? (
+                          <div className="flex items-center gap-2">
+                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-gray-600 bg-gray-100 px-2 py-1.5 rounded-lg border border-gray-200">
+                              <span>{submittedDocs.length} Submitted</span>
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setShowSubmitModal(true)}
+                              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-xs inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+                            >
+                              <Send className="w-3.5 h-3.5" />
+                              <span>Submit Additional ({pendingDocs.length}) ➔</span>
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setShowSubmitModal(true)}
+                            disabled={deptDocs.length === 0}
+                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold text-xs rounded-lg shadow-xs inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+                          >
+                            <Send className="w-3.5 h-3.5" />
+                            <span>Submit for Review ({deptDocs.length}) ➔</span>
+                          </button>
+                        )}
                       </div>
                     </div>
 
@@ -2018,10 +2038,10 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
               </div>
             );
           })()}
-            </>
-          )}
-        </>
+        </div>
       )}
+  </>
+)}
 
       {/* =========================================================================
           MODAL: INITIATE AQAR ACADEMIC YEAR (Initiate button modal from Screenshot 1)

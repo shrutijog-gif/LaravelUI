@@ -871,25 +871,24 @@ Respond in JSON ONLY:
         )}
 
         <div className="flex items-center gap-2 sm:gap-3">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="px-3.5 py-1.5 bg-[#0f2748] hover:bg-[#183963] text-white font-bold text-xs rounded-lg shadow-xs inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+            <span>Upload Document</span>
+          </button>
+
           {topBarLeftSlot && (
-            <span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded font-mono text-xs font-semibold border border-blue-200">
+            <span className={`px-2.5 py-1 rounded font-mono text-xs font-semibold border ${
+              role === 'program' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+              role === 'university' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+              'bg-blue-50 text-blue-700 border-blue-200'
+            }`}>
               AQAR {academicYear}
             </span>
           )}
-
-          {/* My Documents Drawer Trigger */}
-          <button
-            type="button"
-            onClick={() => setIsMyDocsDrawerOpen(true)}
-            className="text-xs font-semibold text-[#0f2748] hover:text-blue-700 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors flex items-center gap-1.5 cursor-pointer"
-            title="Open My Uploaded Documents Drawer"
-          >
-            <FileText className="w-4 h-4 text-blue-600" />
-            <span>My Documents</span>
-            <span className="px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold">
-              {myDocuments.length}
-            </span>
-          </button>
 
           {!topBarLeftSlot && (
             <button
