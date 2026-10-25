@@ -891,7 +891,7 @@ Respond in JSON ONLY:
             </span>
           </button>
 
-          {role !== 'program' && role !== 'school' && !hideTopUploadButton && (
+          {role !== 'program' && role !== 'school' && role !== 'university' && !hideTopUploadButton && (
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
