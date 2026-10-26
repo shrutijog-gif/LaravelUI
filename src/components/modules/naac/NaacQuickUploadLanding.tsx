@@ -354,12 +354,12 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
         source: 'rule-engine' 
       };
     }
-    if (lower.includes('extension') || lower.includes('outreach') || lower.includes('nss') || lower.includes('ncc') || lower.includes('community')) {
+    if (lower.includes('extension') || lower.includes('outreach') || lower.includes('nss') || lower.includes('ncc') || lower.includes('community') || lower.includes('blood') || lower.includes('donation') || lower.includes('camp') || lower.includes('red cross') || lower.includes('swachh') || lower.includes('village') || lower.includes('health') || lower.includes('clinic')) {
       return { 
         crit: 'Criterion 3', 
         keyIndicator: '3.4', 
         metric: '3.4.1', 
-        reason: 'Detected NSS, NCC, or community outreach extension activities. Mapped to Criterion 3 under KI 3.4 Extension Activities.',
+        reason: 'Detected Blood Donation Camp, NSS/NCC, or community outreach extension activity. Mapped to Criterion 3 (Research, Innovations & Extension) under KI 3.4 Extension Activities (Metric 3.4.1).',
         source: 'rule-engine' 
       };
     }
@@ -452,30 +452,108 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
     source?: 'openai' | 'rule-engine';
   } | null>(null);
 
-  // Deep AI Classification via OpenAI
-  const classifyWithOpenAi = async (filename: string, key: string) => {
+  // Deep AI Classification via OpenAI with Multimodal Vision & NAAC Framework Knowledge
+  const classifyWithOpenAi = async (filename: string, key: string, fileDataUrl?: string) => {
     try {
       setIsAiProcessing(true);
       setAiSuggestion(null);
-      const prompt = `You are a NAAC (National Assessment and Accreditation Council) accreditation expert.
-Classify this uploaded academic evidence file: "${filename}" into the single most appropriate NAAC AQAR Criterion, Key Indicator, and Metric.
 
-Valid Criteria options:
-- Criterion 1: Curricular Aspects (KI: 1.1, 1.2, 1.3, 1.4; Metrics: 1.1.1, 1.2.1, 1.3.1, 1.4.1)
-- Criterion 2: Teaching-Learning and Evaluation (KI: 2.1, 2.3, 2.4, 2.6; Metrics: 2.1.1, 2.3.1, 2.4.1, 2.6.1)
-- Criterion 3: Research, Innovations and Extension (KI: 3.1, 3.2, 3.4, 3.5; Metrics: 3.1.1, 3.2.1, 3.4.1, 3.5.1)
-- Criterion 4: Infrastructure and Learning Resources (KI: 4.1, 4.2; Metrics: 4.1.1, 4.2.1)
-- Criterion 5: Student Support and Progression (KI: 5.1, 5.3; Metrics: 5.1.1, 5.3.1)
-- Criterion 6: Governance, Leadership and Management (KI: 6.5; Metric: 6.5.1)
-- Criterion 7: Institutional Values and Best Practices (KI: 7.1, 7.2; Metrics: 7.1.1, 7.2.1)
+      const isImage = !!(fileDataUrl && (
+        fileDataUrl.startsWith('data:image/jpeg') || 
+        fileDataUrl.startsWith('data:image/png') || 
+        fileDataUrl.startsWith('data:image/webp') || 
+        fileDataUrl.startsWith('data:image/jpg') ||
+        fileDataUrl.startsWith('data:image/gif')
+      ));
+
+      const prompt = `You are a Senior NAAC (National Assessment and Accreditation Council) Accreditation Assessor and Quality Assurance Specialist.
+
+TASK:
+Classify this uploaded academic evidence file into the single most appropriate NAAC AQAR Criterion, Key Indicator, and Metric.
+File name: "${filename}"
+
+${isImage ? 'NOTE: An image of the evidence document or event photograph is attached. INSPECT THE VISUAL CONTENTS CAREFULLY (read all visible text, banners, certificates, posters, Red Cross / NSS / university logos, doctors/donors, and context) to identify what institutional event or record this represents.' : 'Analyze the filename, extension, and institutional context.'}
+
+OFFICIAL NAAC CRITERIA & METRIC GUIDANCE:
+- Criterion 1: Curricular Aspects
+  * KI 1.1 Curricular Planning (1.1.1 BoS minutes, lesson plans, timetables)
+  * KI 1.2 Academic Flexibility (1.2.1 CBCS electives)
+  * KI 1.3 Curriculum Enrichment (1.3.1 Cross-cutting values, 1.3.2 Value-added courses, 1.3.3 Field projects & Internships)
+  * KI 1.4 Feedback System (1.4.1 Stakeholder feedback ATR)
+
+- Criterion 2: Teaching-Learning and Evaluation
+  * KI 2.1 Enrolment (2.1.1 Intake sanctions)
+  * KI 2.2 Student Diversity (2.2.1 Remedial teaching)
+  * KI 2.3 Teaching-Learning Process (2.3.1 Experiential / problem-solving methods)
+  * KI 2.4 Teacher Profile (2.4.1 Faculty Ph.D./NET credentials)
+  * KI 2.5 Evaluation Process (2.5.1 Internal assessment reforms)
+  * KI 2.6 Learning Outcomes (2.6.1 PO/CO attainment analysis)
+  * KI 2.7 Student Satisfaction Survey (2.7.1 SSS reports)
+
+- Criterion 3: Research, Innovations and Extension
+  * KI 3.1 Resource Mobilization for Research (3.1.1 Government & corporate research grants)
+  * KI 3.2 Innovation Ecosystem (3.2.1 Incubation center, start-ups & hackathons, 3.2.2 IPR workshops)
+  * KI 3.3 Research Publications (3.3.1 UGC CARE/Scopus journal papers, 3.3.2 Books & edited volumes)
+  * KI 3.4 Extension Activities & Social Responsibility:
+    - Metric 3.4.1: Extension and outreach programs conducted in community development through NSS, NCC, Red Cross, YRC, Blood Donation Camps, Swachh Bharat, Medical & Health Clinics, Village Adoption.
+    - Metric 3.4.2: Awards and recognitions received for extension activities from government or recognized bodies.
+  * KI 3.5 Collaboration & Linkages (3.5.1 MoUs with industry, corporations, and foreign universities)
+
+- Criterion 4: Infrastructure and Learning Resources
+  * KI 4.1 Physical Facilities (4.1.1 Smart classrooms, labs, seminar halls, 4.1.2 Sports & gym)
+  * KI 4.2 Library as a Learning Resource (4.2.1 ILMS software, e-journal subscriptions IEEE/Springer)
+  * KI 4.3 IT Infrastructure (4.3.1 Wi-Fi bandwidth, firewall, 4.3.2 Student-computer ratio)
+  * KI 4.4 Campus Maintenance (4.4.1 Physical maintenance AMC & audited balance sheets)
+
+- Criterion 5: Student Support and Progression
+  * KI 5.1 Student Support (5.1.1 Scholarships & freeships, 5.1.2 Soft skills training, 5.1.3 Competitive exam coaching GATE/GRE)
+  * KI 5.2 Student Progression (5.2.1 Campus placement offer letters, 5.2.2 Higher education admissions)
+  * KI 5.3 Student Participation (5.3.1 Sports & cultural awards, 5.3.2 Student council)
+  * KI 5.4 Alumni Engagement (5.4.1 Alumni association activities & contributions)
+
+- Criterion 6: Governance, Leadership and Management
+  * KI 6.1 Institutional Vision (6.1.1 Perspective plan)
+  * KI 6.2 Strategy Deployment (6.2.1 Organogram, 6.2.3 E-governance ERP implementation)
+  * KI 6.3 Faculty Empowerment (6.3.1 Staff welfare, 6.3.2 Conference financial aid, 6.3.3 FDP programs)
+  * KI 6.4 Financial Management (6.4.1 CA audited statements & institutional budgets)
+  * KI 6.5 Internal Quality Assurance System (6.5.1 IQAC quality audits, accreditation reviews, ATR)
+
+- Criterion 7: Institutional Values and Best Practices
+  * KI 7.1 Institutional Values (7.1.1 Gender equity, 7.1.2 Green campus, solar energy & waste management)
+  * KI 7.2 Best Practices (7.2.1 Institutional institutionalized best practices)
+  * KI 7.3 Institutional Distinctiveness (7.3.1 Flagship institutional distinctiveness)
+
+CRITICAL RULE FOR SOCIAL / COMMUNITY / HEALTH ACTIVITIES:
+Any evidence of Blood Donation Camps, Health Checkup Drives, NSS/NCC Rallies, Village Outreach, or Social Service MUST be categorized under:
+- Criterion: "Criterion 3"
+- Key Indicator: "3.4"
+- Metric: "3.4.1"
+
+If the filename is generic (e.g. "download.jpg", "image.png", "scan.pdf"), infer the event from the image text/visuals and generate a concise, professional title (e.g. "Blood Donation Camp - NSS Community Outreach").
 
 Respond in JSON ONLY:
 {
-  "crit": "Criterion X",
-  "keyIndicator": "X.Y",
-  "metric": "X.Y.Z",
-  "reason": "Detailed 1-2 sentence explanation of why this file belongs to this Criterion, Key Indicator, and Metric according to NAAC guidelines."
+  "crit": "Criterion 3",
+  "keyIndicator": "3.4",
+  "metric": "3.4.1",
+  "suggestedTitle": "Professional Descriptive Title for the Document",
+  "reason": "Detailed 1-2 sentence explanation connecting the visual/text evidence to this specific NAAC Criterion, Key Indicator, and Metric."
 }`;
+
+      // Build multimodal payload
+      const userContent: any[] = [
+        { type: "text", text: prompt }
+      ];
+
+      if (isImage && fileDataUrl) {
+        userContent.push({
+          type: "image_url",
+          image_url: {
+            url: fileDataUrl,
+            detail: "low"
+          }
+        });
+      }
 
       const res = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -485,7 +563,7 @@ Respond in JSON ONLY:
         },
         body: JSON.stringify({
           model: 'gpt-4o-mini',
-          messages: [{ role: 'user', content: prompt }],
+          messages: [{ role: 'user', content: userContent }],
           temperature: 0.1,
           response_format: { type: 'json_object' },
         }),
@@ -502,11 +580,20 @@ Respond in JSON ONLY:
           setSelectedCriterionCode(canonicalCrit);
           setSelectedKeyIndicatorCode(canonicalKi);
           setSelectedMetricCode(canonicalMetric);
+
+          // If filename is generic and AI provides a title, auto-populate the document title
+          if (parsed.suggestedTitle) {
+            const rawName = filename.toLowerCase();
+            if (rawName.startsWith('download') || rawName.startsWith('image') || rawName.startsWith('img') || rawName.startsWith('photo') || rawName.startsWith('scan') || rawName.startsWith('file')) {
+              setDocumentTitle(parsed.suggestedTitle);
+            }
+          }
+
           setAiSuggestion({
             crit: canonicalCrit,
             keyIndicator: canonicalKi,
             metric: canonicalMetric,
-            reason: parsed.reason || 'OpenAI natural language analysis of evidence document content and metadata.',
+            reason: parsed.reason || 'OpenAI Vision & Natural Language analysis of evidence document content and metadata.',
             source: 'openai',
           });
           setIsAiBoxOpen(true);
@@ -560,9 +647,9 @@ Respond in JSON ONLY:
       setDocumentTitle(cleanName);
 
       if (useAi) {
-        // AI MODE: strictly OpenAI classification
+        // AI MODE: OpenAI classification with Vision support
         if (openaiKey.trim()) {
-          classifyWithOpenAi(file.name, openaiKey.trim());
+          classifyWithOpenAi(file.name, openaiKey.trim(), dataUrl);
         } else {
           setIsAiBoxOpen(true);
           setAiSuggestion({
@@ -1046,7 +1133,7 @@ Respond in JSON ONLY:
                         if (checked) {
                           setIsChangeOpen(false);
                           if (uploadedFile && openaiKey.trim()) {
-                            classifyWithOpenAi(uploadedFile.name, openaiKey.trim());
+                            classifyWithOpenAi(uploadedFile.name, openaiKey.trim(), uploadedFile.dataUrl);
                           }
                         } else {
                           // Carry over AI suggestion destination into manual dropdowns if available
@@ -1325,13 +1412,13 @@ Respond in JSON ONLY:
 
                   {/* 3 Light Gray Boxes: Identical style to Manual panel */}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    {/* 1. Criterion */}
+                    {/* Criterion */}
                     <div className="bg-slate-50/80 border border-slate-200/90 rounded-lg p-2.5 flex flex-col justify-between min-w-0">
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                          1. Criterion
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                          Criterion
                         </span>
-                        <span className="text-[10px] font-bold text-[#0f2748] font-mono">
+                        <span className="text-[10px] font-bold text-[#0f2748] font-mono bg-white px-1.5 py-0.5 rounded border border-slate-200/90 shadow-2xs">
                           {cleanCritCode}
                         </span>
                       </div>
@@ -1340,13 +1427,13 @@ Respond in JSON ONLY:
                       </p>
                     </div>
 
-                    {/* 2. Key Indicator */}
+                    {/* Key Indicator */}
                     <div className="bg-slate-50/80 border border-slate-200/90 rounded-lg p-2.5 flex flex-col justify-between min-w-0">
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                          2. Key Indicator
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                          Key Indicator
                         </span>
-                        <span className="text-[10px] font-bold text-gray-700 font-mono">
+                        <span className="text-[10px] font-bold text-gray-700 font-mono bg-white px-1.5 py-0.5 rounded border border-slate-200/90 shadow-2xs">
                           KI {cleanKiCode}
                         </span>
                       </div>
@@ -1355,14 +1442,14 @@ Respond in JSON ONLY:
                       </p>
                     </div>
 
-                    {/* 3. Metric */}
+                    {/* Metric */}
                     <div className="bg-slate-50/80 border border-slate-200/90 rounded-lg p-2.5 flex flex-col justify-between min-w-0">
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                          3. Target Metric
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                          Target Metric
                         </span>
-                        <span className="text-[10px] font-bold text-blue-700 font-mono">
-                          {cleanMetricCode}
+                        <span className="text-[10px] font-bold text-blue-700 font-mono bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200 shadow-2xs">
+                          Metric {cleanMetricCode}
                         </span>
                       </div>
                       <p className="text-xs font-semibold text-gray-800 line-clamp-2 leading-snug" title={currentMetric?.name}>
