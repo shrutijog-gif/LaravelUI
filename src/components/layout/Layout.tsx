@@ -43,9 +43,21 @@ export const Layout: React.FC<LayoutProps> = ({
     return initialPortalRole === 'superadmin' ? 'module-studio' : 'dashboard';
   };
 
+  const [activeModuleId, setActiveModuleId] = useState<string>(() => getInitialModule());
+  const [activeModuleLabel, setActiveModuleLabel] = useState<string>(() => {
+    const initMod = getInitialModule();
+    if (initMod === 'naac-aqar') return 'AQAR';
+    if (initMod === 'naac-school') return 'School Coordinator';
+    if (initMod === 'naac-university') return 'University Coordinator';
+    if (initMod === 'school-queue') return 'School Review Queue';
+    if (initMod === 'univ-dashboard') return 'University IQAC';
+    if (initMod === 'naac-dashboard') return 'NAAC Accreditation DMS';
+    return initialPortalRole === 'superadmin' ? 'Module Studio' : 'Dashboard';
+  });
+
   const getInitialNaacRole = (moduleId?: string): 'dashboard' | 'program' | 'school' | 'university' | 'criteria' | 'schools' => {
     const portalType = typeof window !== 'undefined' ? localStorage.getItem('college_cms_portal_type') : null;
-    const target = moduleId || activeModuleId;
+    const target = moduleId || activeModuleId || getInitialModule();
     if (target === 'naac-program') return 'program';
     if (target === 'naac-school') return 'school';
     if (target === 'naac-university') return 'university';
@@ -63,17 +75,6 @@ export const Layout: React.FC<LayoutProps> = ({
     typeof window !== 'undefined' ? window.innerWidth >= 1024 : true
   );
   const [portalRole, setPortalRole] = useState<'superadmin' | 'collegeadmin'>(initialPortalRole);
-  const [activeModuleId, setActiveModuleId] = useState<string>(() => getInitialModule());
-  const [activeModuleLabel, setActiveModuleLabel] = useState<string>(() => {
-    const initMod = getInitialModule();
-    if (initMod === 'naac-aqar') return 'AQAR';
-    if (initMod === 'naac-school') return 'School Coordinator';
-    if (initMod === 'naac-university') return 'University Coordinator';
-    if (initMod === 'school-queue') return 'School Review Queue';
-    if (initMod === 'univ-dashboard') return 'University IQAC';
-    if (initMod === 'naac-dashboard') return 'NAAC Accreditation DMS';
-    return initialPortalRole === 'superadmin' ? 'Module Studio' : 'Dashboard';
-  });
 
   const toggleSidebar = () => {
     setSidebarOpen(prev => !prev);

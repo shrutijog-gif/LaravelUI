@@ -272,8 +272,8 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
   }, []);
 
   // Filter department documents (B.Tech CSE)
-  const deptDocs = documents.filter(d => 
-    d.programId === 'prog-cse' || d.programName.includes('Computer Science')
+  const deptDocs = (Array.isArray(documents) ? documents : []).filter(d => 
+    Boolean(d && (d.programId === 'prog-cse' || d.programName?.includes('Computer Science') || d.schoolId === 'sch-tech'))
   );
 
   const isDocSubmittedStatus = (status?: string) => 
@@ -322,23 +322,24 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
   };
 
   const compiledDocs = deptDocs.filter(d => 
-    d.coordinatorReviewStatus === 'compiled' || d.status === 'submitted_to_school' || d.status === 'approved_by_school'
+    Boolean(d && (d.coordinatorReviewStatus === 'compiled' || d.status === 'submitted_to_school' || d.status === 'approved_by_school'))
   );
 
   // Pending faculty uploads awaiting Program Coordinator review/compilation
   const pendingFacultyDocs = deptDocs.filter(d => 
-    d.submittedByFacultyId !== 'coord-anita-verma' && 
-    d.coordinatorReviewStatus !== 'compiled'
+    Boolean(d && d.submittedByFacultyId !== 'coord-anita-verma' && d.coordinatorReviewStatus !== 'compiled')
   );
 
   const anitaDocs = deptDocs.filter(d => 
-    d.uploadedBy?.toLowerCase().includes('anita') || 
-    d.facultyName?.toLowerCase().includes('anita') || 
-    d.submittedByFacultyId === 'coord-anita-verma'
+    Boolean(d && (
+      d.uploadedBy?.toLowerCase().includes('anita') || 
+      d.facultyName?.toLowerCase().includes('anita') || 
+      d.submittedByFacultyId === 'coord-anita-verma'
+    ))
   );
 
   const isDispatchedToSchool = submittedDocs.length > 0;
-  const coveredCriteriaCount = new Set(deptDocs.map(d => d.criterionCode).filter(Boolean)).size;
+  const coveredCriteriaCount = new Set(deptDocs.filter(Boolean).map(d => d?.criterionCode).filter(Boolean)).size;
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -488,6 +489,8 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
 
     let attachedCount = 0;
 
+    const newDocIds: string[] = [];
+
     if (activeFileTab === 'new') {
       if (uploadedFiles.length === 0) {
         showToast('Please upload or drag at least one evidence document');
@@ -495,7 +498,7 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
       }
       uploadedFiles.forEach((file) => {
         const cleanTitle = file.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ');
-        addOrUpdateNaacDocument({
+        const created = addOrUpdateNaacDocument({
           title: cleanTitle || `${selectedMetricCode} - ${metric?.name || 'Supporting Evidence'}`,
           programId: 'prog-cse',
           programName: 'B.Tech Computer Science & Engineering',
@@ -518,6 +521,7 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
           coordinatorReviewStatus: 'compiled',
           compiledAt: new Date().toISOString(),
         });
+        if (created?.id) newDocIds.push(created.id);
         attachedCount++;
       });
       setUploadedFiles([]);
@@ -529,7 +533,7 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
       selectedRepoFiles.forEach((fileName) => {
         const repoFile = REPOSITORY_SAMPLE_FILES.find(f => f.name === fileName);
         const cleanTitle = fileName.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ');
-        addOrUpdateNaacDocument({
+        const created = addOrUpdateNaacDocument({
           title: cleanTitle || `${selectedMetricCode} - ${metric?.name || 'Supporting Evidence'}`,
           programId: 'prog-cse',
           programName: 'B.Tech Computer Science & Engineering',
@@ -552,10 +556,25 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
           coordinatorReviewStatus: 'compiled',
           compiledAt: new Date().toISOString(),
         });
+        if (created?.id) newDocIds.push(created.id);
         attachedCount++;
       });
     }
 
+    if (newDocIds.length > 0) {
+      try {
+        const raw = localStorage.getItem('naac_my_uploaded_doc_ids_prog_cse');
+        const curIds = raw ? JSON.parse(raw) : [];
+        const safeIds = Array.isArray(curIds) ? curIds : [];
+        const updated = Array.from(new Set([...newDocIds, ...safeIds]));
+        localStorage.setItem('naac_my_uploaded_doc_ids_prog_cse', JSON.stringify(updated));
+        localStorage.setItem('naac_my_uploaded_doc_ids_program', JSON.stringify(updated));
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    setDocuments(getStoredNaacDocuments());
     setNewTitle('');
     setShowAddModal(false);
     showToast(`Successfully attached ${attachedCount} document${attachedCount > 1 ? 's' : ''} for Metric ${selectedMetricCode}`);

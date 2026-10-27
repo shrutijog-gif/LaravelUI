@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Upload, 
   FileText, 
@@ -93,6 +93,7 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
   const [documentTitle, setDocumentTitle] = useState<string>('');
   const [documentDescription, setDocumentDescription] = useState<string>('');
   const [uploadedFile, setUploadedFile] = useState<{ name: string; size: string; dataUrl: string } | null>(null);
+  const [activeDocId, setActiveDocId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successToast, setSuccessToast] = useState<string | null>(null);
 
@@ -111,7 +112,10 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
   const [myDocIds, setMyDocIds] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem(myDocsStorageKey);
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
     } catch (e) {
       // ignore
     }
@@ -139,12 +143,68 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
     ];
   });
 
-  const myDocuments = documents.filter((doc) => myDocIds.includes(doc.id));
+  // Auto-sync documents when data layer updates in this tab or another tab
+  useEffect(() => {
+    const handleSync = () => {
+      setDocuments(getStoredNaacDocuments());
+      try {
+        const saved = localStorage.getItem(myDocsStorageKey);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) setMyDocIds(parsed);
+        }
+      } catch (e) {
+        // ignore
+      }
+    };
+    window.addEventListener('naac-dms-updated', handleSync);
+    window.addEventListener('storage', handleSync);
+    return () => {
+      window.removeEventListener('naac-dms-updated', handleSync);
+      window.removeEventListener('storage', handleSync);
+    };
+  }, [myDocsStorageKey]);
+
+  const myDocuments = (Array.isArray(documents) ? documents : []).filter((doc) => {
+    if (!doc || !doc.id) return false;
+    // 1. Explicitly tracked in myDocIds list
+    const validMyDocIds = Array.isArray(myDocIds) ? myDocIds : [];
+    if (validMyDocIds.includes(doc.id)) return true;
+
+    // 2. Program Coordinator role: any document uploaded by coordinator or belonging to CSE program
+    if (role === 'program') {
+      const isMyProgram = !programId || doc.programId === programId || doc.programId === 'prog-cse' || Boolean(doc.programName?.toLowerCase().includes('computer science'));
+      const isMyUpload = Boolean(
+        doc.uploadedBy?.toLowerCase().includes('anita') ||
+        doc.uploadedBy?.toLowerCase().includes('program coordinator') ||
+        doc.facultyName?.toLowerCase().includes('anita') ||
+        doc.submittedByFacultyId === 'coord-anita-verma' ||
+        doc.id?.startsWith('doc-')
+      );
+      return isMyProgram && isMyUpload;
+    }
+
+    // 3. School Coordinator role
+    if (role === 'school') {
+      return !schoolId || doc.schoolId === schoolId || doc.schoolId === 'sch-tech';
+    }
+
+    // 4. University Coordinator role
+    if (role === 'university') {
+      return true;
+    }
+
+    return false;
+  });
 
   const isDocSubmitted = (doc: NaacEvidenceDocument) =>
-    doc.status === 'submitted_to_school' ||
-    doc.status === 'approved_by_school' ||
-    doc.status === 'university_verified';
+    Boolean(
+      doc && (
+        doc.status === 'submitted_to_school' ||
+        doc.status === 'approved_by_school' ||
+        doc.status === 'university_verified'
+      )
+    );
 
   const unsubmittedDocs = myDocuments.filter((d) => !isDocSubmitted(d));
 
@@ -221,6 +281,23 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
   );
   const currentMetric = NAAC_METRICS_LIST.find((m) => m.code === cleanMetricCode) || availableMetrics[0];
 
+  // Live sync active ingested document when user modifies destination selectors
+  const syncActiveDocDestination = (crit: string, metric: string, title?: string) => {
+    if (!activeDocId) return;
+    const critObj = NAAC_CRITERIA_SUMMARY.find((c) => c.code.toLowerCase() === crit.toLowerCase());
+    const metricObj = NAAC_METRICS_LIST.find((m) => m.code === metric);
+    addOrUpdateNaacDocument({
+      id: activeDocId,
+      ...(title ? { title } : {}),
+      criterionCode: crit,
+      criterionId: critObj?.id || 'crit-1',
+      metricCode: metric,
+      metricName: metricObj?.name || `${metric} Evidence Proof`,
+      metricType: metricObj?.metricType || 'QnM',
+    });
+    refreshDocuments();
+  };
+
   // When criterion changes, auto-select corresponding Key Indicator and Metric
   const handleCriterionChange = (critCode: string) => {
     const canonical = toCanonicalCrit(critCode);
@@ -235,9 +312,11 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
       (m) => m.criterionCode.toLowerCase() === canonical.toLowerCase()
     );
     const matchingMetric = metricsForCrit.find(m => m.code.startsWith(newKiCode)) || metricsForCrit[0];
+    const newMetricCode = matchingMetric ? matchingMetric.code : '1.1.1';
     if (matchingMetric) {
-      setSelectedMetricCode(matchingMetric.code);
+      setSelectedMetricCode(newMetricCode);
     }
+    syncActiveDocDestination(canonical, newMetricCode);
   };
 
   // When key indicator changes, auto-select first matching metric
@@ -247,6 +326,7 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
     const matchingMetrics = availableMetrics.filter(m => m.code.startsWith(canonical));
     if (matchingMetrics.length > 0) {
       setSelectedMetricCode(matchingMetrics[0].code);
+      syncActiveDocDestination(cleanCritCode, matchingMetrics[0].code);
     }
   };
 
@@ -259,6 +339,7 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
       const parentKi = `${parts[0]}.${parts[1]}`;
       setSelectedKeyIndicatorCode(parentKi);
     }
+    syncActiveDocDestination(cleanCritCode, canonical);
   };
 
   // Smart AI Metric Suggestion based on file name
@@ -580,6 +661,7 @@ Respond in JSON ONLY:
           setSelectedCriterionCode(canonicalCrit);
           setSelectedKeyIndicatorCode(canonicalKi);
           setSelectedMetricCode(canonicalMetric);
+          syncActiveDocDestination(canonicalCrit, canonicalMetric, parsed.suggestedTitle);
 
           // If filename is generic and AI provides a title, auto-populate the document title
           if (parsed.suggestedTitle) {
@@ -627,45 +709,106 @@ Respond in JSON ONLY:
     }
   };
 
-  // File drop / select handler
+  // File drop / select handler — Immediately auto-ingests document into repository as draft so it appears instantly in drawer
   const processFile = (file: File) => {
     const sizeStr = file.size > 1024 * 1024 
       ? `${(file.size / (1024 * 1024)).toFixed(1)} MB` 
       : `${Math.round(file.size / 1024)} KB`;
 
+    const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+    setDocumentTitle(cleanName);
+
+    // Initial destination: rule suggestion or current destination
+    let initialCrit = cleanCritCode || 'Criterion 1';
+    let initialKi = cleanKiCode || '1.1';
+    let initialMetric = cleanMetricCode || '1.1.1';
+
+    const ruleSug = getAiSuggestion(file.name);
+    if (ruleSug) {
+      initialCrit = toCanonicalCrit(ruleSug.crit);
+      initialKi = toCanonicalKi(ruleSug.keyIndicator);
+      initialMetric = toCanonicalMetric(ruleSug.metric);
+      setSelectedCriterionCode(initialCrit);
+      setSelectedKeyIndicatorCode(initialKi);
+      setSelectedMetricCode(initialMetric);
+    }
+
+    const activeCrit = NAAC_CRITERIA_SUMMARY.find((c) => c.code.toLowerCase() === initialCrit.toLowerCase()) || NAAC_CRITERIA_SUMMARY[0];
+    const metricsForCrit = NAAC_METRICS_LIST.filter((m) => m.criterionCode.toLowerCase() === initialCrit.toLowerCase());
+    const activeMetric = metricsForCrit.find((m) => m.code === initialMetric) || metricsForCrit[0] || NAAC_METRICS_LIST[0];
+
     const reader = new FileReader();
     reader.onload = (e) => {
-      const dataUrl = (e.target?.result as string) || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf';
+      const rawDataUrl = (e.target?.result as string) || '';
+      // Safe URL fallback to prevent localStorage quota overflow on large uploads
+      const safeDataUrl = (rawDataUrl && rawDataUrl.length < 75000)
+        ? rawDataUrl
+        : 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf';
+
       setUploadedFile({
         name: file.name,
         size: sizeStr,
-        dataUrl,
+        dataUrl: safeDataUrl,
       });
 
-      // Auto-set title from filename
-      const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
-      setDocumentTitle(cleanName);
+      // Instantly create and ingest document as Draft into the repository
+      const newDocId = `doc-${Date.now()}`;
+      const newDoc: NaacEvidenceDocument = {
+        id: newDocId,
+        title: cleanName || file.name,
+        description: `Ingested NAAC evidence for ${initialCrit} › Key Indicator ${initialKi} › Metric ${initialMetric}.`,
+        schoolId: schoolId || 'sch-tech',
+        schoolName: schoolName || 'School of Technology & Computer Engineering',
+        programId: programId || (role === 'school' ? 'school-common' : role === 'university' ? 'univ-master' : 'prog-cse'),
+        programName: programName || (role === 'school' ? 'School Level Evidence' : role === 'university' ? 'Central Institutional Evidence' : 'B.Tech Computer Science & Engineering'),
+        academicYear: academicYear || '2025-26',
+        criterionId: activeCrit?.id || 'crit-1',
+        criterionCode: initialCrit,
+        metricCode: initialMetric,
+        metricName: activeMetric?.name || `${initialMetric} Evidence Proof`,
+        metricType: activeMetric?.metricType || 'QnM',
+        fileUrl: safeDataUrl,
+        fileName: file.name,
+        fileSize: sizeStr,
+        uploadedBy: uploaderName || (role === 'school' ? 'Dean (School Coordinator)' : role === 'university' ? 'IQAC Central Committee' : 'Prof. Anita Verma (Program Coordinator)'),
+        uploadedAt: new Date().toISOString().split('T')[0],
+        status: 'draft',
+        version: 'v1.0',
+      };
+
+      const created = addOrUpdateNaacDocument(newDoc);
+      const targetId = created?.id || newDoc.id;
+      setActiveDocId(targetId);
+
+      const updatedMyDocIds = Array.from(new Set([targetId, ...myDocIds]));
+      setMyDocIds(updatedMyDocIds);
+      setSelectedDocIds((prev) => [targetId, ...prev.filter(id => id !== targetId)]);
+      try {
+        localStorage.setItem(myDocsStorageKey, JSON.stringify(updatedMyDocIds));
+        localStorage.setItem('naac_my_uploaded_doc_ids_prog_cse', JSON.stringify(updatedMyDocIds));
+        localStorage.setItem('naac_my_uploaded_doc_ids_program', JSON.stringify(updatedMyDocIds));
+      } catch (err) {
+        console.warn('Could not store myDocIds in localStorage:', err);
+      }
+      refreshDocuments();
+
+      setSuccessToast(`✨ Ingested "${file.name}" as Draft into ${initialCrit} › Metric ${initialMetric}! Visible in My Documents.`);
+      setTimeout(() => setSuccessToast(null), 4500);
 
       if (useAi) {
-        // AI MODE: OpenAI classification with Vision support
         if (openaiKey.trim()) {
-          classifyWithOpenAi(file.name, openaiKey.trim(), dataUrl);
+          classifyWithOpenAi(file.name, openaiKey.trim(), rawDataUrl);
         } else {
           setIsAiBoxOpen(true);
           setAiSuggestion({
-            crit: selectedCriterionCode,
-            keyIndicator: selectedKeyIndicatorCode,
-            metric: selectedMetricCode,
+            crit: initialCrit,
+            keyIndicator: initialKi,
+            metric: initialMetric,
             reason: 'AI Mode is active. Enter your OpenAI API Key to classify this evidence document, or use manual selection.',
             source: 'openai',
           });
         }
       } else {
-        // STRICTLY MANUAL MODE: Clean fresh start at Criterion 1 without retaining stale history
-        setSelectedCriterionCode('Criterion 1');
-        setSelectedKeyIndicatorCode('1.1');
-        setSelectedMetricCode('1.1.1');
-        setAiSuggestion(null);
         setIsAiBoxOpen(false);
         setIsChangeOpen(true);
       }
@@ -699,6 +842,10 @@ Respond in JSON ONLY:
   // Real-time title typing and AI metric suggestion
   const handleTitleInput = (val: string) => {
     setDocumentTitle(val);
+    if (activeDocId && val.trim()) {
+      addOrUpdateNaacDocument({ id: activeDocId, title: val.trim() });
+      refreshDocuments();
+    }
     if (isAiMode && val.trim().length > 3) {
       const sug = getAiSuggestion(val);
       if (sug) {
@@ -768,7 +915,7 @@ Respond in JSON ONLY:
     setAiSuggestion(null);
   };
 
-  // Confirm and Drop Evidence Document into Repository
+  // Confirm and Finalize Evidence Document in Repository
   const handleConfirmAndDrop = () => {
     if (!uploadedFile) {
       fileInputRef.current?.click();
@@ -780,46 +927,46 @@ Respond in JSON ONLY:
     const activeCrit = NAAC_CRITERIA_SUMMARY.find((c) => c.code.toLowerCase() === cleanCritCode.toLowerCase()) || NAAC_CRITERIA_SUMMARY[0];
     const activeMetric = NAAC_METRICS_LIST.find((m) => m.code === cleanMetricCode) || availableMetrics[0];
 
-    const fileUrl = uploadedFile.dataUrl;
     const fileName = uploadedFile.name;
     const docTitle = documentTitle.trim() || uploadedFile.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
-    const fileSize = uploadedFile.size;
 
-    const newDoc: NaacEvidenceDocument = {
-      id: `doc-${Date.now()}`,
+    const targetId = activeDocId || `doc-${Date.now()}`;
+    const updated = addOrUpdateNaacDocument({
+      id: targetId,
       title: docTitle,
-      description: `Ingested NAAC evidence for ${cleanCritCode} › Key Indicator ${cleanKiCode} › Metric ${cleanMetricCode}.`,
-      schoolId: schoolId || 'sch-tech',
-      schoolName: schoolName || 'School of Technology & Computer Engineering',
-      programId: programId || (role === 'school' ? 'school-common' : role === 'university' ? 'univ-master' : 'prog-cse'),
-      programName: programName || (role === 'school' ? 'School Level Evidence' : role === 'university' ? 'Central Institutional Evidence' : 'B.Tech Computer Science & Engineering'),
-      academicYear: academicYear || '2025-26',
-      criterionId: activeCrit?.id || 'crit-1',
       criterionCode: cleanCritCode,
+      criterionId: activeCrit?.id || 'crit-1',
       metricCode: cleanMetricCode,
       metricName: activeMetric?.name || `${cleanMetricCode} Evidence Proof`,
       metricType: activeMetric?.metricType || 'QnM',
-      fileUrl,
+      fileUrl: uploadedFile.dataUrl,
       fileName,
-      fileSize,
-      uploadedBy: uploaderName || (role === 'school' ? 'Dean (School Coordinator)' : role === 'university' ? 'IQAC Central Committee' : 'Program Coordinator (CSE)'),
-      uploadedAt: new Date().toISOString().split('T')[0],
+      fileSize: uploadedFile.size,
       status: 'draft',
-      version: 'v1.0',
-    };
+      schoolId: schoolId || 'sch-tech',
+      programId: programId || (role === 'school' ? 'school-common' : role === 'university' ? 'univ-master' : 'prog-cse'),
+      uploadedBy: uploaderName || (role === 'school' ? 'Dean (School Coordinator)' : role === 'university' ? 'IQAC Central Committee' : 'Prof. Anita Verma (Program Coordinator)'),
+    });
 
-    addOrUpdateNaacDocument(newDoc);
-    const updatedMyDocIds = [newDoc.id, ...myDocIds];
+    const finalId = updated?.id || targetId;
+    const updatedMyDocIds = Array.from(new Set([finalId, ...myDocIds]));
     setMyDocIds(updatedMyDocIds);
-    setSelectedDocIds((prev) => [newDoc.id, ...prev]);
-    localStorage.setItem(myDocsStorageKey, JSON.stringify(updatedMyDocIds));
+    setSelectedDocIds((prev) => Array.from(new Set([finalId, ...prev])));
+    try {
+      localStorage.setItem(myDocsStorageKey, JSON.stringify(updatedMyDocIds));
+      localStorage.setItem('naac_my_uploaded_doc_ids_prog_cse', JSON.stringify(updatedMyDocIds));
+      localStorage.setItem('naac_my_uploaded_doc_ids_program', JSON.stringify(updatedMyDocIds));
+    } catch (e) {
+      // ignore
+    }
     refreshDocuments();
 
-    setSuccessToast(`Document "${fileName}" confirmed & dropped into ${cleanCritCode} › KI ${cleanKiCode} › Metric ${cleanMetricCode}!`);
+    setSuccessToast(`Document "${fileName}" confirmed in ${cleanCritCode} › Metric ${cleanMetricCode}! Open My Documents to submit.`);
     setTimeout(() => setSuccessToast(null), 5000);
 
-    // Reset Form
+    // Reset Form for next upload
     setUploadedFile(null);
+    setActiveDocId(null);
     setDocumentTitle('');
     setDocumentDescription('');
     setSelectedCriterionCode('Criterion 1');
@@ -881,7 +1028,9 @@ Respond in JSON ONLY:
   // View Complete Document Repository
   const handleViewCompleteRepository = () => {
     setIsMyDocsDrawerOpen(false);
-    onNavigateToDocumentList();
+    if (typeof onNavigateToDocumentList === 'function') {
+      onNavigateToDocumentList();
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -898,12 +1047,14 @@ Respond in JSON ONLY:
   };
 
   // Filtered documents
-  const filteredDocuments = documents.filter((doc) => {
-    const matchesSearch = 
-      doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doc.metricCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doc.criterionCode.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCriterion = criterionFilter === 'ALL' || doc.criterionCode === criterionFilter;
+  const filteredDocuments = (Array.isArray(documents) ? documents : []).filter((doc) => {
+    if (!doc) return false;
+    const title = (doc.title || doc.fileName || '').toLowerCase();
+    const metric = (doc.metricCode || '').toLowerCase();
+    const crit = (doc.criterionCode || '').toLowerCase();
+    const query = (searchQuery || '').toLowerCase();
+    const matchesSearch = !query || title.includes(query) || metric.includes(query) || crit.includes(query);
+    const matchesCriterion = criterionFilter === 'ALL' || doc.criterionCode === criterionFilter || crit === criterionFilter.toLowerCase();
     return matchesSearch && matchesCriterion;
   });
 
@@ -1002,7 +1153,11 @@ Respond in JSON ONLY:
           {!topBarLeftSlot && (
             <button
               type="button"
-              onClick={() => onNavigateToDocumentList()}
+              onClick={() => {
+                if (typeof onNavigateToDocumentList === 'function') {
+                  onNavigateToDocumentList();
+                }
+              }}
               className="text-xs font-semibold text-[#0f2748] hover:text-blue-700 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors flex items-center gap-1.5 cursor-pointer"
               title="Open Master Repository Document List"
             >
@@ -1167,7 +1322,22 @@ Respond in JSON ONLY:
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
+                        if (activeDocId) {
+                          deleteNaacDocument(activeDocId);
+                          const updated = myDocIds.filter(id => id !== activeDocId);
+                          setMyDocIds(updated);
+                          setSelectedDocIds(prev => prev.filter(id => id !== activeDocId));
+                          try {
+                            localStorage.setItem(myDocsStorageKey, JSON.stringify(updated));
+                            localStorage.setItem('naac_my_uploaded_doc_ids_prog_cse', JSON.stringify(updated));
+                            localStorage.setItem('naac_my_uploaded_doc_ids_program', JSON.stringify(updated));
+                          } catch (err) {
+                            // ignore
+                          }
+                          refreshDocuments();
+                        }
                         setUploadedFile(null);
+                        setActiveDocId(null);
                         setSelectedCriterionCode('Criterion 1');
                         setSelectedKeyIndicatorCode('1.1');
                         setSelectedMetricCode('1.1.1');
@@ -1684,7 +1854,8 @@ Respond in JSON ONLY:
                             const docsInCrit = myDocuments.filter(
                               (d) =>
                                 d.criterionCode?.toLowerCase() === crit.code.toLowerCase() ||
-                                toCanonicalCrit(d.criterionCode || '').toLowerCase() === crit.code.toLowerCase()
+                                toCanonicalCrit(d.criterionCode || '').toLowerCase() === crit.code.toLowerCase() ||
+                                d.criterionId === crit.id
                             );
                             if (docsInCrit.length === 0) return null;
 
@@ -1758,13 +1929,17 @@ Respond in JSON ONLY:
                                         </div>
                                       </td>
 
-                                      {/* 4. Status: strictly two states - either blank or submitted */}
+                                      {/* 4. Status: Draft or Submitted */}
                                       <td className="py-2 px-3 align-middle text-center whitespace-nowrap">
                                         {isSubmitted ? (
                                           <span className="inline-block text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
                                             Submitted
                                           </span>
-                                        ) : null}
+                                        ) : (
+                                          <span className="inline-block text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                                            Draft
+                                          </span>
+                                        )}
                                       </td>
 
                                       {/* 5. Action */}
@@ -1794,6 +1969,99 @@ Respond in JSON ONLY:
                               </React.Fragment>
                             );
                           })}
+
+                          {/* Fallback for documents with non-standard criteria */}
+                          {(() => {
+                            const standardCritCodes = new Set(NAAC_CRITERIA_SUMMARY.map((c) => c.code.toLowerCase()));
+                            const otherDocs = myDocuments.filter(
+                              (d) => !standardCritCodes.has(toCanonicalCrit(d.criterionCode || '').toLowerCase())
+                            );
+                            if (otherDocs.length === 0) return null;
+                            return (
+                              <React.Fragment key="other-criteria">
+                                <tr className="bg-slate-50/80 border-y border-slate-200/80">
+                                  <td colSpan={5} className="py-1.5 px-3">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-[11px] font-bold text-gray-800">Additional Ingested Evidence</span>
+                                      <span className="text-[10px] font-semibold text-gray-500 bg-white px-2 py-0.5 rounded-full border border-slate-200">
+                                        {otherDocs.length} {otherDocs.length === 1 ? 'doc' : 'docs'}
+                                      </span>
+                                    </div>
+                                  </td>
+                                </tr>
+                                {otherDocs.map((doc) => {
+                                  const isChecked = selectedDocIds.includes(doc.id);
+                                  const isSubmitted =
+                                    doc.status === 'submitted_to_school' ||
+                                    doc.status === 'approved_by_school' ||
+                                    doc.status === 'university_verified';
+                                  return (
+                                    <tr key={doc.id} className={`hover:bg-blue-50/30 transition-colors group ${isChecked ? 'bg-blue-50/20' : ''}`}>
+                                      <td className="py-2 px-3 text-center align-middle">
+                                        <input
+                                          type="checkbox"
+                                          checked={!isSubmitted && isChecked}
+                                          disabled={isSubmitted}
+                                          onChange={() => !isSubmitted && handleToggleSelectDoc(doc.id)}
+                                          className={`w-3.5 h-3.5 rounded shrink-0 transition-opacity ${
+                                            isSubmitted
+                                              ? 'opacity-25 cursor-not-allowed bg-gray-200 accent-gray-400'
+                                              : 'text-blue-600 focus:ring-blue-500 cursor-pointer accent-[#0f2748]'
+                                          }`}
+                                          title={isSubmitted ? 'Already submitted' : `Select "${doc.fileName}"`}
+                                        />
+                                      </td>
+                                      <td className="py-2 px-3 align-middle whitespace-nowrap">
+                                        <span className="font-mono text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded">
+                                          {doc.metricCode || '1.1.1'}
+                                        </span>
+                                      </td>
+                                      <td className="py-2 px-3 align-middle">
+                                        <div
+                                          onClick={() => openFileInNewTab(doc.fileUrl)}
+                                          className="font-medium text-gray-800 group-hover:text-blue-700 cursor-pointer truncate text-xs"
+                                          title={doc.fileName}
+                                        >
+                                          {doc.fileName}
+                                        </div>
+                                      </td>
+                                      <td className="py-2 px-3 align-middle text-center whitespace-nowrap">
+                                        {isSubmitted ? (
+                                          <span className="inline-block text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                                            Submitted
+                                          </span>
+                                        ) : (
+                                          <span className="inline-block text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                                            Draft
+                                          </span>
+                                        )}
+                                      </td>
+                                      <td className="py-2 px-3 align-middle text-right whitespace-nowrap">
+                                        <div className="inline-flex items-center gap-1">
+                                          <button
+                                            type="button"
+                                            onClick={() => openFileInNewTab(doc.fileUrl)}
+                                            className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded cursor-pointer transition-colors"
+                                            title="View Document"
+                                          >
+                                            <ExternalLink className="w-3.5 h-3.5" />
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleDeleteMyDoc(doc.id, doc.fileName || doc.title)}
+                                            className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded cursor-pointer transition-colors"
+                                            title="Delete from My Documents"
+                                          >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                          </button>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </React.Fragment>
+                            );
+                          })()}
                         </tbody>
                       </table>
                     </div>
@@ -1802,21 +2070,34 @@ Respond in JSON ONLY:
               </div>
 
               <div className="p-4 bg-slate-50 border-t border-gray-200 shrink-0">
-                {/* Submit Action Button */}
-                <button
-                  type="button"
-                  onClick={handleSubmitToCoordinator}
-                  disabled={selectedDocIds.length === 0}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold text-white bg-[#0f2748] hover:bg-[#183963] active:scale-[0.99] shadow-sm transition-all cursor-pointer disabled:opacity-50"
-                  title={
-                    selectedDocIds.length === 0
-                      ? 'Select at least one document to submit'
-                      : `Submit ${selectedDocIds.length} selected document(s)`
-                  }
-                >
-                  <Send className="w-3.5 h-3.5 text-blue-200" />
-                  <span>Submit</span>
-                </button>
+                <div className="flex flex-col sm:flex-row items-center gap-2.5">
+                  {/* 1. Submit Action Button */}
+                  <button
+                    type="button"
+                    onClick={handleSubmitToCoordinator}
+                    disabled={selectedDocIds.length === 0}
+                    className="w-full sm:flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold text-white bg-[#0f2748] hover:bg-[#183963] active:scale-[0.99] shadow-sm transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    title={
+                      selectedDocIds.length === 0
+                        ? 'Select at least one document to submit'
+                        : `Submit ${selectedDocIds.length} selected document(s)`
+                    }
+                  >
+                    <Send className="w-3.5 h-3.5 text-blue-200" />
+                    <span>Submit</span>
+                  </button>
+
+                  {/* 2. View Program Repository Action Button */}
+                  <button
+                    type="button"
+                    onClick={handleViewCompleteRepository}
+                    className="w-full sm:flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold text-gray-700 bg-white hover:bg-slate-100 hover:text-gray-900 border border-gray-300 shadow-2xs active:scale-[0.99] transition-all cursor-pointer"
+                    title="Close drawer and navigate to the full Program Repository table"
+                  >
+                    <FolderOpen className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>View Program Repository</span>
+                  </button>
+                </div>
               </div>
 
             </div>
