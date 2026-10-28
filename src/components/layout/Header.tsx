@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Menu, Globe, Building2, ChevronDown, ShieldCheck, Layers, FileText, Wrench, FileSpreadsheet, LogOut, User } from 'lucide-react';
+import { Menu, Globe, Building2, ChevronDown, ShieldCheck, Layers, FileText, Wrench, FileSpreadsheet, LogOut, User, RotateCcw } from 'lucide-react';
 import { collegeTenantsList, getActiveTenant, setActiveTenantId, CollegeTenant } from '../../data/tenantData';
 import { logout, getStoredAuthUser } from '../../services/authService';
+import { resetNaacDemoData } from '../../data/naacDmsData';
 
 interface HeaderProps {
   toggleSidebar: () => void;
@@ -29,6 +30,20 @@ export const Header: React.FC<HeaderProps> = ({
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const currentUser = getStoredAuthUser();
   const isSuperadmin = portalRole === 'superadmin';
+  const [isResettingDemo, setIsResettingDemo] = useState(false);
+  const [resetToast, setResetToast] = useState<string | null>(null);
+
+  const handleResetDemo = () => {
+    setIsResettingDemo(true);
+    resetNaacDemoData();
+    setResetToast('Demo reset: All NAAC documents restored to Draft status.');
+    setTimeout(() => {
+      setIsResettingDemo(false);
+    }, 600);
+    setTimeout(() => {
+      setResetToast(null);
+    }, 3500);
+  };
 
   useEffect(() => {
     const handleTenantChange = () => {
@@ -53,10 +68,11 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   const portalType = typeof window !== 'undefined' ? localStorage.getItem('college_cms_portal_type') : null;
+  const isNaacFaculty = portalType === 'naac-faculty';
   const isNaacProgram = portalType === 'naac-program';
   const isNaacSchool = portalType === 'naac-school';
   const isNaacUniversity = portalType === 'naac-university';
-  const isNaacPortal = isNaacProgram || isNaacSchool || isNaacUniversity || Boolean(currentUser?.role?.includes('Coordinator'));
+  const isNaacPortal = isNaacFaculty || isNaacProgram || isNaacSchool || isNaacUniversity || Boolean(currentUser?.role?.includes('Coordinator')) || Boolean(currentUser?.role?.includes('Faculty'));
 
   return (
     <header className="h-16 bg-white border-b border-gray-200 px-3 sm:px-6 flex items-center justify-between sticky top-0 z-30 shadow-xs">
@@ -77,30 +93,16 @@ export const Header: React.FC<HeaderProps> = ({
           className="cursor-default group flex items-center"
           title={isNaacPortal ? 'ITM Skills University — NAAC Portal' : isSuperadmin ? 'WhiteCode Master Console' : `${currentTenant.name} — ${currentTenant.subtitle}`}
         >
-          {isNaacProgram ? (
+          {isNaacPortal ? (
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-emerald-950 via-teal-900 to-slate-900 text-emerald-300 flex items-center justify-center font-black text-xs sm:text-sm shadow-md border border-emerald-500/40 shrink-0 group-hover:scale-105 transition-transform">
-                📋
-              </div>
-              <div className="hidden sm:block text-left">
-                <span className="block text-xs font-black text-gray-900 leading-tight">
-                  Dept. of Computer Science & Engg
-                </span>
-                <span className="block text-[10px] font-semibold text-emerald-700">
-                  School of Technology • ITM Skills University
-                </span>
-              </div>
-            </div>
-          ) : isNaacPortal ? (
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-indigo-950 via-slate-900 to-purple-950 text-indigo-300 flex items-center justify-center font-black text-xs sm:text-sm shadow-md border border-indigo-500/30 shrink-0 group-hover:scale-105 transition-transform">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#0f172a] text-emerald-400 flex items-center justify-center font-black text-xs sm:text-sm shadow-md border border-slate-700 shrink-0 group-hover:scale-105 transition-transform">
                 🏛️
               </div>
               <div className="hidden sm:block text-left">
                 <span className="block text-xs font-black text-gray-900 leading-tight">
                   ITM Skills University
                 </span>
-                <span className="block text-[10px] font-semibold text-indigo-600">
+                <span className="block text-[10px] font-semibold text-emerald-700">
                   NAAC Accreditation DMS
                 </span>
               </div>
@@ -136,28 +138,51 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* Center Portal Switcher Pill Bar (Visible on desktop) */}
-      {isNaacProgram ? (
-        <div className="hidden xl:flex items-center gap-2 bg-emerald-50 border border-emerald-200/80 px-3.5 py-1.5 rounded-xl shadow-2xs">
-          <span className="text-xs font-extrabold text-emerald-950 flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
-            Program Coordinator Desk
-          </span>
-          <span className="text-emerald-300">|</span>
-          <span className="text-xs font-bold text-emerald-800">
-            Prof. Anita Verma (B.Tech CSE)
-          </span>
-        </div>
-      ) : isNaacPortal ? (
-        <div className="hidden xl:flex items-center gap-2 bg-indigo-50/80 border border-indigo-200/70 px-3.5 py-1.5 rounded-xl shadow-2xs">
-          <span className="text-xs font-extrabold text-indigo-950 flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            Accreditation Cycle 1 (2025–2030)
-          </span>
-          <span className="text-indigo-300">|</span>
-          <span className="text-xs font-bold text-indigo-700">
-            {currentUser?.role || 'IQAC Coordinator'}
-          </span>
+      {/* Center Portal Switcher / Coordinator Role Selector */}
+      {isNaacPortal ? (
+        <div className="flex items-center gap-2">
+          {/* Coordinator / Faculty Role Selector Dropdown */}
+          <div className="flex items-center gap-2 bg-slate-50 hover:bg-slate-100/90 px-3 py-1.5 rounded-xl border border-slate-300 shadow-2xs transition-all">
+            <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+              isNaacFaculty ? 'bg-amber-500 ring-2 ring-amber-200' :
+              isNaacProgram ? 'bg-emerald-500 ring-2 ring-emerald-200' : 
+              isNaacUniversity ? 'bg-purple-600 ring-2 ring-purple-200' : 
+              'bg-blue-600 ring-2 ring-blue-200'
+            }`} />
+            <select
+              value={isNaacFaculty ? 'naac-faculty' : isNaacProgram ? 'naac-program' : isNaacUniversity ? 'naac-university' : 'naac-school'}
+              onChange={(e) => {
+                const targetRole = e.target.value;
+                localStorage.setItem('college_cms_portal_type', targetRole);
+                if (targetRole === 'naac-faculty') {
+                  if (onSelectModule) onSelectModule('naac-faculty', 'Faculty Desk');
+                } else if (targetRole === 'naac-program') {
+                  if (onSelectModule) onSelectModule('naac-aqar', 'Program Coordinator');
+                } else if (targetRole === 'naac-school') {
+                  if (onSelectModule) onSelectModule('naac-school', 'School Coordinator');
+                } else if (targetRole === 'naac-university') {
+                  if (onSelectModule) onSelectModule('naac-university', 'University Coordinator');
+                }
+                window.location.reload();
+              }}
+              className="bg-transparent text-xs font-black text-[#0f2748] border-none outline-none cursor-pointer pr-1 focus:ring-0"
+              title="Switch NAAC Role"
+            >
+              <option value="naac-faculty">🟡 Faculty Member (CSE Dept)</option>
+              <option value="naac-program">🟢 Program Coordinator (CSE HOD)</option>
+              <option value="naac-school">🔵 School Coordinator (Technology Dean)</option>
+              <option value="naac-university">🟣 University Coordinator (Central IQAC)</option>
+            </select>
+          </div>
+
+          <div className="hidden lg:flex items-center px-3 py-1.5 rounded-xl bg-gray-50 border border-gray-200 text-xs font-semibold text-gray-700 shadow-2xs">
+            <span>
+              {isNaacFaculty ? 'Dr. Ramesh Gupta (Associate Professor, CSE)' :
+               isNaacProgram ? 'Prof. Anita Verma (Program Coordinator, CSE)' :
+               isNaacUniversity ? 'Dr. Vikram Malhotra (Central IQAC)' :
+               'Dr. Rajesh Sharma (School Dean, Technology)'}
+            </span>
+          </div>
         </div>
       ) : (
         <div className="hidden xl:flex items-center gap-1.5 bg-gray-100 p-1.5 rounded-xl border border-gray-200 shadow-2xs">
@@ -195,7 +220,7 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Right Action Icons & Profile */}
       <div className="flex items-center gap-2 sm:gap-3 text-gray-600 shrink-0">
-        {/* Multi-Tenant Switcher Dropdown (Only visible in College Admin Mode) */}
+        {/* Scope / Unit Badge */}
         {isNaacProgram ? (
           <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 text-emerald-950 px-2.5 sm:px-3 py-1 rounded-lg shadow-2xs">
             <Building2 className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
@@ -208,7 +233,19 @@ export const Header: React.FC<HeaderProps> = ({
               </span>
             </div>
           </div>
-        ) : isNaacPortal ? (
+        ) : isNaacSchool ? (
+          <div className="flex items-center gap-1.5 bg-blue-50 border border-blue-200 text-blue-950 px-2.5 sm:px-3 py-1 rounded-lg shadow-2xs">
+            <Building2 className="w-3.5 h-3.5 text-blue-700 shrink-0" />
+            <div className="flex flex-col text-left">
+              <span className="hidden sm:block text-[9px] font-extrabold uppercase tracking-wider text-blue-600 leading-none">
+                School
+              </span>
+              <span className="text-xs font-black text-blue-950 truncate">
+                School of Technology
+              </span>
+            </div>
+          </div>
+        ) : isNaacUniversity || isNaacPortal ? (
           <div className="flex items-center gap-1.5 bg-purple-50 border border-purple-200/80 text-purple-900 px-2.5 sm:px-3 py-1 rounded-lg shadow-2xs">
             <Building2 className="w-3.5 h-3.5 text-purple-600 shrink-0" />
             <div className="flex flex-col text-left">
@@ -252,6 +289,20 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         )}
 
+        {/* Reset Demo Button */}
+        <button 
+          type="button"
+          onClick={handleResetDemo}
+          disabled={isResettingDemo}
+          className="p-1.5 sm:p-2 hover:bg-amber-50 rounded-lg text-gray-700 hover:text-amber-600 transition-colors cursor-pointer relative group disabled:opacity-50"
+          title="Reset Demo (Restore all documents to Draft)"
+        >
+          <RotateCcw className={`w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-500 ${isResettingDemo ? 'animate-spin text-amber-600' : 'group-hover:-rotate-45'}`} />
+          <span className="absolute top-full mt-2 right-0 bg-gray-900 text-white text-[11px] font-semibold px-2.5 py-1 rounded shadow-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+            Reset Demo (Set all to Draft)
+          </span>
+        </button>
+
         {/* Globe icon to visit storefront */}
         <button 
           type="button"
@@ -274,6 +325,7 @@ export const Header: React.FC<HeaderProps> = ({
             title="Account Menu"
           >
             {currentUser?.name ? (
+              currentUser.name.includes('Ramesh') ? 'RG' :
               currentUser.name.includes('Anita') ? 'AV' :
               currentUser.name.includes('Rajesh') ? 'RS' :
               currentUser.name.includes('Vikram') ? 'VM' : 'SJ'
@@ -354,6 +406,14 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </div>
       </div>
+
+      {/* Demo Reset Toast Notification */}
+      {resetToast && (
+        <div className="fixed top-16 right-6 z-50 bg-[#0f2748] text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-xl flex items-center gap-2.5 border border-blue-400/30 animate-in slide-in-from-top-2">
+          <RotateCcw className="w-4 h-4 text-amber-400 shrink-0" />
+          <span>{resetToast}</span>
+        </div>
+      )}
     </header>
   );
 };

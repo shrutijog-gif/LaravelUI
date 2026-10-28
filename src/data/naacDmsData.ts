@@ -42,9 +42,11 @@ export interface NaacMetric {
 
 export type NaacWorkflowStatus = 
   | 'draft'
+  | 'submitted_to_program'
   | 'submitted_to_school'
   | 'changes_requested'
   | 'approved_by_school'
+  | 'submitted_to_university'
   | 'university_verified';
 
 export interface NaacEvidenceDocument {
@@ -395,7 +397,8 @@ const INITIAL_NAAC_DOCUMENTS: NaacEvidenceDocument[] = [
     submittedByFacultyId: 'fac-1',
     facultyName: 'Dr. Ramesh Gupta',
     facultyDesignation: 'Associate Professor & Criterion 2 Lead',
-    coordinatorReviewStatus: 'pending_review',
+    coordinatorReviewStatus: 'changes_requested',
+    coordinatorFeedback: 'Please attach evaluated sample answer sheets with Bloom level mapping for Sem 3 and Sem 5 to satisfy QnM verification.',
   },
   {
     id: 'naac-cse-fac-1-b',
@@ -523,7 +526,7 @@ const INITIAL_NAAC_DOCUMENTS: NaacEvidenceDocument[] = [
     fileSize: '3.1 MB',
     uploadedBy: 'Prof. Priyanka Deshmukh',
     uploadedAt: '2026-10-08T11:30:00Z',
-    status: 'submitted_to_school',
+    status: 'draft',
     version: 'v1.0',
     submittedByFacultyId: 'fac-5',
     facultyName: 'Prof. Priyanka Deshmukh',
@@ -550,7 +553,7 @@ const INITIAL_NAAC_DOCUMENTS: NaacEvidenceDocument[] = [
     fileSize: '2.4 MB',
     uploadedBy: 'Dr. Ramesh Gupta',
     uploadedAt: '2026-10-09T14:20:00Z',
-    status: 'submitted_to_school',
+    status: 'draft',
     version: 'v1.0',
     submittedByFacultyId: 'fac-1',
     facultyName: 'Dr. Ramesh Gupta',
@@ -732,20 +735,30 @@ export const getStoredNaacDocuments = (): NaacEvidenceDocument[] => {
     if (Array.isArray(parsed)) {
       // Ensure all standard initial documents are present so newly added samples show up
       let updated = false;
-      const parsedIds = new Set(parsed.map(d => d.id));
-      const merged = [...parsed];
+      const validParsed = parsed.filter((d): d is NaacEvidenceDocument => Boolean(d && typeof d === 'object'));
+      const parsedIds = new Set(validParsed.map(d => d?.id).filter(Boolean));
+      const merged = [...validParsed];
       INITIAL_NAAC_DOCUMENTS.forEach(initDoc => {
-        if (!parsedIds.has(initDoc.id)) {
+        if (initDoc?.id && !parsedIds.has(initDoc.id)) {
           merged.push(initDoc);
           updated = true;
         }
       });
-      // Ensure coordinator-uploaded documents show Prof. Anita Verma
+      // Ensure coordinator-uploaded documents show Prof. Anita Verma (person's name without designation)
       merged.forEach(d => {
-        if (d.fileName?.toLowerCase().includes('trishna-saraf') || (d.id.startsWith('naac-doc-') && d.uploadedBy === 'Prof. Priyanka Deshmukh')) {
+        if (!d) return;
+        if (
+          d.fileName?.toLowerCase().includes('trishna-saraf') || 
+          (Boolean(d.id?.startsWith('naac-doc-')) && d.uploadedBy === 'Prof. Priyanka Deshmukh') ||
+          d.uploadedBy === 'Prof. Anita Verma (Program Coordinator)' ||
+          d.uploadedBy === 'Program Coordinator'
+        ) {
           d.uploadedBy = 'Prof. Anita Verma';
           d.facultyName = 'Prof. Anita Verma';
           d.facultyDesignation = 'Program Coordinator (B.Tech CSE)';
+          updated = true;
+        } else if (d.uploadedBy && d.uploadedBy.includes('(Program Coordinator)')) {
+          d.uploadedBy = d.uploadedBy.replace(/\s*\(Program Coordinator\)/gi, '').trim();
           updated = true;
         }
       });
@@ -765,13 +778,26 @@ export const saveAllNaacDocuments = (docs: NaacEvidenceDocument[]): void => {
     localStorage.setItem(NAAC_STORAGE_KEY, JSON.stringify(docs));
     window.dispatchEvent(new Event('naac-dms-updated'));
   } catch (err) {
-    console.error('Failed to save NAAC documents', err);
+    console.warn('Direct localStorage save failed (likely quota limit), stripping large base64 URLs:', err);
+    try {
+      // Stripping oversized base64 data URLs ensures metadata is 100% saved without failing
+      const lightweightDocs = docs.map(d => ({
+        ...d,
+        fileUrl: (d.fileUrl && d.fileUrl.length > 50000) 
+          ? 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf' 
+          : (d.fileUrl || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf')
+      }));
+      localStorage.setItem(NAAC_STORAGE_KEY, JSON.stringify(lightweightDocs));
+      window.dispatchEvent(new Event('naac-dms-updated'));
+    } catch (innerErr) {
+      console.error('Critical quota error saving NAAC documents', innerErr);
+    }
   }
 };
 
 export const addOrUpdateNaacDocument = (doc: Partial<NaacEvidenceDocument>): NaacEvidenceDocument => {
   const current = getStoredNaacDocuments();
-  const existingIdx = current.findIndex(d => d.id === doc.id);
+  const existingIdx = doc?.id ? current.findIndex(d => d && d.id === doc.id) : -1;
 
   let updatedDoc: NaacEvidenceDocument;
 
@@ -821,33 +847,102 @@ export const addOrUpdateNaacDocument = (doc: Partial<NaacEvidenceDocument>): Naa
 /**
  * Program Coordinator Action: Compile an individual faculty document into Department Dossier
  */
-export const compileDocumentIntoDossier = (docId: string, coordinatorNotes?: string): void => {
+export const compileDocumentIntoDossier = (docId: string, coordinatorNotes?: string): NaacEvidenceDocument | undefined => {
   const current = getStoredNaacDocuments();
-  const doc = current.find(d => d.id === docId);
+  const doc = current.find(d => d.id === docId || d.fileName === docId);
   if (doc) {
     doc.coordinatorReviewStatus = 'compiled';
     doc.compiledAt = new Date().toISOString();
     if (coordinatorNotes) {
       doc.coordinatorFeedback = coordinatorNotes;
     }
-    if (doc.status === 'changes_requested') {
-      doc.status = 'draft';
+    saveAllNaacDocuments(current);
+    return doc;
+  }
+  return undefined;
+};
+
+/**
+ * Program Coordinator Action: Batch compile multiple faculty documents into Department Dossier atomically
+ */
+export const compileBatchDocumentsIntoDossier = (
+  docIds: string[], 
+  coordinatorNotes?: string
+): NaacEvidenceDocument[] => {
+  const current = getStoredNaacDocuments();
+  const idSet = new Set(docIds.filter(Boolean));
+  let count = 0;
+  current.forEach(doc => {
+    if (doc && (idSet.has(doc.id) || (doc.fileName && idSet.has(doc.fileName)))) {
+      doc.coordinatorReviewStatus = 'compiled';
+      doc.compiledAt = new Date().toISOString();
+      if (!doc.programId) {
+        doc.programId = 'prog-cse';
+        doc.programName = 'B.Tech Computer Science & Engineering';
+      }
+      if (coordinatorNotes) {
+        doc.coordinatorFeedback = coordinatorNotes;
+      }
+      count++;
     }
+  });
+  if (count > 0) {
+    saveAllNaacDocuments(current);
+  }
+  return current;
+};
+
+/**
+ * Program Coordinator Action: Request revision from faculty member with feedback (reverts status to 'draft' so it leaves repository and returns to faculty drawer)
+ */
+export const requestRevisionFromFaculty = (docId: string, feedback: string): void => {
+  const current = getStoredNaacDocuments();
+  const doc = current.find(d => d.id === docId || d.fileName === docId);
+  if (doc) {
+    doc.status = 'draft';
+    doc.coordinatorReviewStatus = 'changes_requested';
+    doc.coordinatorFeedback = feedback;
     saveAllNaacDocuments(current);
   }
 };
 
 /**
- * Program Coordinator Action: Request revision from faculty member with feedback
+ * Faculty Action: Replace / Re-upload revised evidence file in response to revision feedback
  */
-export const requestRevisionFromFaculty = (docId: string, feedback: string): void => {
+export const replaceFacultyDocumentFile = (
+  docId: string, 
+  newFile: { fileName: string; fileSize: string; fileUrl: string }
+): NaacEvidenceDocument | undefined => {
   const current = getStoredNaacDocuments();
   const doc = current.find(d => d.id === docId);
   if (doc) {
-    doc.coordinatorReviewStatus = 'changes_requested';
-    doc.coordinatorFeedback = feedback;
+    doc.fileName = newFile.fileName;
+    doc.fileSize = newFile.fileSize;
+    doc.fileUrl = newFile.fileUrl;
+    doc.version = doc.version === 'v1.0' ? 'v1.1' : 'v1.2';
+    doc.uploadedAt = new Date().toISOString().split('T')[0];
+    doc.status = 'draft';
+    doc.coordinatorReviewStatus = 'pending_review';
     saveAllNaacDocuments(current);
+    return doc;
   }
+  return undefined;
+};
+
+/**
+ * Faculty Action: Submit a single document to Program Coordinator (HOD)
+ */
+export const submitDocumentToProgram = (docId: string): NaacEvidenceDocument | undefined => {
+  const current = getStoredNaacDocuments();
+  const doc = current.find(d => d.id === docId);
+  if (doc) {
+    doc.status = 'submitted_to_program';
+    doc.coordinatorReviewStatus = 'pending_review';
+    doc.uploadedAt = new Date().toISOString();
+    saveAllNaacDocuments(current);
+    return doc;
+  }
+  return undefined;
 };
 
 /**
@@ -898,16 +993,102 @@ export const submitDocumentToSchool = (docId: string): void => {
   }
 };
 
-export const reviewSchoolDocument = (docId: string, approved: boolean, note: string, reviewerName: string = 'Dr. Rajesh Sharma'): void => {
+export const submitSelectedDocumentsToSchool = (docIds: string[]): number => {
   const current = getStoredNaacDocuments();
-  const doc = current.find(d => d.id === docId);
-  if (doc) {
-    doc.status = approved ? 'approved_by_school' : 'changes_requested';
-    doc.schoolReviewNote = note;
-    doc.schoolReviewedBy = reviewerName;
-    doc.schoolReviewedAt = new Date().toISOString();
+  let count = 0;
+  current.forEach(doc => {
+    if (docIds.includes(doc.id)) {
+      doc.status = 'submitted_to_school';
+      doc.coordinatorReviewStatus = 'compiled';
+      doc.uploadedAt = new Date().toISOString();
+      count++;
+    }
+  });
+  if (count > 0) {
     saveAllNaacDocuments(current);
   }
+  return count;
+};
+
+/**
+ * Generic Batch Submission helper: atomically updates multiple documents in a single storage save & dispatch
+ */
+export const submitBatchNaacDocuments = (
+  docIds: string[],
+  nextStatus: NaacWorkflowStatus,
+  meta?: {
+    coordinatorReviewStatus?: 'pending_review' | 'compiled' | 'changes_requested';
+    schoolReviewedBy?: string;
+    schoolReviewedAt?: string;
+    universityVerifiedBy?: string;
+    universityVerifiedAt?: string;
+  }
+): number => {
+  const current = getStoredNaacDocuments();
+  let count = 0;
+  const idSet = new Set(docIds);
+  current.forEach(doc => {
+    if (doc && doc.id && idSet.has(doc.id)) {
+      doc.status = nextStatus;
+      doc.uploadedAt = new Date().toISOString();
+      if (meta?.coordinatorReviewStatus) {
+        doc.coordinatorReviewStatus = meta.coordinatorReviewStatus;
+      }
+      if (meta?.schoolReviewedBy) {
+        doc.schoolReviewedBy = meta.schoolReviewedBy;
+        doc.schoolReviewedAt = meta.schoolReviewedAt || new Date().toISOString();
+      }
+      if (meta?.universityVerifiedBy) {
+        doc.universityVerifiedBy = meta.universityVerifiedBy;
+        doc.universityVerifiedAt = meta.universityVerifiedAt || new Date().toISOString();
+      }
+      count++;
+    }
+  });
+  if (count > 0) {
+    saveAllNaacDocuments(current);
+  }
+  return count;
+};
+
+/**
+ * School Coordinator Action: Batch approve or request revision on multiple department submissions atomically
+ */
+export const reviewBatchSchoolDocuments = (
+  docIds: string[], 
+  approved: boolean, 
+  note: string, 
+  reviewerName: string = 'Dr. Rajesh Sharma (School Coordinator)'
+): NaacEvidenceDocument[] => {
+  const current = getStoredNaacDocuments();
+  const idSet = new Set(docIds.filter(Boolean));
+  let count = 0;
+  current.forEach(doc => {
+    if (doc && (idSet.has(doc.id) || (doc.fileName && idSet.has(doc.fileName)))) {
+      doc.status = approved ? 'approved_by_school' : 'changes_requested';
+      doc.schoolReviewNote = note;
+      doc.schoolReviewedBy = reviewerName;
+      doc.schoolReviewedAt = new Date().toISOString();
+      if (!doc.schoolId) {
+        doc.schoolId = 'sch-tech';
+        doc.schoolName = 'School of Technology & Computer Engineering';
+      }
+      count++;
+    }
+  });
+  if (count > 0) {
+    saveAllNaacDocuments(current);
+  }
+  return current;
+};
+
+export const reviewSchoolDocument = (
+  docId: string, 
+  approved: boolean, 
+  note: string, 
+  reviewerName: string = 'Dr. Rajesh Sharma'
+): NaacEvidenceDocument[] => {
+  return reviewBatchSchoolDocuments([docId], approved, note, reviewerName);
 };
 
 export const verifyUniversityDocument = (docId: string, verified: boolean, note: string, reviewerName: string = 'Dr. Vikram Malhotra'): void => {
@@ -922,9 +1103,62 @@ export const verifyUniversityDocument = (docId: string, verified: boolean, note:
   }
 };
 
-export const deleteNaacDocument = (docId: string): void => {
+export const deleteNaacDocument = (docId: string): boolean => {
   const current = getStoredNaacDocuments();
+  const target = current.find(d => d.id === docId);
+  // Protect submitted documents from deletion (only drafts can be deleted)
+  if (target && target.status && target.status !== 'draft') {
+    return false;
+  }
   const filtered = current.filter(d => d.id !== docId);
   saveAllNaacDocuments(filtered);
+  return true;
+};
+
+/**
+ * Reset NAAC Demo: Sets all documents to 'draft' (so My Documents drawer has all documents as Draft with active checkboxes ready to submit), clears reviews, and restores default tracked doc IDs
+ */
+export const resetNaacDemoData = (): void => {
+  const current = getStoredNaacDocuments();
+  const resetDocs: NaacEvidenceDocument[] = current.map(doc => ({
+    ...doc,
+    status: 'draft' as NaacWorkflowStatus,
+    coordinatorReviewStatus: undefined,
+    coordinatorFeedback: undefined,
+    compiledAt: undefined,
+    schoolReviewNote: undefined,
+    schoolReviewedBy: undefined,
+    schoolReviewedAt: undefined,
+    universityReviewNote: undefined,
+    universityVerifiedBy: undefined,
+    universityVerifiedAt: undefined,
+  }));
+
+  saveAllNaacDocuments(resetDocs);
+
+  // Restore clean default seeds for coordinator doc ID lists
+  const defaultProgramDocIds = [
+    'naac-cse-fac-5',
+    'naac-cse-fac-5-b',
+    'naac-cse-fac-5-c',
+    'naac-cse-fac-5-d',
+    'naac-cse-fac-5-e',
+    'naac-cse-fac-1',
+    'naac-cse-fac-1-b',
+    'naac-cse-fac-3',
+    'naac-cse-fac-2',
+    'naac-cse-fac-4',
+  ];
+  try {
+    localStorage.setItem('naac_my_uploaded_doc_ids_prog_cse', JSON.stringify(defaultProgramDocIds));
+    localStorage.setItem('naac_my_uploaded_doc_ids_program', JSON.stringify(defaultProgramDocIds));
+    localStorage.setItem('naac_my_uploaded_doc_ids_school', JSON.stringify(['naac-doc-2', 'naac-cse-fac-5', 'naac-cse-fac-5-b', 'naac-cse-fac-3']));
+    localStorage.setItem('naac_my_uploaded_doc_ids_university', JSON.stringify(['naac-doc-4', 'naac-doc-2', 'naac-cse-fac-5']));
+  } catch (err) {
+    console.warn('Could not reset tracked doc IDs in localStorage', err);
+  }
+
+  window.dispatchEvent(new Event('naac-dms-updated'));
+  window.dispatchEvent(new Event('storage'));
 };
 

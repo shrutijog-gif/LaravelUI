@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Upload, 
   FileText, 
@@ -34,24 +34,65 @@ import {
 } from 'lucide-react';
 import { 
   NAAC_CRITERIA_SUMMARY, 
-  NAAC_METRICS_LIST, 
+  NAAC_METRICS_LIST,
   KEY_INDICATORS,
   NaacEvidenceDocument, 
+  NaacWorkflowStatus,
   getStoredNaacDocuments, 
   addOrUpdateNaacDocument, 
-  deleteNaacDocument 
+  deleteNaacDocument,
+  submitBatchNaacDocuments
 } from '../../../data/naacDmsData';
 import { openFileInNewTab } from '../../../utils/fileHelper';
 
 export interface NaacQuickUploadLandingProps {
   academicYear: string;
   onNavigateToDocumentList: (critCode?: string, metricCode?: string) => void;
+  // Role & Scope Customization
+  role?: 'faculty' | 'program' | 'school' | 'university';
+  levelBadgeText?: string;
+  portalTitle?: string;
+  portalSubtitle?: string;
+  headingTitle?: string;
+  schoolId?: string;
+  schoolName?: string;
+  programId?: string;
+  programName?: string;
+  uploaderName?: string;
+  submitTargetName?: string;
+  initialSeedDocIds?: string[];
+  storageKeySuffix?: string;
+  topBarLeftSlot?: React.ReactNode;
+  hideTopUploadButton?: boolean;
 }
 
 export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
   academicYear,
   onNavigateToDocumentList,
+  role = 'program',
+  levelBadgeText,
+  portalTitle,
+  portalSubtitle,
+  headingTitle,
+  schoolId,
+  schoolName,
+  programId,
+  programName,
+  uploaderName,
+  submitTargetName,
+  initialSeedDocIds,
+  storageKeySuffix,
+  topBarLeftSlot,
+  hideTopUploadButton = false,
 }) => {
+  const submitTargetLabel =
+    submitTargetName ||
+    (role === 'school'
+      ? 'University Coordinator'
+      : role === 'university'
+      ? 'Permanent SSR Archive'
+      : 'Program Coordinator');
+
   const [documents, setDocuments] = useState<NaacEvidenceDocument[]>(() => getStoredNaacDocuments());
   const [isDragging, setIsDragging] = useState(false);
   const [isBarDragging, setIsBarDragging] = useState(false);
@@ -62,6 +103,7 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
   const [documentTitle, setDocumentTitle] = useState<string>('');
   const [documentDescription, setDocumentDescription] = useState<string>('');
   const [uploadedFile, setUploadedFile] = useState<{ name: string; size: string; dataUrl: string } | null>(null);
+  const [activeDocId, setActiveDocId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successToast, setSuccessToast] = useState<string | null>(null);
 
@@ -76,14 +118,30 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
 
   // My Documents Drawer state & tracking
   const [isMyDocsDrawerOpen, setIsMyDocsDrawerOpen] = useState<boolean>(false);
+  const myDocsStorageKey = `naac_my_uploaded_doc_ids_${storageKeySuffix || role || 'v3'}`;
   const [myDocIds, setMyDocIds] = useState<string[]>(() => {
     try {
-      const saved = localStorage.getItem('naac_my_uploaded_doc_ids_v3');
-      if (saved) return JSON.parse(saved);
+      const saved = localStorage.getItem(myDocsStorageKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
     } catch (e) {
       // ignore
     }
-    // Seeded initial faculty-uploaded documents showcasing multiple docs per criterion
+    if (initialSeedDocIds && initialSeedDocIds.length > 0) {
+      return initialSeedDocIds;
+    }
+    if (role === 'faculty') {
+      return ['naac-cse-fac-1', 'naac-cse-fac-1-b', 'naac-cse-fac-5-b'];
+    }
+    if (role === 'school') {
+      return ['naac-doc-2', 'naac-cse-fac-5', 'naac-cse-fac-5-b', 'naac-cse-fac-3'];
+    }
+    if (role === 'university') {
+      return ['naac-doc-4', 'naac-doc-2', 'naac-cse-fac-5'];
+    }
+    // Default program coordinator
     return [
       'naac-cse-fac-5',
       'naac-cse-fac-5-b',
@@ -98,20 +156,118 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
     ];
   });
 
-  const myDocuments = documents.filter((doc) => myDocIds.includes(doc.id));
+  // Auto-sync documents when data layer updates in this tab or another tab
+  useEffect(() => {
+    const handleSync = () => {
+      const freshDocs = getStoredNaacDocuments();
+      setDocuments(freshDocs);
+      // Clean up selectedDocIds to retain only still-unsubmitted selected documents instead of blindly wiping selection
+      setSelectedDocIds((prev) => {
+        if (prev.length === 0) return prev;
+        const freshMap = new Map(freshDocs.map((d) => [d.id, d]));
+        return prev.filter((id) => {
+          const doc = freshMap.get(id);
+          return (
+            doc &&
+            !Boolean(
+              doc.status === 'submitted_to_program' ||
+              doc.status === 'submitted_to_school' ||
+              doc.status === 'approved_by_school' ||
+              doc.status === 'submitted_to_university' ||
+              doc.status === 'university_verified'
+            )
+          );
+        });
+      });
+      try {
+        const saved = localStorage.getItem(myDocsStorageKey);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) setMyDocIds(parsed);
+        }
+      } catch (e) {
+        // ignore
+      }
+    };
+    window.addEventListener('naac-dms-updated', handleSync);
+    window.addEventListener('storage', handleSync);
+    return () => {
+      window.removeEventListener('naac-dms-updated', handleSync);
+      window.removeEventListener('storage', handleSync);
+    };
+  }, [myDocsStorageKey]);
+
+  const myDocuments = (Array.isArray(documents) ? documents : []).filter((doc) => {
+    if (!doc || !doc.id) return false;
+
+    // 1. Faculty member role: Dr. Ramesh Gupta proofs ONLY (strictly his own documents)
+    if (role === 'faculty') {
+      const isMyProgram = !programId || doc.programId === programId || doc.programId === 'prog-cse';
+      const validMyDocIds = Array.isArray(myDocIds) ? myDocIds : [];
+      const isRameshDoc = Boolean(
+        doc.uploadedBy?.toLowerCase().includes('ramesh') ||
+        doc.facultyName?.toLowerCase().includes('ramesh') ||
+        doc.submittedByFacultyId === 'fac-1'
+      );
+      // Also allow newly dropped evidence in this active session
+      const isNewlyUploadedInSession = validMyDocIds.includes(doc.id) && (!doc.facultyName || doc.uploadedBy?.toLowerCase().includes('ramesh'));
+      return isMyProgram && (isRameshDoc || isNewlyUploadedInSession);
+    }
+
+    // 2. Explicitly tracked in myDocIds list
+    const validMyDocIds = Array.isArray(myDocIds) ? myDocIds : [];
+    if (validMyDocIds.includes(doc.id)) return true;
+
+    // 3. Program Coordinator role: any document uploaded by coordinator or belonging to CSE program
+    if (role === 'program') {
+      const isMyProgram = !programId || doc.programId === programId || doc.programId === 'prog-cse' || Boolean(doc.programName?.toLowerCase().includes('computer science'));
+      const isMyUpload = Boolean(
+        doc.uploadedBy?.toLowerCase().includes('anita') ||
+        doc.uploadedBy?.toLowerCase().includes('program coordinator') ||
+        doc.facultyName?.toLowerCase().includes('anita') ||
+        doc.submittedByFacultyId === 'coord-anita-verma' ||
+        doc.id?.startsWith('doc-')
+      );
+      return isMyProgram && isMyUpload;
+    }
+
+    // 3. School Coordinator role
+    if (role === 'school') {
+      return !schoolId || doc.schoolId === schoolId || doc.schoolId === 'sch-tech';
+    }
+
+    // 4. University Coordinator role
+    if (role === 'university') {
+      return true;
+    }
+
+    return false;
+  });
 
   const isDocSubmitted = (doc: NaacEvidenceDocument) =>
-    doc.status === 'submitted_to_school' ||
-    doc.status === 'approved_by_school' ||
-    doc.status === 'university_verified';
+    Boolean(
+      doc && (
+        doc.status === 'submitted_to_program' ||
+        doc.status === 'submitted_to_school' ||
+        doc.status === 'approved_by_school' ||
+        doc.status === 'submitted_to_university' ||
+        doc.status === 'university_verified'
+      )
+    );
 
   const unsubmittedDocs = myDocuments.filter((d) => !isDocSubmitted(d));
 
   // Selection state for submitting documents to coordinator (default unchecked)
   const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
 
+  // True if ALL unsubmitted documents across all criteria are currently selected
+  const isAllSelected =
+    unsubmittedDocs.length > 0 &&
+    unsubmittedDocs.every((d) => selectedDocIds.includes(d.id));
+
+  // Toggle selection of all unsubmitted documents
   const handleToggleSelectAll = () => {
-    if (selectedDocIds.length === unsubmittedDocs.length && unsubmittedDocs.length > 0) {
+    if (isAllSelected) {
       setSelectedDocIds([]);
     } else {
       setSelectedDocIds(unsubmittedDocs.map((d) => d.id));
@@ -125,6 +281,20 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
     setSelectedDocIds((prev) =>
       prev.includes(docId) ? prev.filter((id) => id !== docId) : [...prev, docId]
     );
+  };
+
+  // Toggle selection for all unsubmitted documents within a specific criterion group
+  const handleToggleSelectCriterion = (docsInCrit: NaacEvidenceDocument[]) => {
+    const unsubmittedInCrit = docsInCrit.filter((d) => !isDocSubmitted(d));
+    if (unsubmittedInCrit.length === 0) return;
+    const allCritSelected = unsubmittedInCrit.every((d) => selectedDocIds.includes(d.id));
+    if (allCritSelected) {
+      const critIds = new Set(unsubmittedInCrit.map((d) => d.id));
+      setSelectedDocIds((prev) => prev.filter((id) => !critIds.has(id)));
+    } else {
+      const newIds = unsubmittedInCrit.map((d) => d.id);
+      setSelectedDocIds((prev) => Array.from(new Set([...prev, ...newIds])));
+    }
   };
 
   // Sync documents from storage
@@ -180,6 +350,23 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
   );
   const currentMetric = NAAC_METRICS_LIST.find((m) => m.code === cleanMetricCode) || availableMetrics[0];
 
+  // Live sync active ingested document when user modifies destination selectors
+  const syncActiveDocDestination = (crit: string, metric: string, title?: string) => {
+    if (!activeDocId) return;
+    const critObj = NAAC_CRITERIA_SUMMARY.find((c) => c.code.toLowerCase() === crit.toLowerCase());
+    const metricObj = NAAC_METRICS_LIST.find((m) => m.code === metric);
+    addOrUpdateNaacDocument({
+      id: activeDocId,
+      ...(title ? { title } : {}),
+      criterionCode: crit,
+      criterionId: critObj?.id || 'crit-1',
+      metricCode: metric,
+      metricName: metricObj?.name || `${metric} Evidence Proof`,
+      metricType: metricObj?.metricType || 'QnM',
+    });
+    refreshDocuments();
+  };
+
   // When criterion changes, auto-select corresponding Key Indicator and Metric
   const handleCriterionChange = (critCode: string) => {
     const canonical = toCanonicalCrit(critCode);
@@ -194,9 +381,11 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
       (m) => m.criterionCode.toLowerCase() === canonical.toLowerCase()
     );
     const matchingMetric = metricsForCrit.find(m => m.code.startsWith(newKiCode)) || metricsForCrit[0];
+    const newMetricCode = matchingMetric ? matchingMetric.code : '1.1.1';
     if (matchingMetric) {
-      setSelectedMetricCode(matchingMetric.code);
+      setSelectedMetricCode(newMetricCode);
     }
+    syncActiveDocDestination(canonical, newMetricCode);
   };
 
   // When key indicator changes, auto-select first matching metric
@@ -206,6 +395,7 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
     const matchingMetrics = availableMetrics.filter(m => m.code.startsWith(canonical));
     if (matchingMetrics.length > 0) {
       setSelectedMetricCode(matchingMetrics[0].code);
+      syncActiveDocDestination(cleanCritCode, matchingMetrics[0].code);
     }
   };
 
@@ -218,6 +408,7 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
       const parentKi = `${parts[0]}.${parts[1]}`;
       setSelectedKeyIndicatorCode(parentKi);
     }
+    syncActiveDocDestination(cleanCritCode, canonical);
   };
 
   // Smart AI Metric Suggestion based on file name
@@ -313,12 +504,12 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
         source: 'rule-engine' 
       };
     }
-    if (lower.includes('extension') || lower.includes('outreach') || lower.includes('nss') || lower.includes('ncc') || lower.includes('community')) {
+    if (lower.includes('extension') || lower.includes('outreach') || lower.includes('nss') || lower.includes('ncc') || lower.includes('community') || lower.includes('blood') || lower.includes('donation') || lower.includes('camp') || lower.includes('red cross') || lower.includes('swachh') || lower.includes('village') || lower.includes('health') || lower.includes('clinic')) {
       return { 
         crit: 'Criterion 3', 
         keyIndicator: '3.4', 
         metric: '3.4.1', 
-        reason: 'Detected NSS, NCC, or community outreach extension activities. Mapped to Criterion 3 under KI 3.4 Extension Activities.',
+        reason: 'Detected Blood Donation Camp, NSS/NCC, or community outreach extension activity. Mapped to Criterion 3 (Research, Innovations & Extension) under KI 3.4 Extension Activities (Metric 3.4.1).',
         source: 'rule-engine' 
       };
     }
@@ -411,30 +602,108 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
     source?: 'openai' | 'rule-engine';
   } | null>(null);
 
-  // Deep AI Classification via OpenAI
-  const classifyWithOpenAi = async (filename: string, key: string) => {
+  // Deep AI Classification via OpenAI with Multimodal Vision & NAAC Framework Knowledge
+  const classifyWithOpenAi = async (filename: string, key: string, fileDataUrl?: string) => {
     try {
       setIsAiProcessing(true);
       setAiSuggestion(null);
-      const prompt = `You are a NAAC (National Assessment and Accreditation Council) accreditation expert.
-Classify this uploaded academic evidence file: "${filename}" into the single most appropriate NAAC AQAR Criterion, Key Indicator, and Metric.
 
-Valid Criteria options:
-- Criterion 1: Curricular Aspects (KI: 1.1, 1.2, 1.3, 1.4; Metrics: 1.1.1, 1.2.1, 1.3.1, 1.4.1)
-- Criterion 2: Teaching-Learning and Evaluation (KI: 2.1, 2.3, 2.4, 2.6; Metrics: 2.1.1, 2.3.1, 2.4.1, 2.6.1)
-- Criterion 3: Research, Innovations and Extension (KI: 3.1, 3.2, 3.4, 3.5; Metrics: 3.1.1, 3.2.1, 3.4.1, 3.5.1)
-- Criterion 4: Infrastructure and Learning Resources (KI: 4.1, 4.2; Metrics: 4.1.1, 4.2.1)
-- Criterion 5: Student Support and Progression (KI: 5.1, 5.3; Metrics: 5.1.1, 5.3.1)
-- Criterion 6: Governance, Leadership and Management (KI: 6.5; Metric: 6.5.1)
-- Criterion 7: Institutional Values and Best Practices (KI: 7.1, 7.2; Metrics: 7.1.1, 7.2.1)
+      const isImage = !!(fileDataUrl && (
+        fileDataUrl.startsWith('data:image/jpeg') || 
+        fileDataUrl.startsWith('data:image/png') || 
+        fileDataUrl.startsWith('data:image/webp') || 
+        fileDataUrl.startsWith('data:image/jpg') ||
+        fileDataUrl.startsWith('data:image/gif')
+      ));
+
+      const prompt = `You are a Senior NAAC (National Assessment and Accreditation Council) Accreditation Assessor and Quality Assurance Specialist.
+
+TASK:
+Classify this uploaded academic evidence file into the single most appropriate NAAC AQAR Criterion, Key Indicator, and Metric.
+File name: "${filename}"
+
+${isImage ? 'NOTE: An image of the evidence document or event photograph is attached. INSPECT THE VISUAL CONTENTS CAREFULLY (read all visible text, banners, certificates, posters, Red Cross / NSS / university logos, doctors/donors, and context) to identify what institutional event or record this represents.' : 'Analyze the filename, extension, and institutional context.'}
+
+OFFICIAL NAAC CRITERIA & METRIC GUIDANCE:
+- Criterion 1: Curricular Aspects
+  * KI 1.1 Curricular Planning (1.1.1 BoS minutes, lesson plans, timetables)
+  * KI 1.2 Academic Flexibility (1.2.1 CBCS electives)
+  * KI 1.3 Curriculum Enrichment (1.3.1 Cross-cutting values, 1.3.2 Value-added courses, 1.3.3 Field projects & Internships)
+  * KI 1.4 Feedback System (1.4.1 Stakeholder feedback ATR)
+
+- Criterion 2: Teaching-Learning and Evaluation
+  * KI 2.1 Enrolment (2.1.1 Intake sanctions)
+  * KI 2.2 Student Diversity (2.2.1 Remedial teaching)
+  * KI 2.3 Teaching-Learning Process (2.3.1 Experiential / problem-solving methods)
+  * KI 2.4 Teacher Profile (2.4.1 Faculty Ph.D./NET credentials)
+  * KI 2.5 Evaluation Process (2.5.1 Internal assessment reforms)
+  * KI 2.6 Learning Outcomes (2.6.1 PO/CO attainment analysis)
+  * KI 2.7 Student Satisfaction Survey (2.7.1 SSS reports)
+
+- Criterion 3: Research, Innovations and Extension
+  * KI 3.1 Resource Mobilization for Research (3.1.1 Government & corporate research grants)
+  * KI 3.2 Innovation Ecosystem (3.2.1 Incubation center, start-ups & hackathons, 3.2.2 IPR workshops)
+  * KI 3.3 Research Publications (3.3.1 UGC CARE/Scopus journal papers, 3.3.2 Books & edited volumes)
+  * KI 3.4 Extension Activities & Social Responsibility:
+    - Metric 3.4.1: Extension and outreach programs conducted in community development through NSS, NCC, Red Cross, YRC, Blood Donation Camps, Swachh Bharat, Medical & Health Clinics, Village Adoption.
+    - Metric 3.4.2: Awards and recognitions received for extension activities from government or recognized bodies.
+  * KI 3.5 Collaboration & Linkages (3.5.1 MoUs with industry, corporations, and foreign universities)
+
+- Criterion 4: Infrastructure and Learning Resources
+  * KI 4.1 Physical Facilities (4.1.1 Smart classrooms, labs, seminar halls, 4.1.2 Sports & gym)
+  * KI 4.2 Library as a Learning Resource (4.2.1 ILMS software, e-journal subscriptions IEEE/Springer)
+  * KI 4.3 IT Infrastructure (4.3.1 Wi-Fi bandwidth, firewall, 4.3.2 Student-computer ratio)
+  * KI 4.4 Campus Maintenance (4.4.1 Physical maintenance AMC & audited balance sheets)
+
+- Criterion 5: Student Support and Progression
+  * KI 5.1 Student Support (5.1.1 Scholarships & freeships, 5.1.2 Soft skills training, 5.1.3 Competitive exam coaching GATE/GRE)
+  * KI 5.2 Student Progression (5.2.1 Campus placement offer letters, 5.2.2 Higher education admissions)
+  * KI 5.3 Student Participation (5.3.1 Sports & cultural awards, 5.3.2 Student council)
+  * KI 5.4 Alumni Engagement (5.4.1 Alumni association activities & contributions)
+
+- Criterion 6: Governance, Leadership and Management
+  * KI 6.1 Institutional Vision (6.1.1 Perspective plan)
+  * KI 6.2 Strategy Deployment (6.2.1 Organogram, 6.2.3 E-governance ERP implementation)
+  * KI 6.3 Faculty Empowerment (6.3.1 Staff welfare, 6.3.2 Conference financial aid, 6.3.3 FDP programs)
+  * KI 6.4 Financial Management (6.4.1 CA audited statements & institutional budgets)
+  * KI 6.5 Internal Quality Assurance System (6.5.1 IQAC quality audits, accreditation reviews, ATR)
+
+- Criterion 7: Institutional Values and Best Practices
+  * KI 7.1 Institutional Values (7.1.1 Gender equity, 7.1.2 Green campus, solar energy & waste management)
+  * KI 7.2 Best Practices (7.2.1 Institutional institutionalized best practices)
+  * KI 7.3 Institutional Distinctiveness (7.3.1 Flagship institutional distinctiveness)
+
+CRITICAL RULE FOR SOCIAL / COMMUNITY / HEALTH ACTIVITIES:
+Any evidence of Blood Donation Camps, Health Checkup Drives, NSS/NCC Rallies, Village Outreach, or Social Service MUST be categorized under:
+- Criterion: "Criterion 3"
+- Key Indicator: "3.4"
+- Metric: "3.4.1"
+
+If the filename is generic (e.g. "download.jpg", "image.png", "scan.pdf"), infer the event from the image text/visuals and generate a concise, professional title (e.g. "Blood Donation Camp - NSS Community Outreach").
 
 Respond in JSON ONLY:
 {
-  "crit": "Criterion X",
-  "keyIndicator": "X.Y",
-  "metric": "X.Y.Z",
-  "reason": "Detailed 1-2 sentence explanation of why this file belongs to this Criterion, Key Indicator, and Metric according to NAAC guidelines."
+  "crit": "Criterion 3",
+  "keyIndicator": "3.4",
+  "metric": "3.4.1",
+  "suggestedTitle": "Professional Descriptive Title for the Document",
+  "reason": "Detailed 1-2 sentence explanation connecting the visual/text evidence to this specific NAAC Criterion, Key Indicator, and Metric."
 }`;
+
+      // Build multimodal payload
+      const userContent: any[] = [
+        { type: "text", text: prompt }
+      ];
+
+      if (isImage && fileDataUrl) {
+        userContent.push({
+          type: "image_url",
+          image_url: {
+            url: fileDataUrl,
+            detail: "low"
+          }
+        });
+      }
 
       const res = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -444,7 +713,7 @@ Respond in JSON ONLY:
         },
         body: JSON.stringify({
           model: 'gpt-4o-mini',
-          messages: [{ role: 'user', content: prompt }],
+          messages: [{ role: 'user', content: userContent }],
           temperature: 0.1,
           response_format: { type: 'json_object' },
         }),
@@ -461,11 +730,21 @@ Respond in JSON ONLY:
           setSelectedCriterionCode(canonicalCrit);
           setSelectedKeyIndicatorCode(canonicalKi);
           setSelectedMetricCode(canonicalMetric);
+          syncActiveDocDestination(canonicalCrit, canonicalMetric, parsed.suggestedTitle);
+
+          // If filename is generic and AI provides a title, auto-populate the document title
+          if (parsed.suggestedTitle) {
+            const rawName = filename.toLowerCase();
+            if (rawName.startsWith('download') || rawName.startsWith('image') || rawName.startsWith('img') || rawName.startsWith('photo') || rawName.startsWith('scan') || rawName.startsWith('file')) {
+              setDocumentTitle(parsed.suggestedTitle);
+            }
+          }
+
           setAiSuggestion({
             crit: canonicalCrit,
             keyIndicator: canonicalKi,
             metric: canonicalMetric,
-            reason: parsed.reason || 'OpenAI natural language analysis of evidence document content and metadata.',
+            reason: parsed.reason || 'OpenAI Vision & Natural Language analysis of evidence document content and metadata.',
             source: 'openai',
           });
           setIsAiBoxOpen(true);
@@ -499,45 +778,106 @@ Respond in JSON ONLY:
     }
   };
 
-  // File drop / select handler
+  // File drop / select handler — Immediately auto-ingests document into repository as draft so it appears instantly in drawer
   const processFile = (file: File) => {
     const sizeStr = file.size > 1024 * 1024 
       ? `${(file.size / (1024 * 1024)).toFixed(1)} MB` 
       : `${Math.round(file.size / 1024)} KB`;
 
+    const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+    setDocumentTitle(cleanName);
+
+    // Initial destination: rule suggestion or current destination
+    let initialCrit = cleanCritCode || 'Criterion 1';
+    let initialKi = cleanKiCode || '1.1';
+    let initialMetric = cleanMetricCode || '1.1.1';
+
+    const ruleSug = getAiSuggestion(file.name);
+    if (ruleSug) {
+      initialCrit = toCanonicalCrit(ruleSug.crit);
+      initialKi = toCanonicalKi(ruleSug.keyIndicator);
+      initialMetric = toCanonicalMetric(ruleSug.metric);
+      setSelectedCriterionCode(initialCrit);
+      setSelectedKeyIndicatorCode(initialKi);
+      setSelectedMetricCode(initialMetric);
+    }
+
+    const activeCrit = NAAC_CRITERIA_SUMMARY.find((c) => c.code.toLowerCase() === initialCrit.toLowerCase()) || NAAC_CRITERIA_SUMMARY[0];
+    const metricsForCrit = NAAC_METRICS_LIST.filter((m) => m.criterionCode.toLowerCase() === initialCrit.toLowerCase());
+    const activeMetric = metricsForCrit.find((m) => m.code === initialMetric) || metricsForCrit[0] || NAAC_METRICS_LIST[0];
+
     const reader = new FileReader();
     reader.onload = (e) => {
-      const dataUrl = (e.target?.result as string) || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf';
+      const rawDataUrl = (e.target?.result as string) || '';
+      // Safe URL fallback to prevent localStorage quota overflow on large uploads
+      const safeDataUrl = (rawDataUrl && rawDataUrl.length < 75000)
+        ? rawDataUrl
+        : 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf';
+
       setUploadedFile({
         name: file.name,
         size: sizeStr,
-        dataUrl,
+        dataUrl: safeDataUrl,
       });
 
-      // Auto-set title from filename
-      const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
-      setDocumentTitle(cleanName);
+      // Instantly create and ingest document as Draft into the repository
+      const newDocId = `doc-${Date.now()}`;
+      const newDoc: NaacEvidenceDocument = {
+        id: newDocId,
+        title: cleanName || file.name,
+        description: `Ingested NAAC evidence for ${initialCrit} › Key Indicator ${initialKi} › Metric ${initialMetric}.`,
+        schoolId: schoolId || 'sch-tech',
+        schoolName: schoolName || 'School of Technology & Computer Engineering',
+        programId: programId || (role === 'school' ? 'school-common' : role === 'university' ? 'univ-master' : 'prog-cse'),
+        programName: programName || (role === 'school' ? 'School Level Evidence' : role === 'university' ? 'Central Institutional Evidence' : 'B.Tech Computer Science & Engineering'),
+        academicYear: academicYear || '2025-26',
+        criterionId: activeCrit?.id || 'crit-1',
+        criterionCode: initialCrit,
+        metricCode: initialMetric,
+        metricName: activeMetric?.name || `${initialMetric} Evidence Proof`,
+        metricType: activeMetric?.metricType || 'QnM',
+        fileUrl: safeDataUrl,
+        fileName: file.name,
+        fileSize: sizeStr,
+        uploadedBy: uploaderName || (role === 'school' ? 'Dean (School Coordinator)' : role === 'university' ? 'IQAC Central Committee' : 'Prof. Anita Verma'),
+        uploadedAt: new Date().toISOString().split('T')[0],
+        status: 'draft',
+        version: 'v1.0',
+      };
+
+      const created = addOrUpdateNaacDocument(newDoc);
+      const targetId = created?.id || newDoc.id;
+      setActiveDocId(targetId);
+
+      const updatedMyDocIds = Array.from(new Set([targetId, ...myDocIds]));
+      setMyDocIds(updatedMyDocIds);
+      setSelectedDocIds((prev) => [targetId, ...prev.filter(id => id !== targetId)]);
+      try {
+        localStorage.setItem(myDocsStorageKey, JSON.stringify(updatedMyDocIds));
+        localStorage.setItem('naac_my_uploaded_doc_ids_prog_cse', JSON.stringify(updatedMyDocIds));
+        localStorage.setItem('naac_my_uploaded_doc_ids_program', JSON.stringify(updatedMyDocIds));
+      } catch (err) {
+        console.warn('Could not store myDocIds in localStorage:', err);
+      }
+      refreshDocuments();
+
+      setSuccessToast(`✨ Ingested "${file.name}" as Draft into ${initialCrit} › Metric ${initialMetric}! Visible in My Evidence.`);
+      setTimeout(() => setSuccessToast(null), 4500);
 
       if (useAi) {
-        // AI MODE: strictly OpenAI classification
         if (openaiKey.trim()) {
-          classifyWithOpenAi(file.name, openaiKey.trim());
+          classifyWithOpenAi(file.name, openaiKey.trim(), rawDataUrl);
         } else {
           setIsAiBoxOpen(true);
           setAiSuggestion({
-            crit: selectedCriterionCode,
-            keyIndicator: selectedKeyIndicatorCode,
-            metric: selectedMetricCode,
+            crit: initialCrit,
+            keyIndicator: initialKi,
+            metric: initialMetric,
             reason: 'AI Mode is active. Enter your OpenAI API Key to classify this evidence document, or use manual selection.',
             source: 'openai',
           });
         }
       } else {
-        // STRICTLY MANUAL MODE: Clean fresh start at Criterion 1 without retaining stale history
-        setSelectedCriterionCode('Criterion 1');
-        setSelectedKeyIndicatorCode('1.1');
-        setSelectedMetricCode('1.1.1');
-        setAiSuggestion(null);
         setIsAiBoxOpen(false);
         setIsChangeOpen(true);
       }
@@ -571,6 +911,10 @@ Respond in JSON ONLY:
   // Real-time title typing and AI metric suggestion
   const handleTitleInput = (val: string) => {
     setDocumentTitle(val);
+    if (activeDocId && val.trim()) {
+      addOrUpdateNaacDocument({ id: activeDocId, title: val.trim() });
+      refreshDocuments();
+    }
     if (isAiMode && val.trim().length > 3) {
       const sug = getAiSuggestion(val);
       if (sug) {
@@ -640,7 +984,7 @@ Respond in JSON ONLY:
     setAiSuggestion(null);
   };
 
-  // Confirm and Drop Evidence Document into Repository
+  // Confirm and Finalize Evidence Document in Repository
   const handleConfirmAndDrop = () => {
     if (!uploadedFile) {
       fileInputRef.current?.click();
@@ -652,46 +996,46 @@ Respond in JSON ONLY:
     const activeCrit = NAAC_CRITERIA_SUMMARY.find((c) => c.code.toLowerCase() === cleanCritCode.toLowerCase()) || NAAC_CRITERIA_SUMMARY[0];
     const activeMetric = NAAC_METRICS_LIST.find((m) => m.code === cleanMetricCode) || availableMetrics[0];
 
-    const fileUrl = uploadedFile.dataUrl;
     const fileName = uploadedFile.name;
     const docTitle = documentTitle.trim() || uploadedFile.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
-    const fileSize = uploadedFile.size;
 
-    const newDoc: NaacEvidenceDocument = {
-      id: `doc-${Date.now()}`,
+    const targetId = activeDocId || `doc-${Date.now()}`;
+    const updated = addOrUpdateNaacDocument({
+      id: targetId,
       title: docTitle,
-      description: `Ingested NAAC evidence for ${cleanCritCode} › Key Indicator ${cleanKiCode} › Metric ${cleanMetricCode}.`,
-      schoolId: 'sch-eng',
-      schoolName: 'School of Engineering & Technology',
-      programId: 'prog-cse',
-      programName: 'B.Tech Computer Science & Engineering',
-      academicYear: academicYear || '2025-26',
-      criterionId: activeCrit?.id || 'crit-1',
       criterionCode: cleanCritCode,
+      criterionId: activeCrit?.id || 'crit-1',
       metricCode: cleanMetricCode,
       metricName: activeMetric?.name || `${cleanMetricCode} Evidence Proof`,
       metricType: activeMetric?.metricType || 'QnM',
-      fileUrl,
+      fileUrl: uploadedFile.dataUrl,
       fileName,
-      fileSize,
-      uploadedBy: 'Program Coordinator (CSE)',
-      uploadedAt: new Date().toISOString().split('T')[0],
+      fileSize: uploadedFile.size,
       status: 'draft',
-      version: 'v1.0',
-    };
+      schoolId: schoolId || 'sch-tech',
+      programId: programId || (role === 'school' ? 'school-common' : role === 'university' ? 'univ-master' : 'prog-cse'),
+      uploadedBy: uploaderName || (role === 'school' ? 'Dean (School Coordinator)' : role === 'university' ? 'IQAC Central Committee' : 'Prof. Anita Verma'),
+    });
 
-    addOrUpdateNaacDocument(newDoc);
-    const updatedMyDocIds = [newDoc.id, ...myDocIds];
+    const finalId = updated?.id || targetId;
+    const updatedMyDocIds = Array.from(new Set([finalId, ...myDocIds]));
     setMyDocIds(updatedMyDocIds);
-    setSelectedDocIds((prev) => [newDoc.id, ...prev]);
-    localStorage.setItem('naac_my_uploaded_doc_ids_v3', JSON.stringify(updatedMyDocIds));
+    setSelectedDocIds((prev) => Array.from(new Set([finalId, ...prev])));
+    try {
+      localStorage.setItem(myDocsStorageKey, JSON.stringify(updatedMyDocIds));
+      localStorage.setItem('naac_my_uploaded_doc_ids_prog_cse', JSON.stringify(updatedMyDocIds));
+      localStorage.setItem('naac_my_uploaded_doc_ids_program', JSON.stringify(updatedMyDocIds));
+    } catch (e) {
+      // ignore
+    }
     refreshDocuments();
 
-    setSuccessToast(`Document "${fileName}" confirmed & dropped into ${cleanCritCode} › KI ${cleanKiCode} › Metric ${cleanMetricCode}!`);
+    setSuccessToast(`Document "${fileName}" confirmed in ${cleanCritCode} › Metric ${cleanMetricCode}! Open My Evidence to submit.`);
     setTimeout(() => setSuccessToast(null), 5000);
 
-    // Reset Form
+    // Reset Form for next upload
     setUploadedFile(null);
+    setActiveDocId(null);
     setDocumentTitle('');
     setDocumentDescription('');
     setSelectedCriterionCode('Criterion 1');
@@ -702,35 +1046,62 @@ Respond in JSON ONLY:
     setIsSubmitting(false);
   };
 
-  // Submit selected documents to Program Coordinator
+  // Submit selected documents to Coordinator / University / Archive
   const handleSubmitToCoordinator = () => {
-    const docsToSubmit = myDocuments.filter((doc) => selectedDocIds.includes(doc.id));
-    if (docsToSubmit.length === 0) {
+    const targetDocIds = selectedDocIds.filter((id) =>
+      unsubmittedDocs.some((d) => d.id === id)
+    );
+
+    if (targetDocIds.length === 0) {
       setSuccessToast('Please select at least one document to submit.');
       setTimeout(() => setSuccessToast(null), 3000);
       return;
     }
-    docsToSubmit.forEach((doc) => {
-      addOrUpdateNaacDocument({
-        ...doc,
-        status: 'submitted_to_school',
-        coordinatorReviewStatus: 'pending_review',
-      });
+
+    const nextStatus: NaacWorkflowStatus = submitTargetLabel === 'Program Coordinator'
+      ? 'submitted_to_program'
+      : role === 'school'
+      ? 'submitted_to_university'
+      : role === 'university'
+      ? 'university_verified'
+      : 'submitted_to_program';
+
+    const targetLabel = submitTargetLabel;
+
+    const count = submitBatchNaacDocuments(targetDocIds, nextStatus, {
+      coordinatorReviewStatus: (submitTargetLabel === 'Program Coordinator' || role === 'program') ? 'pending_review' : undefined,
+      schoolReviewedBy: role === 'school' && submitTargetLabel !== 'Program Coordinator' ? (uploaderName || 'Dean (School Coordinator)') : undefined,
+      schoolReviewedAt: role === 'school' && submitTargetLabel !== 'Program Coordinator' ? new Date().toISOString() : undefined,
+      universityVerifiedBy: role === 'university' ? (uploaderName || 'IQAC Central Committee') : undefined,
+      universityVerifiedAt: role === 'university' ? new Date().toISOString() : undefined,
     });
+
     setSelectedDocIds([]);
     refreshDocuments();
-    setSuccessToast(`✨ Successfully submitted ${docsToSubmit.length} selected document${docsToSubmit.length === 1 ? '' : 's'} to Program Coordinator!`);
+    setSuccessToast(`✨ Successfully submitted ${count} selected document${count === 1 ? '' : 's'} to ${targetLabel}!`);
     setTimeout(() => setSuccessToast(null), 4500);
   };
 
-  // Delete document from my documents
+  // Delete document from my documents (only drafts can be deleted)
   const handleDeleteMyDoc = (docId: string, title: string) => {
+    const doc = documents.find((d) => d.id === docId);
+    if (doc && isDocSubmitted(doc)) {
+      setSuccessToast('Cannot delete: Document has already been submitted.');
+      setTimeout(() => setSuccessToast(null), 3000);
+      return;
+    }
+
     if (window.confirm(`Delete evidence file "${title}"?`)) {
-      deleteNaacDocument(docId);
+      const deleted = deleteNaacDocument(docId);
+      if (!deleted) {
+        setSuccessToast('Submitted documents cannot be deleted.');
+        setTimeout(() => setSuccessToast(null), 3000);
+        return;
+      }
       const updated = myDocIds.filter((id) => id !== docId);
       setMyDocIds(updated);
       setSelectedDocIds((prev) => prev.filter((id) => id !== docId));
-      localStorage.setItem('naac_my_uploaded_doc_ids_v3', JSON.stringify(updated));
+      localStorage.setItem(myDocsStorageKey, JSON.stringify(updated));
       refreshDocuments();
       setSuccessToast(`Deleted "${title}" from uploaded documents.`);
       setTimeout(() => setSuccessToast(null), 3000);
@@ -740,7 +1111,9 @@ Respond in JSON ONLY:
   // View Complete Document Repository
   const handleViewCompleteRepository = () => {
     setIsMyDocsDrawerOpen(false);
-    onNavigateToDocumentList();
+    if (typeof onNavigateToDocumentList === 'function') {
+      onNavigateToDocumentList();
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -757,12 +1130,14 @@ Respond in JSON ONLY:
   };
 
   // Filtered documents
-  const filteredDocuments = documents.filter((doc) => {
-    const matchesSearch = 
-      doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doc.metricCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doc.criterionCode.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCriterion = criterionFilter === 'ALL' || doc.criterionCode === criterionFilter;
+  const filteredDocuments = (Array.isArray(documents) ? documents : []).filter((doc) => {
+    if (!doc) return false;
+    const title = (doc.title || doc.fileName || '').toLowerCase();
+    const metric = (doc.metricCode || '').toLowerCase();
+    const crit = (doc.criterionCode || '').toLowerCase();
+    const query = (searchQuery || '').toLowerCase();
+    const matchesSearch = !query || title.includes(query) || metric.includes(query) || crit.includes(query);
+    const matchesCriterion = criterionFilter === 'ALL' || doc.criterionCode === criterionFilter || crit === criterionFilter.toLowerCase();
     return matchesSearch && matchesCriterion;
   });
 
@@ -785,45 +1160,80 @@ Respond in JSON ONLY:
         </div>
       )}
 
-      {/* Top Subtle Navigation Bar */}
-      <div className="flex items-center justify-between py-2.5 border-b border-gray-200">
-        <div className="flex items-center gap-2 text-xs">
-          <span className="font-bold text-[#0f2748]">NAAC Proof Vault</span>
-          <span className="text-gray-300">•</span>
-          <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-mono text-[11px] font-semibold border border-blue-200">
-            AQAR {academicYear}
-          </span>
-          <span className="text-gray-300">•</span>
-          <span className="text-gray-500 font-medium">B.Tech CSE</span>
-        </div>
+      {/* Top Navigation Bar: Single Unified Line */}
+      <div className="flex items-center justify-between py-1">
+        {topBarLeftSlot ? (
+          /* One Unified Line: Parent Desk Action Tabs on Left */
+          <div className="flex items-center gap-3">
+            {topBarLeftSlot}
+          </div>
+        ) : (
+          /* Default Left Branding */
+          <div className="flex items-center gap-2 text-xs flex-wrap">
+
+            
+            <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-mono text-[11px] font-semibold border border-blue-200">
+              AQAR {academicYear}
+            </span>
+            {portalTitle && (
+              <>
+                <span className="text-gray-300">•</span>
+                <span className="text-gray-700 font-semibold">{portalTitle}</span>
+              </>
+            )}
+            {levelBadgeText && (
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                role === 'university' ? 'bg-purple-100 text-purple-800 border-purple-200' :
+                role === 'school' ? 'bg-blue-100 text-blue-800 border-blue-200' :
+                'bg-emerald-100 text-emerald-800 border-emerald-200'
+              }`}>
+                {levelBadgeText}
+              </span>
+            )}
+          </div>
+        )}
 
         <div className="flex items-center gap-2 sm:gap-3">
-          {/* My Documents Drawer Trigger */}
-          <button
-            type="button"
-            onClick={() => setIsMyDocsDrawerOpen(true)}
-            className="text-xs font-semibold text-[#0f2748] hover:text-blue-700 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors flex items-center gap-1.5 cursor-pointer"
-            title="Open My Uploaded Documents Drawer"
-          >
-            <FileText className="w-4 h-4 text-blue-600" />
-            <span>My Documents</span>
-            <span className="px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold">
-              {myDocuments.length}
-            </span>
-          </button>
 
-          <button
-            type="button"
-            onClick={() => onNavigateToDocumentList()}
-            className="text-xs font-semibold text-[#0f2748] hover:text-blue-700 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors flex items-center gap-1.5 cursor-pointer"
-            title="Open Master Repository Document List"
-          >
-            <FolderOpen className="w-4 h-4 text-blue-600" />
-            <span>Master Repository</span>
-            <span className="px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold">
-              {documents.length}
+          {role !== 'program' && role !== 'school' && role !== 'university' && !hideTopUploadButton && (
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="px-3.5 py-1.5 bg-[#0f2748] hover:bg-[#183963] text-white font-bold text-xs rounded-lg shadow-xs inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+              <span>Upload Document</span>
+            </button>
+          )}
+
+          {topBarLeftSlot && (
+            <span className={`px-2.5 py-1 rounded font-mono text-xs font-semibold border ${
+              role === 'program' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+              role === 'university' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+              'bg-blue-50 text-blue-700 border-blue-200'
+            }`}>
+              AQAR {academicYear}
             </span>
-          </button>
+          )}
+
+          {!topBarLeftSlot && role !== 'faculty' && (
+            <button
+              type="button"
+              onClick={() => {
+                if (typeof onNavigateToDocumentList === 'function') {
+                  onNavigateToDocumentList();
+                }
+              }}
+              className="text-xs font-semibold text-[#0f2748] hover:text-blue-700 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors flex items-center gap-1.5 cursor-pointer"
+              title="Open Master Repository Document List"
+            >
+              <FolderOpen className="w-4 h-4 text-blue-600" />
+              <span>Master Repository</span>
+              <span className="px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold">
+                {documents.length}
+              </span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -831,9 +1241,14 @@ Respond in JSON ONLY:
       <div className="flex flex-col items-center justify-center min-h-[64vh] max-w-5xl w-full mx-auto px-4 text-center">
         {/* Bold Heading */}
         <div className="mb-5">
-          <h1 className="text-5xl sm:text-5xl font-black tracking-tight text-[#0f2748]  ">
-            Drop NAAC Evidence  
+          <h1 className="text-4xl sm:text-5xl font-black tracking-tight text-[#0f2748]">
+            {headingTitle || 'Drop NAAC Evidence'}
           </h1>
+          {portalSubtitle && (
+            <p className="text-xs sm:text-sm text-gray-500 mt-2 font-medium max-w-lg mx-auto">
+              {portalSubtitle}
+            </p>
+          )}
         </div>
 
         {/* Google-Style Upload Bar Form */}
@@ -939,7 +1354,7 @@ Respond in JSON ONLY:
                         if (checked) {
                           setIsChangeOpen(false);
                           if (uploadedFile && openaiKey.trim()) {
-                            classifyWithOpenAi(uploadedFile.name, openaiKey.trim());
+                            classifyWithOpenAi(uploadedFile.name, openaiKey.trim(), uploadedFile.dataUrl);
                           }
                         } else {
                           // Carry over AI suggestion destination into manual dropdowns if available
@@ -973,7 +1388,22 @@ Respond in JSON ONLY:
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
+                        if (activeDocId) {
+                          deleteNaacDocument(activeDocId);
+                          const updated = myDocIds.filter(id => id !== activeDocId);
+                          setMyDocIds(updated);
+                          setSelectedDocIds(prev => prev.filter(id => id !== activeDocId));
+                          try {
+                            localStorage.setItem(myDocsStorageKey, JSON.stringify(updated));
+                            localStorage.setItem('naac_my_uploaded_doc_ids_prog_cse', JSON.stringify(updated));
+                            localStorage.setItem('naac_my_uploaded_doc_ids_program', JSON.stringify(updated));
+                          } catch (err) {
+                            // ignore
+                          }
+                          refreshDocuments();
+                        }
                         setUploadedFile(null);
+                        setActiveDocId(null);
                         setSelectedCriterionCode('Criterion 1');
                         setSelectedKeyIndicatorCode('1.1');
                         setSelectedMetricCode('1.1.1');
@@ -1122,50 +1552,50 @@ Respond in JSON ONLY:
                     </div>
                   </div>
 
-                  {/* Manual Target Summary: Compact Pathway */}
-                  <div className="mt-2.5 pt-2 border-t border-gray-100">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                      {/* 1. Criterion */}
-                      <div className="bg-slate-50/80 border border-slate-200/90 rounded-lg p-2.5 flex flex-col justify-between min-w-0">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  {/* Manual Target Summary: Prominent Readable Pathway */}
+                  <div className="mt-3 pt-3 border-t border-gray-100">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {/* Criterion */}
+                      <div className="bg-white border border-slate-200/90 rounded-xl p-3.5 sm:p-4 flex flex-col justify-between min-w-0 min-h-[110px] shadow-2xs">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[11px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider">
                             Criterion
                           </span>
-                          <span className="text-[10px] font-bold text-[#0f2748] font-mono">
+                          <span className="text-xs sm:text-sm font-extrabold text-[#0f2748] bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-md font-mono shadow-2xs">
                             {cleanCritCode}
                           </span>
                         </div>
-                        <p className="text-xs font-semibold text-gray-800 line-clamp-2 leading-snug" title={currentCriterion.name}>
+                        <p className="text-sm sm:text-[15px] font-bold text-gray-900 line-clamp-3 leading-snug" title={currentCriterion.name}>
                           {currentCriterion.name}
                         </p>
                       </div>
 
-                      {/* 2. Key Indicator */}
-                      <div className="bg-slate-50/80 border border-slate-200/90 rounded-lg p-2.5 flex flex-col justify-between min-w-0">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                      {/* Key Indicator */}
+                      <div className="bg-white border border-slate-200/90 rounded-xl p-3.5 sm:p-4 flex flex-col justify-between min-w-0 min-h-[110px] shadow-2xs">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[11px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider">
                             Key Indicator
                           </span>
-                          <span className="text-[10px] font-bold text-gray-700 font-mono">
+                          <span className="text-xs sm:text-sm font-extrabold text-slate-800 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-md font-mono shadow-2xs">
                             KI {cleanKiCode}
                           </span>
                         </div>
-                        <p className="text-xs font-semibold text-gray-800 line-clamp-2 leading-snug" title={currentKeyIndicator?.name}>
+                        <p className="text-sm sm:text-[15px] font-bold text-gray-900 line-clamp-3 leading-snug" title={currentKeyIndicator?.name}>
                           {currentKeyIndicator?.name || `KI ${cleanKiCode}`}
                         </p>
                       </div>
 
-                      {/* 3. Metric */}
-                      <div className="bg-slate-50/80 border border-slate-200/90 rounded-lg p-2.5 flex flex-col justify-between min-w-0">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                            Selected Metric
+                      {/* Metric */}
+                      <div className="bg-white border border-slate-200/90 rounded-xl p-3.5 sm:p-4 flex flex-col justify-between min-w-0 min-h-[110px] shadow-2xs">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[11px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider">
+                            Target Metric
                           </span>
-                          <span className="text-[10px] font-bold text-blue-700 font-mono">
+                          <span className="text-xs sm:text-sm font-extrabold text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded-md font-mono shadow-2xs">
                             Metric {cleanMetricCode}
                           </span>
                         </div>
-                        <p className="text-xs font-semibold text-gray-800 line-clamp-2 leading-snug" title={currentMetric?.name}>
+                        <p className="text-sm sm:text-[15px] font-bold text-gray-900 line-clamp-3 leading-snug" title={currentMetric?.name}>
                           {currentMetric?.name || `Metric ${cleanMetricCode}`}
                         </p>
                       </div>
@@ -1216,49 +1646,49 @@ Respond in JSON ONLY:
                     )}
                   </div>
 
-                  {/* 3 Light Gray Boxes: Identical style to Manual panel */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    {/* 1. Criterion */}
-                    <div className="bg-slate-50/80 border border-slate-200/90 rounded-lg p-2.5 flex flex-col justify-between min-w-0">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                          1. Criterion
+                  {/* 3 Prominent Easily-Readable Destination Cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {/* Criterion */}
+                    <div className="bg-white border border-slate-200/90 rounded-xl p-3.5 sm:p-4 flex flex-col justify-between min-w-0 min-h-[115px] shadow-2xs hover:shadow-xs transition-shadow">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[11px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider">
+                          Criterion
                         </span>
-                        <span className="text-[10px] font-bold text-[#0f2748] font-mono">
+                        <span className="text-xs sm:text-sm font-extrabold text-[#0f2748] font-mono bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-md shadow-2xs">
                           {cleanCritCode}
                         </span>
                       </div>
-                      <p className="text-xs font-semibold text-gray-800 line-clamp-2 leading-snug" title={currentCriterion.name}>
+                      <p className="text-sm sm:text-base font-bold text-gray-900 line-clamp-3 leading-snug" title={currentCriterion.name}>
                         {currentCriterion.name}
                       </p>
                     </div>
 
-                    {/* 2. Key Indicator */}
-                    <div className="bg-slate-50/80 border border-slate-200/90 rounded-lg p-2.5 flex flex-col justify-between min-w-0">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                          2. Key Indicator
+                    {/* Key Indicator */}
+                    <div className="bg-white border border-slate-200/90 rounded-xl p-3.5 sm:p-4 flex flex-col justify-between min-w-0 min-h-[115px] shadow-2xs hover:shadow-xs transition-shadow">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[11px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider">
+                          Key Indicator
                         </span>
-                        <span className="text-[10px] font-bold text-gray-700 font-mono">
+                        <span className="text-xs sm:text-sm font-extrabold text-slate-800 font-mono bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-md shadow-2xs">
                           KI {cleanKiCode}
                         </span>
                       </div>
-                      <p className="text-xs font-semibold text-gray-800 line-clamp-2 leading-snug" title={currentKeyIndicator?.name}>
+                      <p className="text-sm sm:text-base font-bold text-gray-900 line-clamp-3 leading-snug" title={currentKeyIndicator?.name}>
                         {currentKeyIndicator?.name || `KI ${cleanKiCode}`}
                       </p>
                     </div>
 
-                    {/* 3. Metric */}
-                    <div className="bg-slate-50/80 border border-slate-200/90 rounded-lg p-2.5 flex flex-col justify-between min-w-0">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                          3. Target Metric
+                    {/* Metric */}
+                    <div className="bg-white border border-slate-200/90 rounded-xl p-3.5 sm:p-4 flex flex-col justify-between min-w-0 min-h-[115px] shadow-2xs hover:shadow-xs transition-shadow">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[11px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider">
+                          Target Metric
                         </span>
-                        <span className="text-[10px] font-bold text-blue-700 font-mono">
-                          {cleanMetricCode}
+                        <span className="text-xs sm:text-sm font-extrabold text-blue-700 font-mono bg-blue-50 px-2.5 py-0.5 rounded-md border border-blue-200 shadow-2xs">
+                          Metric {cleanMetricCode}
                         </span>
                       </div>
-                      <p className="text-xs font-semibold text-gray-800 line-clamp-2 leading-snug" title={currentMetric?.name}>
+                      <p className="text-sm sm:text-base font-bold text-gray-900 line-clamp-3 leading-snug" title={currentMetric?.name}>
                         {currentMetric?.name || `Metric ${cleanMetricCode}`}
                       </p>
                     </div>
@@ -1266,10 +1696,10 @@ Respond in JSON ONLY:
 
                   {/* Integrated AI Reasoning in Light Blue */}
                   {aiSuggestion?.reason && (
-                    <div className="bg-blue-50/80 border border-blue-100/90 rounded-lg p-2.5 flex items-start gap-2 shadow-2xs">
-                      <Sparkles className="w-3.5 h-3.5 text-blue-600 shrink-0 mt-0.5" />
-                      <p className="text-[11px] text-blue-950 leading-relaxed font-normal">
-                        <span className="font-semibold text-blue-900">Reasoning: </span>
+                    <div className="bg-blue-50/80 border border-blue-100/90 rounded-xl p-3 sm:p-3.5 flex items-start gap-2.5 shadow-2xs">
+                      <Sparkles className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                      <p className="text-xs sm:text-[13px] text-blue-950 leading-relaxed font-normal">
+                        <span className="font-bold text-blue-900">Reasoning: </span>
                         {aiSuggestion.reason}
                       </p>
                     </div>
@@ -1468,13 +1898,15 @@ Respond in JSON ONLY:
                             <th className="py-2 px-3 w-9 text-center">
                               <input
                                 type="checkbox"
-                                checked={unsubmittedDocs.length > 0 && selectedDocIds.length === unsubmittedDocs.length}
+                                checked={isAllSelected}
                                 disabled={unsubmittedDocs.length === 0}
                                 onChange={handleToggleSelectAll}
                                 className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 accent-[#0f2748]"
                                 title={
                                   unsubmittedDocs.length === 0
                                     ? 'All documents are already submitted'
+                                    : isAllSelected
+                                    ? 'Deselect all unsubmitted documents'
                                     : 'Select all unsubmitted documents'
                                 }
                               />
@@ -1487,18 +1919,44 @@ Respond in JSON ONLY:
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                           {NAAC_CRITERIA_SUMMARY.map((crit) => {
-                            const docsInCrit = myDocuments.filter(
-                              (d) =>
+                            const docsInCrit = myDocuments.filter((d) => {
+                              const canon = toCanonicalCrit(d.criterionCode || '');
+                              if (canon) {
+                                return canon.toLowerCase() === crit.code.toLowerCase();
+                              }
+                              return (
                                 d.criterionCode?.toLowerCase() === crit.code.toLowerCase() ||
-                                toCanonicalCrit(d.criterionCode || '').toLowerCase() === crit.code.toLowerCase()
-                            );
+                                d.criterionId === crit.id
+                              );
+                            });
                             if (docsInCrit.length === 0) return null;
+
+                            const unsubmittedInCrit = docsInCrit.filter((d) => !isDocSubmitted(d));
+                            const isCritSelected =
+                              unsubmittedInCrit.length > 0 &&
+                              unsubmittedInCrit.every((d) => selectedDocIds.includes(d.id));
 
                             return (
                               <React.Fragment key={crit.code}>
-                                {/* Criterion Group Subheader Row */}
+                                {/* Criterion Group Subheader Row with Group Select Checkbox */}
                                 <tr className="bg-slate-50/80 border-y border-slate-200/80">
-                                  <td colSpan={5} className="py-1.5 px-3">
+                                  <td className="py-1.5 px-3 text-center align-middle">
+                                    <input
+                                      type="checkbox"
+                                      checked={isCritSelected}
+                                      disabled={unsubmittedInCrit.length === 0}
+                                      onChange={() => handleToggleSelectCriterion(docsInCrit)}
+                                      className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 accent-[#0f2748]"
+                                      title={
+                                        unsubmittedInCrit.length === 0
+                                          ? 'All documents in this criterion are submitted'
+                                          : isCritSelected
+                                          ? `Deselect all in ${crit.code}`
+                                          : `Select all in ${crit.code}`
+                                      }
+                                    />
+                                  </td>
+                                  <td colSpan={4} className="py-1.5 px-3">
                                     <div className="flex items-center justify-between">
                                       <div className="flex items-center gap-2 min-w-0">
                                         <span className="font-mono text-[10px] font-bold text-[#0f2748] bg-white px-1.5 py-0.5 rounded border border-slate-200 shrink-0">
@@ -1518,10 +1976,7 @@ Respond in JSON ONLY:
                                 {/* Documents under this Criterion: Checkbox -> Metric -> File Name -> Status -> Action */}
                                 {docsInCrit.map((doc) => {
                                   const isChecked = selectedDocIds.includes(doc.id);
-                                  const isSubmitted =
-                                    doc.status === 'submitted_to_school' ||
-                                    doc.status === 'approved_by_school' ||
-                                    doc.status === 'university_verified';
+                                  const isSubmitted = isDocSubmitted(doc);
 
                                   return (
                                     <tr
@@ -1534,10 +1989,14 @@ Respond in JSON ONLY:
                                       <td className="py-2 px-3 text-center align-middle">
                                         <input
                                           type="checkbox"
-                                          checked={isChecked}
+                                          checked={!isSubmitted && isChecked}
                                           disabled={isSubmitted}
                                           onChange={() => !isSubmitted && handleToggleSelectDoc(doc.id)}
-                                          className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-30 disabled:bg-gray-100 accent-[#0f2748]"
+                                          className={`w-3.5 h-3.5 rounded shrink-0 transition-opacity ${
+                                            isSubmitted
+                                              ? 'opacity-25 cursor-not-allowed bg-gray-200 accent-gray-400'
+                                              : 'text-blue-600 focus:ring-blue-500 cursor-pointer accent-[#0f2748]'
+                                          }`}
                                           title={isSubmitted ? 'Already submitted' : `Select "${doc.fileName}"`}
                                         />
                                       </td>
@@ -1558,15 +2017,39 @@ Respond in JSON ONLY:
                                         >
                                           {doc.fileName}
                                         </div>
+                                        {doc.coordinatorReviewStatus === 'changes_requested' && doc.coordinatorFeedback && (
+                                          <div className="text-[10px] text-amber-700 font-medium truncate mt-0.5" title={doc.coordinatorFeedback}>
+                                            <span className="font-bold">Note:</span> {doc.coordinatorFeedback}
+                                          </div>
+                                        )}
                                       </td>
 
-                                      {/* 4. Status: strictly two states - either blank or submitted */}
+                                      {/* 4. Status: 4-Tier Workflow */}
                                       <td className="py-2 px-3 align-middle text-center whitespace-nowrap">
-                                        {isSubmitted ? (
-                                          <span className="inline-block text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
-                                            Submitted
+                                        {doc.status === 'draft' || !doc.status ? (
+                                          <span 
+                                            className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                                              doc.coordinatorReviewStatus === 'changes_requested'
+                                                ? 'text-amber-800 bg-amber-100/90 border border-amber-300'
+                                                : 'text-amber-700 bg-amber-50 border border-amber-200'
+                                            }`}
+                                            title={doc.coordinatorFeedback ? `Revision requested: "${doc.coordinatorFeedback}"` : 'Draft evidence'}
+                                          >
+                                            {doc.coordinatorReviewStatus === 'changes_requested' ? 'Changes Requested' : 'Draft'}
                                           </span>
-                                        ) : null}
+                                        ) : doc.status === 'submitted_to_program' ? (
+                                          <span className="inline-block text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full" title="Submitted to Program Coordinator">
+                                            Submitted to Program Coordinator
+                                          </span>
+                                        ) : doc.status === 'submitted_to_school' ? (
+                                          <span className="inline-block text-[10px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full" title="Submitted to School Coordinator">
+                                            Submitted to School Coordinator
+                                          </span>
+                                        ) : (
+                                          <span className="inline-block text-[10px] font-semibold text-purple-700 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-full" title="Submitted to University Coordinator">
+                                            Submitted to University Coordinator
+                                          </span>
+                                        )}
                                       </td>
 
                                       {/* 5. Action */}
@@ -1582,9 +2065,14 @@ Respond in JSON ONLY:
                                           </button>
                                           <button
                                             type="button"
-                                            onClick={() => handleDeleteMyDoc(doc.id, doc.fileName || doc.title)}
-                                            className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded cursor-pointer transition-colors"
-                                            title="Delete from My Documents"
+                                            disabled={isSubmitted}
+                                            onClick={() => !isSubmitted && handleDeleteMyDoc(doc.id, doc.fileName || doc.title)}
+                                            className={`p-1 rounded transition-colors ${
+                                              isSubmitted
+                                                ? 'opacity-20 cursor-not-allowed text-gray-300'
+                                                : 'text-gray-400 hover:text-red-600 hover:bg-red-50 cursor-pointer'
+                                            }`}
+                                            title={isSubmitted ? 'Submitted documents cannot be deleted' : 'Delete from My Documents'}
                                           >
                                             <Trash2 className="w-3.5 h-3.5" />
                                           </button>
@@ -1596,6 +2084,147 @@ Respond in JSON ONLY:
                               </React.Fragment>
                             );
                           })}
+
+                          {/* Fallback for documents with non-standard criteria */}
+                          {(() => {
+                            const standardCritCodes = new Set(NAAC_CRITERIA_SUMMARY.map((c) => c.code.toLowerCase()));
+                            const otherDocs = myDocuments.filter((d) => {
+                              const canon = toCanonicalCrit(d.criterionCode || '');
+                              if (canon && standardCritCodes.has(canon.toLowerCase())) return false;
+                              return !NAAC_CRITERIA_SUMMARY.some(
+                                (c) => c.code.toLowerCase() === d.criterionCode?.toLowerCase() || c.id === d.criterionId
+                              );
+                            });
+                            if (otherDocs.length === 0) return null;
+
+                            const unsubmittedInOther = otherDocs.filter((d) => !isDocSubmitted(d));
+                            const isOtherSelected =
+                              unsubmittedInOther.length > 0 &&
+                              unsubmittedInOther.every((d) => selectedDocIds.includes(d.id));
+
+                            return (
+                              <React.Fragment key="other-criteria">
+                                <tr className="bg-slate-50/80 border-y border-slate-200/80">
+                                  <td className="py-1.5 px-3 text-center align-middle">
+                                    <input
+                                      type="checkbox"
+                                      checked={isOtherSelected}
+                                      disabled={unsubmittedInOther.length === 0}
+                                      onChange={() => handleToggleSelectCriterion(otherDocs)}
+                                      className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 accent-[#0f2748]"
+                                      title={
+                                        unsubmittedInOther.length === 0
+                                          ? 'All additional documents are submitted'
+                                          : isOtherSelected
+                                          ? 'Deselect all additional documents'
+                                          : 'Select all additional documents'
+                                      }
+                                    />
+                                  </td>
+                                  <td colSpan={4} className="py-1.5 px-3">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-[11px] font-bold text-gray-800">Additional Ingested Evidence</span>
+                                      <span className="text-[10px] font-semibold text-gray-500 bg-white px-2 py-0.5 rounded-full border border-slate-200">
+                                        {otherDocs.length} {otherDocs.length === 1 ? 'doc' : 'docs'}
+                                      </span>
+                                    </div>
+                                  </td>
+                                </tr>
+                                {otherDocs.map((doc) => {
+                                  const isChecked = selectedDocIds.includes(doc.id);
+                                  const isSubmitted = isDocSubmitted(doc);
+                                  return (
+                                    <tr key={doc.id} className={`hover:bg-blue-50/30 transition-colors group ${isChecked ? 'bg-blue-50/20' : ''}`}>
+                                      <td className="py-2 px-3 text-center align-middle">
+                                        <input
+                                          type="checkbox"
+                                          checked={!isSubmitted && isChecked}
+                                          disabled={isSubmitted}
+                                          onChange={() => !isSubmitted && handleToggleSelectDoc(doc.id)}
+                                          className={`w-3.5 h-3.5 rounded shrink-0 transition-opacity ${
+                                            isSubmitted
+                                              ? 'opacity-25 cursor-not-allowed bg-gray-200 accent-gray-400'
+                                              : 'text-blue-600 focus:ring-blue-500 cursor-pointer accent-[#0f2748]'
+                                          }`}
+                                          title={isSubmitted ? 'Already submitted' : `Select "${doc.fileName}"`}
+                                        />
+                                      </td>
+                                      <td className="py-2 px-3 align-middle whitespace-nowrap">
+                                        <span className="font-mono text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded">
+                                          {doc.metricCode || '1.1.1'}
+                                        </span>
+                                      </td>
+                                      <td className="py-2 px-3 align-middle">
+                                        <div
+                                          onClick={() => openFileInNewTab(doc.fileUrl)}
+                                          className="font-medium text-gray-800 group-hover:text-blue-700 cursor-pointer truncate text-xs"
+                                          title={doc.fileName}
+                                        >
+                                          {doc.fileName}
+                                        </div>
+                                        {doc.coordinatorReviewStatus === 'changes_requested' && doc.coordinatorFeedback && (
+                                          <div className="text-[10px] text-amber-700 font-medium truncate mt-0.5" title={doc.coordinatorFeedback}>
+                                            <span className="font-bold">Note:</span> {doc.coordinatorFeedback}
+                                          </div>
+                                        )}
+                                      </td>
+                                      <td className="py-2 px-3 align-middle text-center whitespace-nowrap">
+                                        {doc.status === 'draft' || !doc.status ? (
+                                          <span 
+                                            className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                                              doc.coordinatorReviewStatus === 'changes_requested'
+                                                ? 'text-amber-800 bg-amber-100/90 border border-amber-300'
+                                                : 'text-amber-700 bg-amber-50 border border-amber-200'
+                                            }`}
+                                            title={doc.coordinatorFeedback ? `Revision requested: "${doc.coordinatorFeedback}"` : 'Draft evidence'}
+                                          >
+                                            {doc.coordinatorReviewStatus === 'changes_requested' ? 'Changes Requested' : 'Draft'}
+                                          </span>
+                                        ) : doc.status === 'submitted_to_program' ? (
+                                          <span className="inline-block text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full" title="Submitted to Program Coordinator">
+                                            Submitted to Program Coordinator
+                                          </span>
+                                        ) : doc.status === 'submitted_to_school' ? (
+                                          <span className="inline-block text-[10px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full" title="Submitted to School Coordinator">
+                                            Submitted to School Coordinator
+                                          </span>
+                                        ) : (
+                                          <span className="inline-block text-[10px] font-semibold text-purple-700 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-full" title="Submitted to University Coordinator">
+                                            Submitted to University Coordinator
+                                          </span>
+                                        )}
+                                      </td>
+                                      <td className="py-2 px-3 align-middle text-right whitespace-nowrap">
+                                        <div className="inline-flex items-center gap-1">
+                                          <button
+                                            type="button"
+                                            onClick={() => openFileInNewTab(doc.fileUrl)}
+                                            className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded cursor-pointer transition-colors"
+                                            title="View Document"
+                                          >
+                                            <ExternalLink className="w-3.5 h-3.5" />
+                                          </button>
+                                          <button
+                                            type="button"
+                                            disabled={isSubmitted}
+                                            onClick={() => !isSubmitted && handleDeleteMyDoc(doc.id, doc.fileName || doc.title)}
+                                            className={`p-1 rounded transition-colors ${
+                                              isSubmitted
+                                                ? 'opacity-20 cursor-not-allowed text-gray-300'
+                                                : 'text-gray-400 hover:text-red-600 hover:bg-red-50 cursor-pointer'
+                                            }`}
+                                            title={isSubmitted ? 'Submitted documents cannot be deleted' : 'Delete from My Documents'}
+                                          >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                          </button>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </React.Fragment>
+                            );
+                          })()}
                         </tbody>
                       </table>
                     </div>
@@ -1603,35 +2232,48 @@ Respond in JSON ONLY:
                 )}
               </div>
 
-              <div className="p-4 bg-slate-50 border-t border-gray-200 space-y-2 shrink-0">
-                {/* Button 1: Submit to Program Coordinator */}
-                <button
-                  type="button"
-                  onClick={handleSubmitToCoordinator}
-                  disabled={selectedDocIds.length === 0}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold text-white bg-[#0f2748] hover:bg-[#183963] active:scale-[0.99] shadow-sm transition-all cursor-pointer disabled:opacity-50"
-                  title={
-                    selectedDocIds.length === 0
-                      ? 'Select at least one document to submit'
-                      : `Submit ${selectedDocIds.length} selected document(s) to Program Coordinator`
-                  }
-                >
-                  <Send className="w-3.5 h-3.5 text-blue-200" />
-                  <span>
-                    Submit {selectedDocIds.length > 0 ? `(${selectedDocIds.length}) ` : ''}to Program Coordinator
-                  </span>
-                </button>
+              <div className="p-4 bg-slate-50 border-t border-gray-200 shrink-0">
+                <div className="flex flex-col sm:flex-row items-center gap-2.5">
+                  {/* 1. Submit Action Button */}
+                  <button
+                    type="button"
+                    onClick={handleSubmitToCoordinator}
+                    disabled={selectedDocIds.length === 0}
+                    className="w-full sm:flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold text-white bg-[#0f2748] hover:bg-[#183963] active:scale-[0.99] shadow-sm transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                    title={
+                      selectedDocIds.length === 0
+                        ? `Select at least one document to submit to ${submitTargetLabel}`
+                        : `Submit ${selectedDocIds.length} selected document(s) to ${submitTargetLabel}`
+                    }
+                  >
+                    <Send className="w-3.5 h-3.5 text-blue-200 shrink-0" />
+                    <span>
+                      Submit to {submitTargetLabel}
+                      {selectedDocIds.length > 0 ? ` (${selectedDocIds.length})` : ''}
+                    </span>
+                  </button>
 
-                {/* Button 2: View Complete Document Repository */}
-                <button
-                  type="button"
-                  onClick={handleViewCompleteRepository}
-                  className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl text-xs font-semibold text-gray-700 bg-white hover:bg-gray-100 active:scale-[0.99] border border-gray-300 shadow-2xs transition-all cursor-pointer"
-                  title="Navigate to the full Master Document Repository"
-                >
-                  <FolderOpen className="w-3.5 h-3.5 text-blue-600" />
-                  <span>View Complete Document Repository</span>
-                </button>
+                  {/* 2. View Program Repository / Close Action Button */}
+                  {role === 'faculty' ? (
+                    <button
+                      type="button"
+                      onClick={() => setIsMyDocsDrawerOpen(false)}
+                      className="w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-semibold text-gray-700 bg-white hover:bg-gray-100 border border-gray-300 shadow-2xs transition-colors cursor-pointer"
+                    >
+                      Close
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleViewCompleteRepository}
+                      className="w-full sm:flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold text-gray-700 bg-white hover:bg-slate-100 hover:text-gray-900 border border-gray-300 shadow-2xs active:scale-[0.99] transition-all cursor-pointer"
+                      title="Close drawer and navigate to the full Program Repository table"
+                    >
+                      <FolderOpen className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>View Program Repository</span>
+                    </button>
+                  )}
+                </div>
               </div>
 
             </div>
