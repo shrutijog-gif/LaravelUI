@@ -22,6 +22,7 @@ import { NaacDmsWorkspace } from '../modules/naac/NaacDmsWorkspace';
 import { ProgramCoordinatorDesk } from '../modules/naac/ProgramCoordinatorDesk';
 import { SchoolCoordinatorDesk } from '../modules/naac/SchoolCoordinatorDesk';
 import { UniversityCoordinatorDesk } from '../modules/naac/UniversityCoordinatorDesk';
+import { FacultyDesk } from '../modules/naac/FacultyDesk';
 
 interface LayoutProps {
   initialPortalRole?: 'superadmin' | 'collegeadmin';
@@ -36,6 +37,7 @@ export const Layout: React.FC<LayoutProps> = ({
 }) => {
   const getInitialModule = () => {
     const portalType = typeof window !== 'undefined' ? localStorage.getItem('college_cms_portal_type') : null;
+    if (portalType === 'naac-faculty') return 'naac-faculty';
     if (portalType === 'naac-program') return 'naac-aqar';
     if (portalType === 'naac-school') return 'naac-school';
     if (portalType === 'naac-university') return 'naac-university';
@@ -46,6 +48,7 @@ export const Layout: React.FC<LayoutProps> = ({
   const [activeModuleId, setActiveModuleId] = useState<string>(() => getInitialModule());
   const [activeModuleLabel, setActiveModuleLabel] = useState<string>(() => {
     const initMod = getInitialModule();
+    if (initMod === 'naac-faculty') return 'Faculty Desk';
     if (initMod === 'naac-aqar') return 'AQAR';
     if (initMod === 'naac-school') return 'School Coordinator';
     if (initMod === 'naac-university') return 'University Coordinator';
@@ -184,6 +187,8 @@ export const Layout: React.FC<LayoutProps> = ({
               <PageAdmin />
             ) : activeModuleId === 'nirf-showcase' ? (
               <NirfShowcaseAdmin />
+            ) : activeModuleId === 'naac-faculty' || activeModuleId.startsWith('faculty-') ? (
+              <FacultyDesk />
             ) : activeModuleId === 'naac-school' || activeModuleId.startsWith('school-') ? (
               <SchoolCoordinatorDesk />
             ) : activeModuleId === 'naac-university' || activeModuleId.startsWith('univ-') ? (

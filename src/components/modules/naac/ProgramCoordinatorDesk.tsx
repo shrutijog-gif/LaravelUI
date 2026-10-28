@@ -740,7 +740,6 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
             <NaacQuickUploadLanding
               academicYear={selectedYear || '2025-26'}
               role="program"
-              levelBadgeText="PROGRAM / DEPT LEVEL"
               portalTitle="Department of Computer Science & Engineering (B.Tech CSE)"
               hideTopUploadButton={true}
               topBarLeftSlot={
@@ -1002,16 +1001,25 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
               {/* 3-TIER HIERARCHICAL DOCUMENT LIST TABLE */}
               {(() => {
                 const isCoordinatorFilter = tableCriterionFilter === 'coordinator';
+                const isFacultyFilter = tableCriterionFilter === 'faculty';
                 const anitaDocs = deptDocs.filter(d => 
                   d.uploadedBy?.toLowerCase().includes('anita') || 
                   d.facultyName?.toLowerCase().includes('anita') || 
                   d.submittedByFacultyId === 'coord-anita-verma'
+                );
+                const facultyDocs = deptDocs.filter(d => 
+                  d.uploadedBy?.toLowerCase().includes('ramesh') || 
+                  d.facultyName?.toLowerCase().includes('ramesh') || 
+                  d.submittedByFacultyId === 'fac-1'
                 );
 
                 // Filter criteria, indicators, and metrics
                 const filteredCriteria = NAAC_CRITERIA_SUMMARY.filter(crit => {
                   if (isCoordinatorFilter) {
                     return anitaDocs.some(d => d.criterionCode === crit.code || d.criterionId === crit.id);
+                  }
+                  if (isFacultyFilter) {
+                    return facultyDocs.some(d => d.criterionCode === crit.code || d.criterionId === crit.id);
                   }
                   if (tableCriterionFilter !== 'all' && crit.code !== tableCriterionFilter) return false;
                   if (tableSearchQuery.trim()) {
@@ -1039,6 +1047,7 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
                           className="px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-blue-500 bg-white cursor-pointer max-w-[170px] truncate"
                         >
                           <option value="all">All Criteria (1–7)</option>
+                          <option value="faculty">Faculty Submissions (Dr. Ramesh Gupta)</option>
                           <option value="coordinator">Coordinator: Anita Verma</option>
                           {NAAC_CRITERIA_SUMMARY.map(c => (
                             <option key={c.id} value={c.code}>{c.code}: {c.name}</option>
@@ -1281,10 +1290,17 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
                                                   d.submittedByFacultyId === 'coord-anita-verma'
                                                 );
                                               }
+                                              if (isFacultyFilter) {
+                                                return (
+                                                  d.uploadedBy?.toLowerCase().includes('ramesh') || 
+                                                  d.facultyName?.toLowerCase().includes('ramesh') || 
+                                                  d.submittedByFacultyId === 'fac-1'
+                                                );
+                                              }
                                               return true;
                                             });
 
-                                            if (isCoordinatorFilter && metricDocs.length === 0) return null;
+                                            if ((isCoordinatorFilter || isFacultyFilter) && metricDocs.length === 0) return null;
 
                                             if (metricDocs.length === 0) {
                                               return (

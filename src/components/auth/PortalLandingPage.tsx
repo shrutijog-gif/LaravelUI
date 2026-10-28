@@ -17,7 +17,8 @@ export type PortalType =
   | 'superadmin' 
   | 'naac-university' 
   | 'naac-school' 
-  | 'naac-program';
+  | 'naac-program'
+  | 'naac-faculty';
 
 interface PortalLandingPageProps {
   onSelectPortal: (portal: PortalType) => void;
@@ -65,19 +66,30 @@ export const PortalLandingPage: React.FC<PortalLandingPageProps> = ({
 
   const naacTiers = [
     {
-      id: 'naac-university' as PortalType,
-      levelBadge: 'University Level',
-      levelBadgeClass: 'bg-purple-100 text-purple-800 border-purple-200',
-      role: 'University Coordinator',
-      roleDescription: 'Monitors all 5 schools, verifies cross-school completeness, and prepares master university SSR/AQAR documentation.',
-      icon: Building2,
-      iconBg: 'bg-purple-600 text-white',
-      buttonText: 'University Portal Login',
-      buttonBg: 'bg-purple-700 hover:bg-purple-800 text-white shadow-sm',
+      id: 'naac-faculty' as PortalType,
+      levelBadge: '',
+      levelBadgeClass: 'bg-amber-100 text-amber-800 border-amber-200',
+      role: 'Faculty Member',
+      roleDescription: 'Drop course files, attendance, research papers, and mentoring records with AI metric tagging, submitting directly to the HOD.',
+      icon: Sparkles,
+      iconBg: 'bg-amber-500 text-white',
+      buttonText: 'Faculty Portal Login',
+      buttonBg: 'bg-amber-600 hover:bg-amber-700 text-white shadow-sm',
+    },
+    {
+      id: 'naac-program' as PortalType,
+      levelBadge: '',
+      levelBadgeClass: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+      role: 'Program Coordinator',
+      roleDescription: 'Reviews faculty evidence, compiles Department AQAR proofs across Criteria 1–7, and submits to the school coordinator.',
+      icon: FileCheck2,
+      iconBg: 'bg-emerald-600 text-white',
+      buttonText: 'Program Portal Login',
+      buttonBg: 'bg-emerald-700 hover:bg-emerald-800 text-white shadow-sm',
     },
     {
       id: 'naac-school' as PortalType,
-      levelBadge: 'School Level',
+      levelBadge: '',
       levelBadgeClass: 'bg-blue-100 text-blue-800 border-blue-200',
       role: 'School Coordinator',
       roleDescription: 'Reviews, verifies, and consolidates departmental submissions across the 3–4 programs in their school.',
@@ -87,15 +99,15 @@ export const PortalLandingPage: React.FC<PortalLandingPageProps> = ({
       buttonBg: 'bg-blue-700 hover:bg-blue-800 text-white shadow-sm',
     },
     {
-      id: 'naac-program' as PortalType,
-      levelBadge: 'Program / Dept Level',
-      levelBadgeClass: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-      role: 'Program Coordinator',
-      roleDescription: 'Compiles and uploads evidence proofs tagged to Criteria 1–7 and submits them to the school coordinator.',
-      icon: FileCheck2,
-      iconBg: 'bg-emerald-600 text-white',
-      buttonText: 'Program Portal Login',
-      buttonBg: 'bg-emerald-700 hover:bg-emerald-800 text-white shadow-sm',
+      id: 'naac-university' as PortalType,
+      levelBadge: '',
+      levelBadgeClass: 'bg-purple-100 text-purple-800 border-purple-200',
+      role: 'University Coordinator',
+      roleDescription: 'Monitors all 5 schools, verifies cross-school completeness, and prepares master university SSR/AQAR documentation.',
+      icon: Building2,
+      iconBg: 'bg-purple-600 text-white',
+      buttonText: 'University Portal Login',
+      buttonBg: 'bg-purple-700 hover:bg-purple-800 text-white shadow-sm',
     },
   ];
 
@@ -182,8 +194,8 @@ export const PortalLandingPage: React.FC<PortalLandingPageProps> = ({
             </div>
           </div>
 
-          {/* 3 Tier Portals Inside the Big Box */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* 4 Tier Portals Inside the Big Box */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {naacTiers.map((tier) => {
               const Icon = tier.icon;
               return (
@@ -195,9 +207,11 @@ export const PortalLandingPage: React.FC<PortalLandingPageProps> = ({
                   <div>
                     {/* Level Badge + Icon */}
                     <div className="flex items-center justify-between gap-2 mb-3">
-                      <span className={`text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full border ${tier.levelBadgeClass}`}>
-                        {tier.levelBadge}
-                      </span>
+                      {tier.levelBadge ? (
+                        <span className={`text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full border ${tier.levelBadgeClass}`}>
+                          {tier.levelBadge}
+                        </span>
+                      ) : <span />}
                       <div className={`w-8 h-8 rounded-lg ${tier.iconBg} flex items-center justify-center shadow-2xs group-hover:scale-105 transition-transform`}>
                         <Icon className="w-4 h-4" />
                       </div>

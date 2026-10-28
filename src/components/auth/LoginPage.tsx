@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Eye, EyeOff, Lock, User, AlertCircle, ArrowLeft, Globe, CheckCircle2, Building2, GraduationCap, ShieldCheck, School, FileCheck2 } from 'lucide-react';
+import { Eye, EyeOff, Lock, User, AlertCircle, ArrowLeft, Globe, CheckCircle2, Building2, GraduationCap, ShieldCheck, School, FileCheck2, Sparkles } from 'lucide-react';
 import { login } from '../../services/authService';
 import { getActiveTenant } from '../../data/tenantData';
 import { PortalType } from './PortalLandingPage';
@@ -23,6 +23,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     if (portalType === 'naac-university') return 'univ.coordinator';
     if (portalType === 'naac-school') return 'school.coordinator';
     if (portalType === 'naac-program') return 'program.coordinator';
+    if (portalType === 'naac-faculty') return 'faculty.member';
     if (portalType === 'society') return 'society.admin';
     if (portalType === 'superadmin') return 'superadmin';
     return 'admin';
@@ -72,6 +73,16 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         subtitle: 'Sign in as Program Coordinator to compile and submit Criteria 1–7 evidence proofs.',
         iconBg: 'bg-gradient-to-br from-emerald-900 to-teal-950 text-white',
         renderIcon: () => <FileCheck2 className="w-9 h-9 text-white" />,
+      };
+    }
+    if (portalType === 'naac-faculty') {
+      return {
+        parentTitle: 'ITM SKILLS UNIVERSITY',
+        parentClass: 'text-amber-600',
+        title: 'Faculty Member Portal',
+        subtitle: 'Sign in as Faculty Member to quickly drop academic, research, and mentoring evidence proofs with AI metric tagging.',
+        iconBg: 'bg-gradient-to-br from-amber-800 to-amber-950 text-white',
+        renderIcon: () => <Sparkles className="w-9 h-9 text-white" />,
       };
     }
     if (isSuperadmin) {

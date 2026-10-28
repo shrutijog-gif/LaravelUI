@@ -31,6 +31,14 @@ export interface SidebarProps {
 
 import { getStoredStudioTemplates } from '../../data/mockStudioData';
 
+export const facultyMenuItems: MenuItem[] = [
+  {
+    id: 'naac-faculty',
+    label: 'Quick Proof Drop',
+    icon: 'file',
+  },
+];
+
 export const programCoordinatorMenuItems: MenuItem[] = [
   {
     id: 'naac-aqar',
@@ -333,12 +341,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
   });
 
   const portalType = typeof window !== 'undefined' ? localStorage.getItem('college_cms_portal_type') : null;
+  const isNaacFaculty = portalType === 'naac-faculty' || activeItem === 'naac-faculty';
   const isNaacProgram = portalType === 'naac-program' || activeItem === 'naac-aqar' || activeItem === 'naac-ssr' || activeItem === 'naac-dvv';
   const isNaacSchool = portalType === 'naac-school' || activeItem === 'naac-school' || activeItem.startsWith('school-');
   const isNaacUniversity = portalType === 'naac-university' || activeItem === 'naac-university' || activeItem.startsWith('univ-');
 
   const isSuperAdmin = portalRole === 'superadmin';
-  const menuList = isNaacProgram
+  const menuList = isNaacFaculty
+    ? facultyMenuItems
+    : isNaacProgram
     ? programCoordinatorMenuItems
     : isNaacSchool
     ? schoolCoordinatorMenuItems
@@ -348,13 +359,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
     ? superadminMenuItems
     : getCollegeAdminMenuItems();
 
-  const sidebarBg = isNaacProgram || isNaacSchool || isNaacUniversity || isSuperAdmin
+  const sidebarBg = isNaacFaculty || isNaacProgram || isNaacSchool || isNaacUniversity || isSuperAdmin
     ? 'bg-[#0f172a] border-r border-slate-800 text-white'
     : 'bg-[#1d4ed8] text-white';
 
   const getActiveItemBg = (isActive: boolean) => {
-    if (isNaacProgram || isNaacSchool || isNaacUniversity) {
+    if (isNaacFaculty || isNaacProgram || isNaacSchool || isNaacUniversity) {
       if (!isActive) return 'text-slate-300 hover:text-white hover:bg-slate-800/80 font-medium';
+      if (isNaacFaculty) return 'bg-amber-600 text-white font-bold shadow-xs';
       if (isNaacUniversity) return 'bg-purple-600 text-white font-bold shadow-xs';
       if (isNaacSchool) return 'bg-blue-600 text-white font-bold shadow-xs';
       return 'bg-emerald-600 text-white font-bold shadow-xs';
@@ -417,6 +429,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Role-Specific Institutional Badge Header in Sidebar */}
+      {isNaacFaculty && (
+        <div className="p-3.5 pb-0 shrink-0">
+          <div className="bg-slate-800/80 border border-slate-700/80 rounded-xl p-3 flex items-center gap-2.5 shadow-2xs">
+            <div className="w-8 h-8 rounded-lg bg-slate-700 text-amber-400 flex items-center justify-center font-bold text-xs shrink-0 border border-slate-600">
+              🎓
+            </div>
+            <div className="min-w-0">
+              <span className="block text-[10px] font-bold uppercase text-slate-400 tracking-wider">
+                Faculty Member
+              </span>
+              <span className="block text-xs font-bold text-white truncate">
+                Dr. Ramesh Gupta (CSE)
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {isNaacProgram && (
         <div className="p-3.5 pb-0 shrink-0">
           <div className="bg-slate-800/80 border border-slate-700/80 rounded-xl p-3 flex items-center gap-2.5 shadow-2xs">

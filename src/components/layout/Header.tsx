@@ -68,10 +68,11 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   const portalType = typeof window !== 'undefined' ? localStorage.getItem('college_cms_portal_type') : null;
+  const isNaacFaculty = portalType === 'naac-faculty';
   const isNaacProgram = portalType === 'naac-program';
   const isNaacSchool = portalType === 'naac-school';
   const isNaacUniversity = portalType === 'naac-university';
-  const isNaacPortal = isNaacProgram || isNaacSchool || isNaacUniversity || Boolean(currentUser?.role?.includes('Coordinator'));
+  const isNaacPortal = isNaacFaculty || isNaacProgram || isNaacSchool || isNaacUniversity || Boolean(currentUser?.role?.includes('Coordinator')) || Boolean(currentUser?.role?.includes('Faculty'));
 
   return (
     <header className="h-16 bg-white border-b border-gray-200 px-3 sm:px-6 flex items-center justify-between sticky top-0 z-30 shadow-xs">
@@ -92,21 +93,7 @@ export const Header: React.FC<HeaderProps> = ({
           className="cursor-default group flex items-center"
           title={isNaacPortal ? 'ITM Skills University — NAAC Portal' : isSuperadmin ? 'WhiteCode Master Console' : `${currentTenant.name} — ${currentTenant.subtitle}`}
         >
-          {isNaacProgram ? (
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-emerald-950 via-teal-900 to-slate-900 text-emerald-300 flex items-center justify-center font-black text-xs sm:text-sm shadow-md border border-emerald-500/40 shrink-0 group-hover:scale-105 transition-transform">
-                📋
-              </div>
-              <div className="hidden sm:block text-left">
-                <span className="block text-xs font-black text-gray-900 leading-tight">
-                  Dept. of Computer Science & Engg
-                </span>
-                <span className="block text-[10px] font-semibold text-emerald-700">
-                  School of Technology • ITM Skills University
-                </span>
-              </div>
-            </div>
-          ) : isNaacPortal ? (
+          {isNaacPortal ? (
             <div className="flex items-center gap-2.5">
               <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#0f172a] text-emerald-400 flex items-center justify-center font-black text-xs sm:text-sm shadow-md border border-slate-700 shrink-0 group-hover:scale-105 transition-transform">
                 🏛️
@@ -154,19 +141,22 @@ export const Header: React.FC<HeaderProps> = ({
       {/* Center Portal Switcher / Coordinator Role Selector */}
       {isNaacPortal ? (
         <div className="flex items-center gap-2">
-          {/* Coordinator Role Selector Dropdown */}
+          {/* Coordinator / Faculty Role Selector Dropdown */}
           <div className="flex items-center gap-2 bg-slate-50 hover:bg-slate-100/90 px-3 py-1.5 rounded-xl border border-slate-300 shadow-2xs transition-all">
             <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+              isNaacFaculty ? 'bg-amber-500 ring-2 ring-amber-200' :
               isNaacProgram ? 'bg-emerald-500 ring-2 ring-emerald-200' : 
               isNaacUniversity ? 'bg-purple-600 ring-2 ring-purple-200' : 
               'bg-blue-600 ring-2 ring-blue-200'
             }`} />
             <select
-              value={isNaacProgram ? 'naac-program' : isNaacUniversity ? 'naac-university' : 'naac-school'}
+              value={isNaacFaculty ? 'naac-faculty' : isNaacProgram ? 'naac-program' : isNaacUniversity ? 'naac-university' : 'naac-school'}
               onChange={(e) => {
                 const targetRole = e.target.value;
                 localStorage.setItem('college_cms_portal_type', targetRole);
-                if (targetRole === 'naac-program') {
+                if (targetRole === 'naac-faculty') {
+                  if (onSelectModule) onSelectModule('naac-faculty', 'Faculty Desk');
+                } else if (targetRole === 'naac-program') {
                   if (onSelectModule) onSelectModule('naac-aqar', 'Program Coordinator');
                 } else if (targetRole === 'naac-school') {
                   if (onSelectModule) onSelectModule('naac-school', 'School Coordinator');
@@ -176,19 +166,21 @@ export const Header: React.FC<HeaderProps> = ({
                 window.location.reload();
               }}
               className="bg-transparent text-xs font-black text-[#0f2748] border-none outline-none cursor-pointer pr-1 focus:ring-0"
-              title="Switch Coordinator Role"
+              title="Switch NAAC Role"
             >
-              <option value="naac-program">🟢 Program Coordinator (CSE)</option>
-              <option value="naac-school">🔵 School Coordinator (Technology)</option>
-              <option value="naac-university">🟣 University Coordinator (IQAC)</option>
+              <option value="naac-faculty">🟡 Faculty Member (CSE Dept)</option>
+              <option value="naac-program">🟢 Program Coordinator (CSE HOD)</option>
+              <option value="naac-school">🔵 School Coordinator (Technology Dean)</option>
+              <option value="naac-university">🟣 University Coordinator (Central IQAC)</option>
             </select>
           </div>
 
           <div className="hidden lg:flex items-center px-3 py-1.5 rounded-xl bg-gray-50 border border-gray-200 text-xs font-semibold text-gray-700 shadow-2xs">
             <span>
-              {isNaacProgram ? 'Prof. Anita Verma (B.Tech CSE)' :
+              {isNaacFaculty ? 'Dr. Ramesh Gupta (Associate Professor, CSE)' :
+               isNaacProgram ? 'Prof. Anita Verma (Program Coordinator, CSE)' :
                isNaacUniversity ? 'Dr. Vikram Malhotra (Central IQAC)' :
-               'Dr. Rajesh Sharma (School of Technology)'}
+               'Dr. Rajesh Sharma (School Dean, Technology)'}
             </span>
           </div>
         </div>
@@ -333,6 +325,7 @@ export const Header: React.FC<HeaderProps> = ({
             title="Account Menu"
           >
             {currentUser?.name ? (
+              currentUser.name.includes('Ramesh') ? 'RG' :
               currentUser.name.includes('Anita') ? 'AV' :
               currentUser.name.includes('Rajesh') ? 'RS' :
               currentUser.name.includes('Vikram') ? 'VM' : 'SJ'

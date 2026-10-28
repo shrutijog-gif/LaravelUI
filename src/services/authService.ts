@@ -46,6 +46,13 @@ export const login = (username: string, password: string, portalType?: string): 
         email: 'tech.naac@itmuniversity.edu',
         role: 'School Coordinator (Technology)',
       };
+    } else if (cleanUsername.includes('faculty') || portalType === 'naac-faculty') {
+      user = {
+        username: 'faculty.member',
+        name: 'Dr. Ramesh Gupta',
+        email: 'r.gupta@itmuniversity.edu',
+        role: 'Faculty Member (Asst. Prof, CSE)',
+      };
     } else if (cleanUsername.includes('program') || portalType === 'naac-program') {
       user = {
         username: 'program.coordinator',

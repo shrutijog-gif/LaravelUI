@@ -315,7 +315,7 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
   };
 
   // Switch Portal Role helper
-  const handleSwitchPortalRole = (role: 'naac-program' | 'naac-school' | 'naac-university') => {
+  const handleSwitchPortalRole = (role: 'naac-faculty' | 'naac-program' | 'naac-school' | 'naac-university') => {
     localStorage.setItem('college_cms_portal_type', role);
     window.location.reload();
   };

@@ -49,7 +49,7 @@ export interface NaacQuickUploadLandingProps {
   academicYear: string;
   onNavigateToDocumentList: (critCode?: string, metricCode?: string) => void;
   // Role & Scope Customization
-  role?: 'program' | 'school' | 'university';
+  role?: 'faculty' | 'program' | 'school' | 'university';
   levelBadgeText?: string;
   portalTitle?: string;
   portalSubtitle?: string;
@@ -132,6 +132,9 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
     if (initialSeedDocIds && initialSeedDocIds.length > 0) {
       return initialSeedDocIds;
     }
+    if (role === 'faculty') {
+      return ['naac-cse-fac-1', 'naac-cse-fac-1-b', 'naac-cse-fac-5-b'];
+    }
     if (role === 'school') {
       return ['naac-doc-2', 'naac-cse-fac-5', 'naac-cse-fac-5-b', 'naac-cse-fac-3'];
     }
@@ -196,11 +199,26 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
 
   const myDocuments = (Array.isArray(documents) ? documents : []).filter((doc) => {
     if (!doc || !doc.id) return false;
-    // 1. Explicitly tracked in myDocIds list
+
+    // 1. Faculty member role: Dr. Ramesh Gupta proofs ONLY (strictly his own documents)
+    if (role === 'faculty') {
+      const isMyProgram = !programId || doc.programId === programId || doc.programId === 'prog-cse';
+      const validMyDocIds = Array.isArray(myDocIds) ? myDocIds : [];
+      const isRameshDoc = Boolean(
+        doc.uploadedBy?.toLowerCase().includes('ramesh') ||
+        doc.facultyName?.toLowerCase().includes('ramesh') ||
+        doc.submittedByFacultyId === 'fac-1'
+      );
+      // Also allow newly dropped evidence in this active session
+      const isNewlyUploadedInSession = validMyDocIds.includes(doc.id) && (!doc.facultyName || doc.uploadedBy?.toLowerCase().includes('ramesh'));
+      return isMyProgram && (isRameshDoc || isNewlyUploadedInSession);
+    }
+
+    // 2. Explicitly tracked in myDocIds list
     const validMyDocIds = Array.isArray(myDocIds) ? myDocIds : [];
     if (validMyDocIds.includes(doc.id)) return true;
 
-    // 2. Program Coordinator role: any document uploaded by coordinator or belonging to CSE program
+    // 3. Program Coordinator role: any document uploaded by coordinator or belonging to CSE program
     if (role === 'program') {
       const isMyProgram = !programId || doc.programId === programId || doc.programId === 'prog-cse' || Boolean(doc.programName?.toLowerCase().includes('computer science'));
       const isMyUpload = Boolean(
@@ -1152,8 +1170,8 @@ Respond in JSON ONLY:
         ) : (
           /* Default Left Branding */
           <div className="flex items-center gap-2 text-xs flex-wrap">
-            <span className="font-bold text-[#0f2748]">NAAC Proof Vault</span>
-            <span className="text-gray-300">•</span>
+
+            
             <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-mono text-[11px] font-semibold border border-blue-200">
               AQAR {academicYear}
             </span>
@@ -1215,7 +1233,7 @@ Respond in JSON ONLY:
             </span>
           )}
 
-          {!topBarLeftSlot && (
+          {!topBarLeftSlot && role !== 'faculty' && (
             <button
               type="button"
               onClick={() => {
@@ -2252,16 +2270,26 @@ Respond in JSON ONLY:
                     </span>
                   </button>
 
-                  {/* 2. View Program Repository Action Button */}
-                  <button
-                    type="button"
-                    onClick={handleViewCompleteRepository}
-                    className="w-full sm:flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold text-gray-700 bg-white hover:bg-slate-100 hover:text-gray-900 border border-gray-300 shadow-2xs active:scale-[0.99] transition-all cursor-pointer"
-                    title="Close drawer and navigate to the full Program Repository table"
-                  >
-                    <FolderOpen className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>View Program Repository</span>
-                  </button>
+                  {/* 2. View Program Repository / Close Action Button */}
+                  {role === 'faculty' ? (
+                    <button
+                      type="button"
+                      onClick={() => setIsMyDocsDrawerOpen(false)}
+                      className="w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-semibold text-gray-700 bg-white hover:bg-gray-100 border border-gray-300 shadow-2xs transition-colors cursor-pointer"
+                    >
+                      Close
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleViewCompleteRepository}
+                      className="w-full sm:flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold text-gray-700 bg-white hover:bg-slate-100 hover:text-gray-900 border border-gray-300 shadow-2xs active:scale-[0.99] transition-all cursor-pointer"
+                      title="Close drawer and navigate to the full Program Repository table"
+                    >
+                      <FolderOpen className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>View Program Repository</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
