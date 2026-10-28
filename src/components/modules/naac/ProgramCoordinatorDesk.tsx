@@ -773,7 +773,7 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
               programId="prog-cse"
               programName="B.Tech Computer Science & Engineering"
               submitTargetName="School Coordinator"
-              uploaderName="Prof. Anita Verma (Program Coordinator)"
+              uploaderName="Prof. Anita Verma"
               storageKeySuffix="prog_cse"
               onNavigateToDocumentList={(critCode, metricCode) => {
                 setDeskMode('repository');

@@ -813,7 +813,7 @@ Respond in JSON ONLY:
         fileUrl: safeDataUrl,
         fileName: file.name,
         fileSize: sizeStr,
-        uploadedBy: uploaderName || (role === 'school' ? 'Dean (School Coordinator)' : role === 'university' ? 'IQAC Central Committee' : 'Prof. Anita Verma (Program Coordinator)'),
+        uploadedBy: uploaderName || (role === 'school' ? 'Dean (School Coordinator)' : role === 'university' ? 'IQAC Central Committee' : 'Prof. Anita Verma'),
         uploadedAt: new Date().toISOString().split('T')[0],
         status: 'draft',
         version: 'v1.0',
@@ -988,7 +988,7 @@ Respond in JSON ONLY:
       status: 'draft',
       schoolId: schoolId || 'sch-tech',
       programId: programId || (role === 'school' ? 'school-common' : role === 'university' ? 'univ-master' : 'prog-cse'),
-      uploadedBy: uploaderName || (role === 'school' ? 'Dean (School Coordinator)' : role === 'university' ? 'IQAC Central Committee' : 'Prof. Anita Verma (Program Coordinator)'),
+      uploadedBy: uploaderName || (role === 'school' ? 'Dean (School Coordinator)' : role === 'university' ? 'IQAC Central Committee' : 'Prof. Anita Verma'),
     });
 
     const finalId = updated?.id || targetId;

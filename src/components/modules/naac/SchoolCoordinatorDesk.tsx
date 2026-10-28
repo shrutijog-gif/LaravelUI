@@ -100,6 +100,13 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
     }
   };
 
+  const getCleanPersonName = (name?: string) => {
+    if (!name || name === 'Program Coordinator') return 'Prof. Anita Verma';
+    const cleaned = name.replace(/\s*\([^)]*\)/g, '').trim();
+    if (cleaned.toLowerCase() === 'program coordinator') return 'Prof. Anita Verma';
+    return cleaned || 'Prof. Anita Verma';
+  };
+
   const getDepartmentDot = (doc: NaacEvidenceDocument) => {
     const isCommon = doc.programId === 'school-common' || !doc.programId || doc.uploadedBy?.includes('School Coordinator');
     if (isCommon) {
@@ -485,7 +492,7 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
                   <span>Department Key:</span>
                 </div>
                 <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs font-semibold text-gray-700">
-                  <span className="inline-flex items-center gap-1.5 hover:text-blue-600 transition-colors cursor-default" title="B.Tech Computer Science & Engineering (Prof. Anita Verma)">
+                  <span className="inline-flex items-center gap-1.5 hover:text-blue-600 transition-colors cursor-default" title="B.Tech Computer Science & Engineering">
                     <span className="w-2.5 h-2.5 rounded-full bg-blue-500 ring-2 ring-blue-200 shrink-0"></span>
                     <span>B.Tech CSE</span>
                   </span>
@@ -724,11 +731,11 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
                                           return (
                                             <div 
                                               className="flex items-center gap-2 truncate"
-                                              title={`${dept.label} • ${doc.facultyName || doc.uploadedBy}`}
+                                              title={`${dept.label} • ${getCleanPersonName(doc.facultyName || doc.uploadedBy)}`}
                                             >
                                               <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${dept.color}`} title={`Department: ${dept.label}`} />
                                               <span className="font-semibold text-gray-900 truncate">
-                                                {doc.facultyName || doc.uploadedBy}
+                                                {getCleanPersonName(doc.facultyName || doc.uploadedBy)}
                                               </span>
                                             </div>
                                           );
@@ -905,7 +912,7 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
                         <th className="py-2.5 px-3 w-[22%]">Program / Dept</th>
                         <th className="py-2.5 px-3 w-[10%]">Metric</th>
                         <th className="py-2.5 px-4 w-[32%]">File Name</th>
-                        <th className="py-2.5 px-3 w-[16%]">Submitted By</th>
+                        <th className="py-2.5 px-3 w-[16%]">Uploaded By</th>
                         <th className="py-2.5 px-4 w-[16%] text-right">Review Action</th>
                       </tr>
                     </thead>
@@ -934,16 +941,11 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
 
                               {/* Program / Dept with Department Indicator Dot */}
                               <td className="py-3 px-3 align-top">
-                                <div className="flex items-start gap-2">
-                                  <span className={`w-2.5 h-2.5 rounded-full shrink-0 mt-0.5 ${dept.color}`} title={`Department: ${dept.label}`} />
-                                  <div>
-                                    <span className="font-bold text-gray-900 block text-xs leading-snug">
-                                      {doc.programName}
-                                    </span>
-                                    <span className="text-[10px] text-gray-500 block mt-0.5">
-                                      {doc.academicYear}
-                                    </span>
-                                  </div>
+                                <div className="flex items-center gap-2">
+                                  <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${dept.color}`} title={`Department: ${dept.label}`} />
+                                  <span className="font-bold text-gray-900 text-xs leading-snug">
+                                    {doc.programName}
+                                  </span>
                                 </div>
                               </td>
 
@@ -973,10 +975,10 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
                                 )}
                               </td>
 
-                              {/* Submitted By (no department dot here) */}
+                              {/* Uploaded By */}
                               <td className="py-3 px-3 align-top">
                                 <span className="font-semibold text-gray-800 block text-xs truncate">
-                                  {doc.uploadedBy}
+                                  {getCleanPersonName(doc.uploadedBy || doc.facultyName)}
                                 </span>
                                 <span className="text-[10px] text-gray-400 block mt-0.5">
                                   {doc.uploadedAt ? doc.uploadedAt.split('T')[0] : 'Recent'}
