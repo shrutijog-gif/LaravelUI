@@ -35,7 +35,7 @@ export const Layout: React.FC<LayoutProps> = ({
   onToggleViewMode, 
   onLogout 
 }) => {
-  const getInitialModule = () => {
+  const getInitialModule = (): string => {
     const portalType = typeof window !== 'undefined' ? localStorage.getItem('college_cms_portal_type') : null;
     if (portalType === 'naac-faculty') return 'naac-faculty';
     if (portalType === 'naac-program') return 'naac-aqar';

@@ -60,6 +60,7 @@ export interface NaacEvidenceDocument {
   academicYear: string;
   criterionId: string;
   criterionCode: string;
+  keyIndicatorCode?: string;
   metricCode: string;
   metricName: string;
   metricType: 'QnM' | 'QlM';
@@ -75,7 +76,7 @@ export interface NaacEvidenceDocument {
   submittedByFacultyId?: string;
   facultyName?: string;
   facultyDesignation?: string;
-  coordinatorReviewStatus?: 'pending_review' | 'compiled' | 'changes_requested';
+  coordinatorReviewStatus?: 'pending_review' | 'compiled' | 'changes_requested' | 'rejected';
   coordinatorFeedback?: string;
   compiledAt?: string;
   // School review
