@@ -362,7 +362,7 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
               type="button"
               onClick={() => setDeskMode('quick-upload')}
               className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                deskMode === 'quick-upload'
+                (deskMode as string) === 'quick-upload'
                   ? 'bg-white text-blue-700 shadow-2xs border border-slate-200/80'
                   : 'text-gray-600 hover:text-gray-900'
               }`}
