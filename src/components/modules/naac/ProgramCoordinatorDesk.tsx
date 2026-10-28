@@ -50,6 +50,7 @@ import {
   NAAC_METRICS_LIST,
   getStoredNaacDocuments, 
   compileDocumentIntoDossier,
+  compileBatchDocumentsIntoDossier,
   requestRevisionFromFaculty,
   dispatchDepartmentDossierToSchool,
   addOrUpdateNaacDocument,
@@ -271,23 +272,73 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
     };
   }, []);
 
-  // Filter department documents (B.Tech CSE) — Exclude unsubmitted drafts (drafts stay in personal upload staging until submitted to coordinator)
-  const deptDocs = (Array.isArray(documents) ? documents : []).filter(d => 
-    Boolean(
-      d && 
-      d.status !== 'draft' && 
-      (d.programId === 'prog-cse' || d.programName?.includes('Computer Science') || d.schoolId === 'sch-tech')
-    )
-  );
-
   const isDocSubmittedStatus = (status?: string) => 
     status === 'submitted_to_school' || 
     status === 'submitted_to_university' ||
     status === 'approved_by_school' || 
     status === 'university_verified';
 
-  const pendingDocs = deptDocs.filter(d => !isDocSubmittedStatus(d.status));
-  const submittedDocs = deptDocs.filter(d => isDocSubmittedStatus(d.status));
+  // Filter department documents (B.Tech CSE)
+  // Include:
+  // 1. All compiled proofs (coordinatorReviewStatus === 'compiled')
+  // 2. All coordinator uploads (Anita Verma)
+  // 3. All faculty submissions awaiting review (status === 'submitted_to_program')
+  // 4. All proofs submitted/verified up the chain (submitted_to_school, university_verified, etc.)
+  // Unsubmitted personal drafts stay out of coordinator desk until submitted
+  const deptDocs = (Array.isArray(documents) ? documents : []).filter(d => {
+    if (!d) return false;
+    const isDeptMatch = d.programId === 'prog-cse' || d.programName?.includes('Computer Science') || d.schoolId === 'sch-tech';
+    if (!isDeptMatch) return false;
+    if (d.coordinatorReviewStatus === 'compiled') return true;
+    if (d.uploadedBy?.toLowerCase().includes('anita') || d.submittedByFacultyId === 'coord-anita-verma') return true;
+    if (d.status === 'submitted_to_program') return true;
+    if (isDocSubmittedStatus(d.status)) return true;
+    return d.status !== 'draft';
+  });
+
+  // Submissions from faculty awaiting Program Coordinator review
+  const pendingFacultyDocs = deptDocs.filter(d => 
+    d.status === 'submitted_to_program' && d.coordinatorReviewStatus !== 'compiled'
+  );
+
+  // Program Repository: Only approved/compiled proofs (or uploaded by coordinator, or already submitted to school/university)
+  const programRepoDocs = deptDocs.filter(d => 
+    d.coordinatorReviewStatus === 'compiled' || 
+    isDocSubmittedStatus(d.status) || 
+    d.uploadedBy?.toLowerCase().includes('anita') || 
+    d.submittedByFacultyId === 'coord-anita-verma'
+  );
+
+  const pendingDocs = programRepoDocs.filter(d => !isDocSubmittedStatus(d.status));
+  const submittedDocs = programRepoDocs.filter(d => isDocSubmittedStatus(d.status));
+
+  // State & Handlers for Review Queue
+  const [selectedReviewDocIds, setSelectedReviewDocIds] = useState<string[]>([]);
+  const [reviewSearchQuery, setReviewSearchQuery] = useState('');
+  const [reviewCritFilter, setReviewCritFilter] = useState('all');
+
+  const handleApproveDocument = (doc: NaacEvidenceDocument) => {
+    const targetIds = [doc.id, doc.fileName].filter(Boolean) as string[];
+    const updatedDocs = compileBatchDocumentsIntoDossier(
+      targetIds,
+      'Approved by Program Coordinator Prof. Anita Verma.'
+    );
+    setSelectedReviewDocIds(prev => prev.filter(id => id !== doc.id));
+    setDocuments([...updatedDocs]);
+    showToast(`✅ Approved "${doc.fileName || doc.title}" into Program Repository!`);
+  };
+
+  const handleBatchApproveFacultyDocs = () => {
+    if (selectedReviewDocIds.length === 0) return;
+    const targetIds = [...selectedReviewDocIds];
+    const updatedDocs = compileBatchDocumentsIntoDossier(
+      targetIds,
+      'Approved by Program Coordinator Prof. Anita Verma.'
+    );
+    setSelectedReviewDocIds([]);
+    setDocuments([...updatedDocs]);
+    showToast(`✅ Approved ${targetIds.length} document(s) into Program Repository!`);
+  };
 
   // Document selection checkboxes for Program Repository
   const [selectedRepoDocIds, setSelectedRepoDocIds] = useState<string[]>([]);
@@ -326,16 +377,11 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
     showToast(`✨ Successfully submitted ${count} document${count > 1 ? 's' : ''} to School Coordinator (Dr. Rajesh Sharma) for review`);
   };
 
-  const compiledDocs = deptDocs.filter(d => 
+  const compiledDocs = programRepoDocs.filter(d => 
     Boolean(d && (d.coordinatorReviewStatus === 'compiled' || d.status === 'submitted_to_school' || d.status === 'approved_by_school'))
   );
 
-  // Pending faculty uploads awaiting Program Coordinator review/compilation
-  const pendingFacultyDocs = deptDocs.filter(d => 
-    Boolean(d && d.submittedByFacultyId !== 'coord-anita-verma' && d.coordinatorReviewStatus !== 'compiled')
-  );
-
-  const anitaDocs = deptDocs.filter(d => 
+  const anitaDocs = programRepoDocs.filter(d => 
     Boolean(d && (
       d.uploadedBy?.toLowerCase().includes('anita') || 
       d.facultyName?.toLowerCase().includes('anita') || 
@@ -344,7 +390,7 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
   );
 
   const isDispatchedToSchool = submittedDocs.length > 0;
-  const coveredCriteriaCount = new Set(deptDocs.filter(Boolean).map(d => d?.criterionCode).filter(Boolean)).size;
+  const coveredCriteriaCount = new Set(programRepoDocs.filter(Boolean).map(d => d?.criterionCode).filter(Boolean)).size;
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -354,6 +400,7 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
   // Compile individual document into dossier
   const handleCompileDoc = (docId: string) => {
     compileDocumentIntoDossier(docId);
+    setDocuments(getStoredNaacDocuments());
     showToast('Document marked as compiled in Department Dossier');
   };
 
@@ -602,7 +649,7 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
 
   // Filtered documents for team table
   const teamDisplayedDocs = selectedFacultyFilter
-    ? deptDocs.filter(d => 
+    ? programRepoDocs.filter(d => 
         (selectedFacultyFilter === 'coord-anita-verma' && (
           d.submittedByFacultyId === 'coord-anita-verma' ||
           d.uploadedBy?.toLowerCase().includes('anita') ||
@@ -613,7 +660,61 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
         d.criterionId === selectedFacultyFilter ||
         d.criterionCode === selectedFacultyFilter
       )
-    : deptDocs;
+    : programRepoDocs;
+
+  // Segmented control shared between Quick Upload, Review Submissions, and Program Repository
+  const renderSegmentedToggle = () => (
+    <div className="inline-flex items-center p-1 bg-slate-100 rounded-xl border border-slate-200">
+      <button
+        type="button"
+        onClick={() => setDeskMode('quick-upload')}
+        className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+          deskMode === 'quick-upload'
+            ? 'bg-white text-emerald-700 shadow-2xs border border-slate-200/80'
+            : 'text-gray-600 hover:text-gray-900'
+        }`}
+      >
+        <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+        <span>Quick Proof Drop</span>
+      </button>
+
+      <button
+        type="button"
+        onClick={() => setDeskMode('review-queue')}
+        className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+          deskMode === 'review-queue'
+            ? 'bg-white text-emerald-700 shadow-2xs border border-slate-200/80'
+            : 'text-gray-600 hover:text-gray-900'
+        }`}
+      >
+        <CheckSquare className="w-3.5 h-3.5 text-emerald-600" />
+        <span>Review Submissions</span>
+        <span className={`text-[10px] px-1.5 rounded-full font-bold border ${
+          pendingFacultyDocs.length > 0
+            ? 'bg-amber-100 text-amber-800 border-amber-300'
+            : 'bg-slate-200/80 text-gray-700 border-slate-300'
+        }`}>
+          {pendingFacultyDocs.length}
+        </span>
+      </button>
+
+      <button
+        type="button"
+        onClick={() => setDeskMode('repository')}
+        className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+          deskMode === 'repository'
+            ? 'bg-white text-emerald-700 shadow-2xs border border-slate-200/80'
+            : 'text-gray-600 hover:text-gray-900'
+        }`}
+      >
+        <FolderOpen className="w-3.5 h-3.5 text-emerald-600" />
+        <span>Program Repository</span>
+        <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 rounded-full font-bold">
+          {programRepoDocs.length}
+        </span>
+      </button>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-slate-50/50 pb-16 font-sans">
@@ -742,30 +843,7 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
               role="program"
               portalTitle="Department of Computer Science & Engineering (B.Tech CSE)"
               hideTopUploadButton={true}
-              topBarLeftSlot={
-                <div className="inline-flex items-center p-1 bg-slate-100 rounded-xl border border-slate-200">
-                  <button
-                    type="button"
-                    onClick={() => setDeskMode('quick-upload')}
-                    className="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer bg-white text-emerald-700 shadow-2xs border border-slate-200/80"
-                  >
-                    <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Quick Proof Drop</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setDeskMode('repository')}
-                    className="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer text-gray-600 hover:text-gray-900"
-                  >
-                    <FolderOpen className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Program Repository</span>
-                    <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 rounded-full font-bold">
-                      {deptDocs.length}
-                    </span>
-                  </button>
-                </div>
-              }
+              topBarLeftSlot={renderSegmentedToggle()}
               headingTitle="Drop NAAC Evidence"
               schoolId="sch-tech"
               schoolName="School of Technology & Computer Engineering"
@@ -789,28 +867,7 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
             <div className="space-y-4 animate-in fade-in">
               {/* TOP UNIFIED HORIZONTAL NAVIGATION BAR */}
               <div className="max-w-7xl mx-auto px-4 sm:px-6 py-1 flex items-center justify-between">
-                <div className="inline-flex items-center p-1 bg-slate-100 rounded-xl border border-slate-200">
-                  <button
-                    type="button"
-                    onClick={() => setDeskMode('quick-upload')}
-                    className="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer text-gray-600 hover:text-gray-900"
-                  >
-                    <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Quick Proof Drop</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setDeskMode('repository')}
-                    className="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer bg-white text-emerald-700 shadow-2xs border border-slate-200/80"
-                  >
-                    <FolderOpen className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Program Repository</span>
-                    <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 rounded-full font-bold">
-                      {deptDocs.length}
-                    </span>
-                  </button>
-                </div>
+                {renderSegmentedToggle()}
 
                 <div className="flex items-center gap-2.5">
                   <button
@@ -835,7 +892,250 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
                 </div>
               </div>
 
-              {!selectedYear && (
+              {/* VIEW 2: FACULTY SUBMISSIONS REVIEW QUEUE */}
+              {deskMode === 'review-queue' && (
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-1 space-y-4 animate-in fade-in">
+                  {/* Header Card with Batch Approve and Filter Controls */}
+                  <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                    <div className="flex items-center gap-2.5">
+                      <h3 className="text-xs font-bold text-gray-900">
+                        Faculty Submissions Awaiting Program Review ({pendingFacultyDocs.length})
+                      </h3>
+                      {selectedReviewDocIds.length > 0 && (
+                        <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                          {selectedReviewDocIds.length} selected
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+                      {/* Batch Approve Button */}
+                      <button
+                        type="button"
+                        onClick={handleBatchApproveFacultyDocs}
+                        disabled={selectedReviewDocIds.length === 0}
+                        className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white rounded-lg text-xs font-bold transition-all shadow-2xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
+                        title={
+                          selectedReviewDocIds.length === 0
+                            ? 'Select submissions with checkboxes to batch approve'
+                            : `Approve and compile ${selectedReviewDocIds.length} documents into Program Repository`
+                        }
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Approve Selected {selectedReviewDocIds.length > 0 ? `(${selectedReviewDocIds.length})` : ''}</span>
+                      </button>
+
+                      {/* Criterion Filter */}
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-semibold text-gray-600 whitespace-nowrap">Criterion:</span>
+                        <select
+                          value={reviewCritFilter}
+                          onChange={(e) => setReviewCritFilter(e.target.value)}
+                          className="px-2 py-1.5 bg-slate-50 border border-gray-300 rounded-lg text-xs font-semibold text-gray-800 cursor-pointer focus:ring-1 focus:ring-blue-500 max-w-[170px] truncate"
+                        >
+                          <option value="all">All Criteria (1–7)</option>
+                          {NAAC_CRITERIA_SUMMARY.map(c => (
+                            <option key={c.id} value={c.code}>{c.code}: {c.name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Search */}
+                      <div className="relative">
+                        <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-2 pointer-events-none" />
+                        <input
+                          type="text"
+                          placeholder="Search proof, faculty, metric..."
+                          value={reviewSearchQuery}
+                          onChange={(e) => setReviewSearchQuery(e.target.value)}
+                          className="pl-8 pr-2.5 py-1.5 border border-gray-300 rounded-lg text-xs w-48 sm:w-56 focus:ring-1 focus:ring-blue-500 bg-white"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Table or Empty State */}
+                  {(() => {
+                    const filteredQueueDocs = pendingFacultyDocs.filter(d => {
+                      const matchesCrit = reviewCritFilter === 'all' || d.criterionCode === reviewCritFilter;
+                      const q = reviewSearchQuery.trim().toLowerCase();
+                      const matchesSearch = !q || 
+                        (d.fileName && d.fileName.toLowerCase().includes(q)) || 
+                        (d.title && d.title.toLowerCase().includes(q)) || 
+                        (d.facultyName && d.facultyName.toLowerCase().includes(q)) || 
+                        (d.uploadedBy && d.uploadedBy.toLowerCase().includes(q)) || 
+                        (d.metricCode && d.metricCode.toLowerCase().includes(q));
+                      return matchesCrit && matchesSearch;
+                    });
+
+                    if (pendingFacultyDocs.length === 0) {
+                      return (
+                        <div className="bg-white rounded-xl border border-gray-200 p-12 text-center shadow-2xs">
+                          <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-3">
+                            <CheckCircle2 className="w-6 h-6" />
+                          </div>
+                          <h4 className="text-sm font-bold text-gray-800">Review Queue is All Clear!</h4>
+                          <p className="text-xs text-gray-500 mt-1 max-w-sm mx-auto">
+                            All faculty submissions for B.Tech Computer Science & Engineering have been reviewed and compiled.
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => setDeskMode('repository')}
+                            className="mt-4 px-4 py-1.5 bg-[#0f2748] text-white text-xs font-semibold rounded-lg hover:bg-[#183963] cursor-pointer"
+                          >
+                            View Program Repository
+                          </button>
+                        </div>
+                      );
+                    }
+
+                    if (filteredQueueDocs.length === 0) {
+                      return (
+                        <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-xs text-gray-500">
+                          No submissions found matching your search or criterion filter.
+                        </div>
+                      );
+                    }
+
+                    const allQueueSelected = filteredQueueDocs.length > 0 && filteredQueueDocs.every(d => selectedReviewDocIds.includes(d.id));
+
+                    return (
+                      <div className="bg-white rounded-xl border border-gray-200 shadow-2xs overflow-hidden">
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left text-xs border-collapse">
+                            <thead className="bg-slate-50 border-b border-gray-200 text-gray-600 font-bold text-[11px] uppercase tracking-wider">
+                              <tr>
+                                <th className="py-2.5 px-3 w-10 text-center">
+                                  <input
+                                    type="checkbox"
+                                    checked={allQueueSelected}
+                                    onChange={() => {
+                                      if (allQueueSelected) {
+                                        setSelectedReviewDocIds(prev => prev.filter(id => !filteredQueueDocs.some(d => d.id === id)));
+                                      } else {
+                                        const newIds = Array.from(new Set([...selectedReviewDocIds, ...filteredQueueDocs.map(d => d.id)]));
+                                        setSelectedReviewDocIds(newIds);
+                                      }
+                                    }}
+                                    className="w-3.5 h-3.5 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer accent-[#0f2748]"
+                                    title={allQueueSelected ? 'Deselect all' : 'Select all submissions'}
+                                  />
+                                </th>
+                                <th className="py-2.5 px-3 w-48 whitespace-nowrap">Criteria / KI / Metric</th>
+                                <th className="py-2.5 px-4 min-w-[280px]">File Name & Details</th>
+                                <th className="py-2.5 px-3 w-48">Submitted By</th>
+                                <th className="py-2.5 px-4 w-44 text-right">Review Action</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                              {filteredQueueDocs.map((doc) => {
+                                const isSelected = selectedReviewDocIds.includes(doc.id);
+                                const kiCode = doc.keyIndicatorCode || (doc.metricCode ? doc.metricCode.split('.').slice(0, 2).join('.') : '2.1');
+
+                                return (
+                                  <tr key={doc.id} className={`hover:bg-slate-50/70 transition-colors ${isSelected ? 'bg-slate-100/60' : ''}`}>
+                                    {/* Checkbox */}
+                                    <td className="py-3 px-3 text-center align-top">
+                                      <input
+                                        type="checkbox"
+                                        checked={isSelected}
+                                        onChange={() => {
+                                          setSelectedReviewDocIds(prev =>
+                                            prev.includes(doc.id) ? prev.filter(id => id !== doc.id) : [...prev, doc.id]
+                                          );
+                                        }}
+                                        className="w-3.5 h-3.5 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer accent-[#0f2748] mt-1"
+                                        title={`Select "${doc.fileName || doc.title}"`}
+                                      />
+                                    </td>
+
+                                    {/* Criteria & KI on Line 1, Metric on Line 2 */}
+                                    <td className="py-3 px-3 align-top whitespace-nowrap">
+                                      <div className="space-y-0.5">
+                                        <div className="text-[11px] font-bold text-gray-900 flex items-center gap-1.5 flex-wrap">
+                                          <span>{doc.criterionCode || 'Criterion 2'}</span>
+                                          <span className="text-gray-300 font-normal">•</span>
+                                          <span className="text-gray-600 font-semibold">KI {kiCode}</span>
+                                        </div>
+                                        <div className="text-xs font-bold text-blue-700">
+                                          Metric {doc.metricCode}
+                                        </div>
+                                      </div>
+                                    </td>
+
+                                    {/* File Name & Details */}
+                                    <td className="py-3 px-4 align-top">
+                                      <div className="space-y-1">
+                                        <button
+                                          type="button"
+                                          onClick={() => openFileInNewTab(doc.fileUrl)}
+                                          className="font-semibold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center gap-1.5 text-xs text-left cursor-pointer"
+                                        >
+                                          <FileText className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                                          <span className="truncate max-w-[340px]">{doc.fileName || doc.title}</span>
+                                          <ExternalLink className="w-2.5 h-2.5 text-gray-400 shrink-0" />
+                                        </button>
+                                        <div className="flex items-center gap-2 text-[11px] text-gray-500">
+                                          <span>{doc.fileSize || '2.4 MB'}</span>
+                                          <span className="text-gray-300">•</span>
+                                          <span>Submitted: {doc.uploadedAt ? doc.uploadedAt.split('T')[0] : 'Recent'}</span>
+                                        </div>
+                                      </div>
+                                    </td>
+
+                                    {/* Submitted By */}
+                                    <td className="py-3 px-3 align-top">
+                                      <span className="font-semibold text-gray-900 block text-xs truncate">
+                                        {doc.facultyName || doc.uploadedBy || 'Faculty Member'}
+                                      </span>
+                                      <span className="text-[10px] text-gray-400 block mt-0.5">
+                                        {doc.facultyDesignation || 'Associate Professor'}
+                                      </span>
+                                    </td>
+
+                                    {/* Review Actions: Approve + Revise */}
+                                    <td className="py-3 px-4 align-top text-right whitespace-nowrap">
+                                      <div className="inline-flex items-center justify-end gap-1.5">
+                                        <button
+                                          type="button"
+                                          onClick={() => handleApproveDocument(doc)}
+                                          className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all shadow-2xs cursor-pointer inline-flex items-center gap-1"
+                                          title="Approve evidence and compile into Program Repository"
+                                        >
+                                          <Check className="w-3 h-3 stroke-[3]" />
+                                          <span>Approve</span>
+                                        </button>
+
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setRevisionDoc(doc);
+                                            setRevisionNote('');
+                                          }}
+                                          className="px-2.5 py-1 border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 rounded-lg text-xs font-semibold transition-all cursor-pointer inline-flex items-center gap-1"
+                                          title="Request revision from faculty member with remarks"
+                                        >
+                                          <RotateCcw className="w-3 h-3" />
+                                          <span>Revise</span>
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+
+              {/* VIEW 3: PROGRAM REPOSITORY */}
+              {deskMode === 'repository' && (
+                <>
+                  {!selectedYear && (
                     <div className="space-y-6 animate-in fade-in">
                   {/* Blue House Header & Initiate AQAR Button (Matches Screenshot 1) */}
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-200 pb-3">
@@ -886,7 +1186,7 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
                     <tbody className="divide-y divide-gray-100 text-gray-800">
                       {aqarYears.map((row, index) => {
                         // Count docs for this year
-                        const yearDocs = deptDocs.filter(d => d.academicYear === row.year || (row.year === '2025-26' && d.academicYear.includes('2025')));
+                        const yearDocs = programRepoDocs.filter(d => d.academicYear === row.year || (row.year === '2025-26' && d.academicYear.includes('2025')));
                         const docCount = yearDocs.length;
                         const hasDocs = docCount > 0;
 
@@ -1002,12 +1302,12 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
               {(() => {
                 const isCoordinatorFilter = tableCriterionFilter === 'coordinator';
                 const isFacultyFilter = tableCriterionFilter === 'faculty';
-                const anitaDocs = deptDocs.filter(d => 
+                const anitaDocs = programRepoDocs.filter(d => 
                   d.uploadedBy?.toLowerCase().includes('anita') || 
                   d.facultyName?.toLowerCase().includes('anita') || 
                   d.submittedByFacultyId === 'coord-anita-verma'
                 );
-                const facultyDocs = deptDocs.filter(d => 
+                const facultyDocs = programRepoDocs.filter(d => 
                   d.uploadedBy?.toLowerCase().includes('ramesh') || 
                   d.facultyName?.toLowerCase().includes('ramesh') || 
                   d.submittedByFacultyId === 'fac-1'
@@ -1029,7 +1329,7 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
                     const matchKi = critIndicators.some(ki => ki.name.toLowerCase().includes(q) || ki.code.toLowerCase().includes(q));
                     const critMetrics = NAAC_METRICS_LIST.filter(m => m.criterionCode === crit.code);
                     const matchMetrics = critMetrics.some(m => m.name.toLowerCase().includes(q) || m.code.toLowerCase().includes(q));
-                    const matchDocs = deptDocs.some(d => d.criterionCode === crit.code && (d.title.toLowerCase().includes(q) || d.fileName.toLowerCase().includes(q)));
+                    const matchDocs = programRepoDocs.some(d => d.criterionCode === crit.code && (d.title.toLowerCase().includes(q) || d.fileName.toLowerCase().includes(q)));
                     return matchCrit || matchKi || matchMetrics || matchDocs;
                   }
                   return true;
@@ -1135,7 +1435,7 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
                                     setShowSubmitModal(true);
                                   }
                                 }}
-                                disabled={deptDocs.length === 0}
+                                disabled={programRepoDocs.length === 0}
                                 className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold text-xs rounded-lg shadow-xs inline-flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap shrink-0"
                               >
                                 <Send className="w-3.5 h-3.5" />
@@ -1182,7 +1482,7 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
                               filteredCriteria.map((crit) => {
                                 const isCritCollapsed = Boolean(collapsedCriteria[crit.code]);
                                 const critIndicators = KEY_INDICATORS.filter(ki => ki.criterionCode === crit.code);
-                                const critDocs = deptDocs.filter(d => d.criterionCode === crit.code);
+                                const critDocs = programRepoDocs.filter(d => d.criterionCode === crit.code);
 
                                 return (
                                   <React.Fragment key={crit.id}>
@@ -1235,7 +1535,7 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
                                     {!isCritCollapsed && critIndicators.map((ki) => {
                                       const isKiCollapsed = Boolean(collapsedKeyIndicators[ki.code]);
                                       const kiMetrics = NAAC_METRICS_LIST.filter(m => ki.metricCodes.includes(m.code) || m.code.startsWith(ki.code));
-                                      const kiDocs = deptDocs.filter(d => kiMetrics.some(m => m.code === d.metricCode));
+                                      const kiDocs = programRepoDocs.filter(d => kiMetrics.some(m => m.code === d.metricCode));
 
                                       return (
                                         <React.Fragment key={ki.code}>
@@ -1281,7 +1581,7 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
 
                                           {/* LEVEL 3: METRIC ROWS (Rows in the SAME table matching 6 columns) */}
                                           {!isKiCollapsed && kiMetrics.map((metric) => {
-                                            const metricDocs = deptDocs.filter(d => {
+                                            const metricDocs = programRepoDocs.filter(d => {
                                               if (d.metricCode !== metric.code) return false;
                                               if (isCoordinatorFilter) {
                                                 return (
@@ -1415,30 +1715,38 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
                                                   {formatDocDate(doc.uploadedAt)}
                                                 </td>
 
-                                                {/* Col 6: Revise / Request Changes Action */}
+                                                {/* Col 6: Status / Action */}
                                                 <td className="py-2.5 px-3 text-center align-top whitespace-nowrap">
-                                                  {isDocSubmittedStatus(doc.status) ? (
-                                                    <span 
-                                                      className="inline-block text-[10px] font-semibold text-gray-400 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded cursor-not-allowed"
-                                                      title="Submitted to School Coordinator — Locked"
-                                                    >
-                                                      Locked
-                                                    </span>
-                                                  ) : (
+                                                  <div className="inline-flex items-center justify-center gap-1.5">
                                                     <button
                                                       type="button"
                                                       onClick={(e) => {
                                                         e.stopPropagation();
-                                                        setRevisionDoc(doc);
-                                                        setRevisionNote(doc.coordinatorFeedback || '');
+                                                        openFileInNewTab(doc.fileUrl);
                                                       }}
-                                                      className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded text-[11px] font-bold cursor-pointer transition-colors shadow-2xs"
-                                                      title="Send back to faculty for revision with feedback"
+                                                      className="p-1 hover:bg-blue-50 text-blue-600 rounded transition-colors cursor-pointer"
+                                                      title={`View ${doc.fileName || doc.title}`}
                                                     >
-                                                      <RotateCcw className="w-3 h-3 text-amber-600" />
-                                                      Revise
+                                                      <ExternalLink className="w-3.5 h-3.5" />
                                                     </button>
-                                                  )}
+                                                    {isDocSubmittedStatus(doc.status) ? (
+                                                      <span 
+                                                        className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded"
+                                                        title="Submitted to School Coordinator"
+                                                      >
+                                                        <Send className="w-2.5 h-2.5" />
+                                                        Submitted
+                                                      </span>
+                                                    ) : (
+                                                      <span 
+                                                        className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded shadow-2xs"
+                                                        title="Approved and compiled in Program Repository"
+                                                      >
+                                                        <Check className="w-3 h-3 stroke-[3]" />
+                                                        Approved
+                                                      </span>
+                                                    )}
+                                                  </div>
                                                 </td>
                                               </tr>
                                             ));
@@ -1509,7 +1817,7 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5">
                       {/* 1ST BOX: PROF. ANITA VERMA (PROGRAM COORDINATOR) - DISTINCT COLOR, NO DOSSIER */}
                       {(() => {
-                        const anitaDocs = deptDocs.filter(d => 
+                        const anitaDocs = programRepoDocs.filter(d => 
                           d.uploadedBy?.toLowerCase().includes('anita') || 
                           d.facultyName?.toLowerCase().includes('anita') || 
                           d.submittedByFacultyId === 'coord-anita-verma'
@@ -1590,7 +1898,7 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
                       {/* CRITERIA 1 TO 7 CARDS */}
                       {NAAC_CRITERIA_SUMMARY.map((crit) => {
                         const assignedFaculty = CSE_DEPARTMENT_FACULTY.find(f => f.criterionAssigned.includes(crit.code)) || CSE_DEPARTMENT_FACULTY[0];
-                        const critDocs = deptDocs.filter(d => d.criterionCode === crit.code || d.criterionId === crit.id);
+                        const critDocs = programRepoDocs.filter(d => d.criterionCode === crit.code || d.criterionId === crit.id);
                         const isSelected = selectedFacultyFilter === assignedFaculty.id || selectedFacultyFilter === crit.code || selectedFacultyFilter === crit.id;
 
                         return (
@@ -1840,7 +2148,7 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
                                         </button>
                                       )}
 
-                                      {!isDispatchedToSchool && (
+                                      {!isDispatchedToSchool && !isCompiled && (
                                         <button
                                           type="button"
                                           onClick={() => {
@@ -1888,7 +2196,7 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
              --------------------------------------------------------------------- */}
           {selectedYear && selectedCriterionCode && (() => {
             if (selectedCriterionCode === 'coordinator') {
-              const anitaDocs = deptDocs.filter(d => 
+              const anitaDocs = programRepoDocs.filter(d => 
                 d.uploadedBy?.toLowerCase().includes('anita') || 
                 d.facultyName?.toLowerCase().includes('anita') || 
                 d.submittedByFacultyId === 'coord-anita-verma'
@@ -2076,7 +2384,7 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
             const critSummary = NAAC_CRITERIA_SUMMARY.find(c => c.code === selectedCriterionCode) || NAAC_CRITERIA_SUMMARY[0];
             const assignedFaculty = CSE_DEPARTMENT_FACULTY.find(f => f.criterionAssigned.includes(critSummary.code));
             const indicatorsForCrit = KEY_INDICATORS.filter(ki => ki.criterionCode === critSummary.code);
-            const docsForCrit = deptDocs.filter(d => d.criterionCode === critSummary.code);
+            const docsForCrit = programRepoDocs.filter(d => d.criterionCode === critSummary.code);
 
             return (
               <div className="space-y-5 animate-in fade-in">
@@ -2259,9 +2567,11 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
               </div>
             );
           })()}
-        </div>
+        </>
       )}
-  </>
+    </div>
+  )}
+</>
 )}
 
       {/* =========================================================================
@@ -2709,7 +3019,7 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
               <span>
                 Proofs to Submit:{' '}
                 <strong className="text-gray-900 font-bold">
-                  {pendingDocs.length > 0 ? pendingDocs.length : deptDocs.length} Documents
+                  {pendingDocs.length > 0 ? pendingDocs.length : programRepoDocs.length} Documents
                 </strong>
                 {submittedDocs.length > 0 && pendingDocs.length > 0 && (
                   <span className="text-blue-700 font-medium ml-1">
@@ -2778,12 +3088,12 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
 
             <div className="p-5 space-y-3 text-xs">
               <div>
-                <span className="block text-[11px] text-gray-500">Document:</span>
-                <strong className="text-gray-900">{revisionDoc.title}</strong>
+                <span className="block text-[11px] text-gray-500">Evidence File:</span>
+                <strong className="text-gray-900 break-all">{revisionDoc.fileName || revisionDoc.title}</strong>
               </div>
               <div>
-                <span className="block text-[11px] text-gray-500">Assigned Faculty:</span>
-                <strong className="text-gray-900">{revisionDoc.facultyName || revisionDoc.uploadedBy}</strong>
+                <span className="block text-[11px] text-gray-500">Submitted By:</span>
+                <strong className="text-gray-900">{revisionDoc.facultyName || revisionDoc.uploadedBy || 'Faculty Member'}</strong>
               </div>
               <div>
                 <label className="block font-bold text-gray-700 mb-1">

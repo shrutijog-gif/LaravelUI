@@ -847,20 +847,49 @@ export const addOrUpdateNaacDocument = (doc: Partial<NaacEvidenceDocument>): Naa
 /**
  * Program Coordinator Action: Compile an individual faculty document into Department Dossier
  */
-export const compileDocumentIntoDossier = (docId: string, coordinatorNotes?: string): void => {
+export const compileDocumentIntoDossier = (docId: string, coordinatorNotes?: string): NaacEvidenceDocument | undefined => {
   const current = getStoredNaacDocuments();
-  const doc = current.find(d => d.id === docId);
+  const doc = current.find(d => d.id === docId || d.fileName === docId);
   if (doc) {
     doc.coordinatorReviewStatus = 'compiled';
     doc.compiledAt = new Date().toISOString();
     if (coordinatorNotes) {
       doc.coordinatorFeedback = coordinatorNotes;
     }
-    if (doc.status === 'changes_requested') {
-      doc.status = 'draft';
+    saveAllNaacDocuments(current);
+    return doc;
+  }
+  return undefined;
+};
+
+/**
+ * Program Coordinator Action: Batch compile multiple faculty documents into Department Dossier atomically
+ */
+export const compileBatchDocumentsIntoDossier = (
+  docIds: string[], 
+  coordinatorNotes?: string
+): NaacEvidenceDocument[] => {
+  const current = getStoredNaacDocuments();
+  const idSet = new Set(docIds.filter(Boolean));
+  let count = 0;
+  current.forEach(doc => {
+    if (doc && (idSet.has(doc.id) || (doc.fileName && idSet.has(doc.fileName)))) {
+      doc.coordinatorReviewStatus = 'compiled';
+      doc.compiledAt = new Date().toISOString();
+      if (!doc.programId) {
+        doc.programId = 'prog-cse';
+        doc.programName = 'B.Tech Computer Science & Engineering';
+      }
+      if (coordinatorNotes) {
+        doc.coordinatorFeedback = coordinatorNotes;
+      }
+      count++;
     }
+  });
+  if (count > 0) {
     saveAllNaacDocuments(current);
   }
+  return current;
 };
 
 /**
@@ -868,7 +897,7 @@ export const compileDocumentIntoDossier = (docId: string, coordinatorNotes?: str
  */
 export const requestRevisionFromFaculty = (docId: string, feedback: string): void => {
   const current = getStoredNaacDocuments();
-  const doc = current.find(d => d.id === docId);
+  const doc = current.find(d => d.id === docId || d.fileName === docId);
   if (doc) {
     doc.status = 'draft';
     doc.coordinatorReviewStatus = 'changes_requested';
@@ -1022,16 +1051,44 @@ export const submitBatchNaacDocuments = (
   return count;
 };
 
-export const reviewSchoolDocument = (docId: string, approved: boolean, note: string, reviewerName: string = 'Dr. Rajesh Sharma'): void => {
+/**
+ * School Coordinator Action: Batch approve or request revision on multiple department submissions atomically
+ */
+export const reviewBatchSchoolDocuments = (
+  docIds: string[], 
+  approved: boolean, 
+  note: string, 
+  reviewerName: string = 'Dr. Rajesh Sharma (School Coordinator)'
+): NaacEvidenceDocument[] => {
   const current = getStoredNaacDocuments();
-  const doc = current.find(d => d.id === docId);
-  if (doc) {
-    doc.status = approved ? 'approved_by_school' : 'changes_requested';
-    doc.schoolReviewNote = note;
-    doc.schoolReviewedBy = reviewerName;
-    doc.schoolReviewedAt = new Date().toISOString();
+  const idSet = new Set(docIds.filter(Boolean));
+  let count = 0;
+  current.forEach(doc => {
+    if (doc && (idSet.has(doc.id) || (doc.fileName && idSet.has(doc.fileName)))) {
+      doc.status = approved ? 'approved_by_school' : 'changes_requested';
+      doc.schoolReviewNote = note;
+      doc.schoolReviewedBy = reviewerName;
+      doc.schoolReviewedAt = new Date().toISOString();
+      if (!doc.schoolId) {
+        doc.schoolId = 'sch-tech';
+        doc.schoolName = 'School of Technology & Computer Engineering';
+      }
+      count++;
+    }
+  });
+  if (count > 0) {
     saveAllNaacDocuments(current);
   }
+  return current;
+};
+
+export const reviewSchoolDocument = (
+  docId: string, 
+  approved: boolean, 
+  note: string, 
+  reviewerName: string = 'Dr. Rajesh Sharma'
+): NaacEvidenceDocument[] => {
+  return reviewBatchSchoolDocuments([docId], approved, note, reviewerName);
 };
 
 export const verifyUniversityDocument = (docId: string, verified: boolean, note: string, reviewerName: string = 'Dr. Vikram Malhotra'): void => {

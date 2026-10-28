@@ -34,6 +34,7 @@ import {
   NaacEvidenceDocument, 
   getStoredNaacDocuments, 
   reviewSchoolDocument,
+  reviewBatchSchoolDocuments,
   deleteNaacDocument,
   submitBatchNaacDocuments
 } from '../../../data/naacDmsData';
@@ -178,7 +179,23 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
   }, []);
 
   // All documents belonging to this school
-  const allSchoolDocs = documents.filter(d => d.schoolId === currentSchool.id || d.schoolId === 'sch-eng');
+  const allSchoolDocs = documents.filter(d => 
+    Boolean(
+      d && (
+        d.schoolId === currentSchool.id || 
+        d.schoolId === 'sch-tech' || 
+        d.schoolId === 'sch-eng' ||
+        d.programId === 'prog-cse' ||
+        d.programId === 'prog-bca' ||
+        d.programId === 'prog-cyber' ||
+        d.programId === 'prog-ai' ||
+        d.programName?.toLowerCase().includes('computer') ||
+        d.programName?.toLowerCase().includes('technology') ||
+        d.uploadedBy?.toLowerCase().includes('rajesh') ||
+        d.uploadedBy?.toLowerCase().includes('anita')
+      )
+    )
+  );
 
   // Documents submitted by program coordinators needing school review
   const pendingReviewDocs = allSchoolDocs.filter(d => d.status === 'submitted_to_school');
@@ -202,33 +219,33 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
   const filteredSchoolDocs = schoolDocs.filter(matchesProgram);
   const filteredPendingDocs = pendingReviewDocs.filter(matchesProgram);
 
-  // Approve & Forward to University
+  // Approve & Move to School Repository
   const handleApproveDocument = (doc: NaacEvidenceDocument) => {
-    reviewSchoolDocument(
-      doc.id, 
+    const targetIds = [doc.id, doc.fileName].filter(Boolean) as string[];
+    const updatedDocs = reviewBatchSchoolDocuments(
+      targetIds, 
       true, 
       'Approved by School Coordinator & Dean. All evidentiary requirements satisfied for AQAR/SSR compilation.',
       'Dr. Rajesh Sharma (School Coordinator)'
     );
-    refreshDocuments();
-    showToast(`✅ Approved "${doc.fileName}" and forwarded to University IQAC!`);
+    setSelectedReviewDocIds(prev => prev.filter(id => id !== doc.id));
+    setDocuments([...updatedDocs]);
+    showToast(`✅ Approved "${doc.fileName || doc.title}" into School Repository!`);
   };
 
   // Batch Approve Selected Documents
   const handleBatchApproveSelected = () => {
     if (selectedReviewDocIds.length === 0) return;
-    const count = selectedReviewDocIds.length;
-    selectedReviewDocIds.forEach(id => {
-      reviewSchoolDocument(
-        id, 
-        true, 
-        'Approved by School Coordinator & Dean. All evidentiary requirements satisfied for AQAR/SSR compilation.',
-        'Dr. Rajesh Sharma (School Coordinator)'
-      );
-    });
+    const targetIds = [...selectedReviewDocIds];
+    const updatedDocs = reviewBatchSchoolDocuments(
+      targetIds, 
+      true, 
+      'Approved by School Coordinator & Dean. All evidentiary requirements satisfied for AQAR/SSR compilation.',
+      'Dr. Rajesh Sharma (School Coordinator)'
+    );
     setSelectedReviewDocIds([]);
-    refreshDocuments();
-    showToast(`✅ Successfully approved ${count} document${count > 1 ? 's' : ''} and forwarded to University IQAC!`);
+    setDocuments([...updatedDocs]);
+    showToast(`✅ Successfully approved ${targetIds.length} document${targetIds.length > 1 ? 's' : ''} into School Repository!`);
   };
 
   // Selection handlers for School Repository
@@ -279,13 +296,13 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
   const handleSubmitRevision = () => {
     if (!revisionDoc) return;
     const note = revisionFeedback.trim() || 'Please re-upload with official departmental stamp and BoS verification.';
-    reviewSchoolDocument(
-      revisionDoc.id, 
+    const updatedDocs = reviewBatchSchoolDocuments(
+      [revisionDoc.id, revisionDoc.fileName].filter(Boolean) as string[], 
       false, 
       note, 
       'Dr. Rajesh Sharma (School Coordinator)'
     );
-    refreshDocuments();
+    setDocuments([...updatedDocs]);
     setRevisionDoc(null);
     setRevisionFeedback('');
     showToast(`⚠️ Revision request sent back to Program Coordinator for "${revisionDoc.fileName}".`);
@@ -364,7 +381,7 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
               }`}
             >
               <FileCheck2 className="w-3.5 h-3.5 text-blue-600" />
-              <span>Review Program Documents</span>
+              <span>Review Documents</span>
               {pendingReviewDocs.length > 0 && (
                 <span className="text-[10px] bg-amber-500 text-white px-1.5 py-0.2 rounded-full font-bold animate-pulse">
                   {pendingReviewDocs.length}
