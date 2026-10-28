@@ -85,6 +85,14 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
   topBarLeftSlot,
   hideTopUploadButton = false,
 }) => {
+  const submitTargetLabel =
+    submitTargetName ||
+    (role === 'school'
+      ? 'University Coordinator'
+      : role === 'university'
+      ? 'Permanent SSR Archive'
+      : 'Program Coordinator');
+
   const [documents, setDocuments] = useState<NaacEvidenceDocument[]>(() => getStoredNaacDocuments());
   const [isDragging, setIsDragging] = useState(false);
   const [isBarDragging, setIsBarDragging] = useState(false);
@@ -1032,18 +1040,20 @@ Respond in JSON ONLY:
       return;
     }
 
-    const nextStatus: NaacWorkflowStatus = role === 'school'
+    const nextStatus: NaacWorkflowStatus = submitTargetLabel === 'Program Coordinator'
+      ? 'submitted_to_program'
+      : role === 'school'
       ? 'submitted_to_university'
       : role === 'university'
       ? 'university_verified'
       : 'submitted_to_program';
 
-    const targetLabel = submitTargetName || (role === 'school' ? 'University Coordinator' : role === 'university' ? 'Permanent SSR Archive' : 'Program Coordinator');
+    const targetLabel = submitTargetLabel;
 
     const count = submitBatchNaacDocuments(targetDocIds, nextStatus, {
-      coordinatorReviewStatus: role === 'program' ? 'pending_review' : undefined,
-      schoolReviewedBy: role === 'school' ? (uploaderName || 'Dean (School Coordinator)') : undefined,
-      schoolReviewedAt: role === 'school' ? new Date().toISOString() : undefined,
+      coordinatorReviewStatus: (submitTargetLabel === 'Program Coordinator' || role === 'program') ? 'pending_review' : undefined,
+      schoolReviewedBy: role === 'school' && submitTargetLabel !== 'Program Coordinator' ? (uploaderName || 'Dean (School Coordinator)') : undefined,
+      schoolReviewedAt: role === 'school' && submitTargetLabel !== 'Program Coordinator' ? new Date().toISOString() : undefined,
       universityVerifiedBy: role === 'university' ? (uploaderName || 'IQAC Central Committee') : undefined,
       universityVerifiedAt: role === 'university' ? new Date().toISOString() : undefined,
     });
@@ -1133,7 +1143,7 @@ Respond in JSON ONLY:
       )}
 
       {/* Top Navigation Bar: Single Unified Line */}
-      <div className="flex items-center justify-between py-2.5 border-b border-gray-200">
+      <div className="flex items-center justify-between py-1">
         {topBarLeftSlot ? (
           /* One Unified Line: Parent Desk Action Tabs on Left */
           <div className="flex items-center gap-3">
@@ -2228,15 +2238,18 @@ Respond in JSON ONLY:
                     type="button"
                     onClick={handleSubmitToCoordinator}
                     disabled={selectedDocIds.length === 0}
-                    className="w-full sm:flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold text-white bg-[#0f2748] hover:bg-[#183963] active:scale-[0.99] shadow-sm transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full sm:flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold text-white bg-[#0f2748] hover:bg-[#183963] active:scale-[0.99] shadow-sm transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                     title={
                       selectedDocIds.length === 0
-                        ? 'Select at least one document to submit'
-                        : `Submit ${selectedDocIds.length} selected document(s)`
+                        ? `Select at least one document to submit to ${submitTargetLabel}`
+                        : `Submit ${selectedDocIds.length} selected document(s) to ${submitTargetLabel}`
                     }
                   >
-                    <Send className="w-3.5 h-3.5 text-blue-200" />
-                    <span>Submit{selectedDocIds.length > 0 ? ` (${selectedDocIds.length})` : ''}</span>
+                    <Send className="w-3.5 h-3.5 text-blue-200 shrink-0" />
+                    <span>
+                      Submit to {submitTargetLabel}
+                      {selectedDocIds.length > 0 ? ` (${selectedDocIds.length})` : ''}
+                    </span>
                   </button>
 
                   {/* 2. View Program Repository Action Button */}

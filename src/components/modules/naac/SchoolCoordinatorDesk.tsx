@@ -34,7 +34,8 @@ import {
   NaacEvidenceDocument, 
   getStoredNaacDocuments, 
   reviewSchoolDocument,
-  deleteNaacDocument 
+  deleteNaacDocument,
+  submitBatchNaacDocuments
 } from '../../../data/naacDmsData';
 import { openFileInNewTab } from '../../../utils/fileHelper';
 import { NaacQuickUploadLanding } from './NaacQuickUploadLanding';
@@ -84,6 +85,9 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
 
   // Batch Selection State for Program Submissions Review
   const [selectedReviewDocIds, setSelectedReviewDocIds] = useState<string[]>([]);
+
+  // Batch Selection State for School Repository (Forwarding to University Coordinator)
+  const [selectedRepoDocIds, setSelectedRepoDocIds] = useState<string[]>([]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -181,9 +185,9 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
   const approvedDocs = allSchoolDocs.filter(d => d.status === 'approved_by_school');
   const verifiedDocs = allSchoolDocs.filter(d => d.status === 'university_verified');
 
-  // School Repository: Always approved proofs (school approved, university verified, or uploaded by school coordinator)
+  // School Repository: Approved or submitted proofs (school approved, forwarded to university, university verified, or uploaded by school coordinator)
   const schoolDocs = allSchoolDocs.filter(d => 
-    d.status === 'approved_by_school' || d.status === 'university_verified' || !d.status || d.uploadedBy?.includes('School Coordinator')
+    d.status === 'approved_by_school' || d.status === 'submitted_to_university' || d.status === 'university_verified' || !d.status || d.uploadedBy?.includes('School Coordinator')
   );
 
   // Program-filtered lists
@@ -225,6 +229,50 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
     setSelectedReviewDocIds([]);
     refreshDocuments();
     showToast(`✅ Successfully approved ${count} document${count > 1 ? 's' : ''} and forwarded to University IQAC!`);
+  };
+
+  // Selection handlers for School Repository
+  const handleToggleSelectRepoDoc = (docId: string) => {
+    setSelectedRepoDocIds(prev =>
+      prev.includes(docId) ? prev.filter(id => id !== docId) : [...prev, docId]
+    );
+  };
+
+  const allVisibleRepoDocs = filteredSchoolDocs.filter(d => {
+    if (selectedCriterionFilter !== 'all' && d.criterionCode !== selectedCriterionFilter) return false;
+    if (!searchQuery.trim()) return true;
+    return (
+      (d.fileName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (d.title || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      d.metricCode.includes(searchQuery)
+    );
+  });
+
+  const allRepoSelected = allVisibleRepoDocs.length > 0 && allVisibleRepoDocs.every(d => selectedRepoDocIds.includes(d.id));
+
+  const handleToggleSelectAllRepo = () => {
+    if (allRepoSelected) {
+      setSelectedRepoDocIds(prev => prev.filter(id => !allVisibleRepoDocs.some(d => d.id === id)));
+    } else {
+      const newIds = Array.from(new Set([...selectedRepoDocIds, ...allVisibleRepoDocs.map(d => d.id)]));
+      setSelectedRepoDocIds(newIds);
+    }
+  };
+
+  // Submit selected School Repository documents to University Coordinator (Central IQAC)
+  const handleSubmitToUniversity = () => {
+    if (selectedRepoDocIds.length === 0) return;
+    const count = submitBatchNaacDocuments(
+      selectedRepoDocIds,
+      'submitted_to_university',
+      {
+        schoolReviewedBy: 'Dr. Rajesh Sharma (School Coordinator)',
+        schoolReviewedAt: new Date().toISOString(),
+      }
+    );
+    setSelectedRepoDocIds([]);
+    refreshDocuments();
+    showToast(`🚀 Successfully submitted ${count} document${count > 1 ? 's' : ''} to University Coordinator (Central IQAC)!`);
   };
 
   // Submit Revision Feedback
@@ -291,61 +339,59 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
 
       {/* ACTION TABS BAR FOR REPOSITORY & REVIEW QUEUE MODES */}
       {deskMode !== 'quick-upload' && (
-        <div className="bg-white border-b border-gray-200 sticky top-0 z-20 shadow-2xs">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-between">
-            <div className="inline-flex items-center p-1 bg-slate-100 rounded-xl border border-slate-200">
-              <button
-                type="button"
-                onClick={() => setDeskMode('quick-upload')}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  deskMode === 'quick-upload'
-                    ? 'bg-white text-blue-700 shadow-2xs border border-slate-200/80'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-                <span>Quick Proof Drop</span>
-              </button>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-1 flex items-center justify-between">
+          <div className="inline-flex items-center p-1 bg-slate-100 rounded-xl border border-slate-200">
+            <button
+              type="button"
+              onClick={() => setDeskMode('quick-upload')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                deskMode === 'quick-upload'
+                  ? 'bg-white text-blue-700 shadow-2xs border border-slate-200/80'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+              <span>Quick Proof Drop</span>
+            </button>
 
-              <button
-                type="button"
-                onClick={() => setDeskMode('review-queue')}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  deskMode === 'review-queue'
-                    ? 'bg-white text-blue-700 shadow-2xs border border-slate-200/80'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                <FileCheck2 className="w-3.5 h-3.5 text-blue-600" />
-                <span>Review Program Documents</span>
-                {pendingReviewDocs.length > 0 && (
-                  <span className="text-[10px] bg-amber-500 text-white px-1.5 py-0.2 rounded-full font-bold animate-pulse">
-                    {pendingReviewDocs.length}
-                  </span>
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setDeskMode('repository')}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  deskMode === 'repository'
-                    ? 'bg-white text-blue-700 shadow-2xs border border-slate-200/80'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                <FolderOpen className="w-3.5 h-3.5 text-blue-600" />
-                <span>School Repository</span>
-                <span className="text-[10px] bg-blue-50 text-blue-700 border border-blue-200 px-1.5 rounded-full font-bold">
-                  {schoolDocs.length}
+            <button
+              type="button"
+              onClick={() => setDeskMode('review-queue')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                deskMode === 'review-queue'
+                  ? 'bg-white text-blue-700 shadow-2xs border border-slate-200/80'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <FileCheck2 className="w-3.5 h-3.5 text-blue-600" />
+              <span>Review Program Documents</span>
+              {pendingReviewDocs.length > 0 && (
+                <span className="text-[10px] bg-amber-500 text-white px-1.5 py-0.2 rounded-full font-bold animate-pulse">
+                  {pendingReviewDocs.length}
                 </span>
-              </button>
-            </div>
+              )}
+            </button>
 
-            <span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded font-mono text-xs font-semibold border border-blue-200">
-              AQAR {academicYear}
-            </span>
+            <button
+              type="button"
+              onClick={() => setDeskMode('repository')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                deskMode === 'repository'
+                  ? 'bg-white text-blue-700 shadow-2xs border border-slate-200/80'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <FolderOpen className="w-3.5 h-3.5 text-blue-600" />
+              <span>School Repository</span>
+              <span className="text-[10px] bg-blue-50 text-blue-700 border border-blue-200 px-1.5 rounded-full font-bold">
+                {schoolDocs.length}
+              </span>
+            </button>
           </div>
+
+          <span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded font-mono text-xs font-semibold border border-blue-200">
+            AQAR {academicYear}
+          </span>
         </div>
       )}
 
@@ -485,33 +531,57 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
 
             {/* School Repository Hierarchical Table with Integrated Department Key */}
             <div className="bg-white rounded-lg border border-gray-200 shadow-xs overflow-hidden">
-              {/* Integrated Department Color Key Strip */}
+              {/* Integrated Department Color Key Strip + Batch Action */}
               <div className="bg-slate-50/90 border-b border-gray-200 px-4 py-2 flex flex-wrap items-center justify-between gap-2.5 text-xs">
-                <div className="flex items-center gap-1.5 text-slate-700 font-bold text-[11px] uppercase tracking-wider">
-                  <Info className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                  <span>Department Key:</span>
+                <div className="flex flex-wrap items-center gap-2.5 min-w-0">
+                  <div className="flex items-center gap-1.5 text-slate-700 font-bold text-[11px] uppercase tracking-wider">
+                    <Info className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                    <span>Department Key:</span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs font-semibold text-gray-700">
+                    <span className="inline-flex items-center gap-1.5 hover:text-blue-600 transition-colors cursor-default" title="B.Tech Computer Science & Engineering">
+                      <span className="w-2.5 h-2.5 rounded-full bg-blue-500 ring-2 ring-blue-200 shrink-0"></span>
+                      <span>B.Tech CSE</span>
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 hover:text-teal-600 transition-colors cursor-default" title="BCA & Cloud Computing">
+                      <span className="w-2.5 h-2.5 rounded-full bg-teal-500 ring-2 ring-teal-200 shrink-0"></span>
+                      <span>BCA & Cloud</span>
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 hover:text-emerald-600 transition-colors cursor-default" title="B.Sc Cyber Security & Digital Forensics">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-200 shrink-0"></span>
+                      <span>B.Sc Cyber</span>
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 hover:text-indigo-600 transition-colors cursor-default" title="M.Tech Artificial Intelligence & Machine Learning">
+                      <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 ring-2 ring-indigo-200 shrink-0"></span>
+                      <span>M.Tech AI-ML</span>
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 hover:text-purple-600 transition-colors cursor-default" title="School Common Proofs (All Programs)">
+                      <span className="w-2.5 h-2.5 rounded-full bg-purple-500 ring-2 ring-purple-200 shrink-0"></span>
+                      <span>School Common</span>
+                    </span>
+                  </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs font-semibold text-gray-700">
-                  <span className="inline-flex items-center gap-1.5 hover:text-blue-600 transition-colors cursor-default" title="B.Tech Computer Science & Engineering">
-                    <span className="w-2.5 h-2.5 rounded-full bg-blue-500 ring-2 ring-blue-200 shrink-0"></span>
-                    <span>B.Tech CSE</span>
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 hover:text-teal-600 transition-colors cursor-default" title="BCA & Cloud Computing">
-                    <span className="w-2.5 h-2.5 rounded-full bg-teal-500 ring-2 ring-teal-200 shrink-0"></span>
-                    <span>BCA & Cloud</span>
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 hover:text-emerald-600 transition-colors cursor-default" title="B.Sc Cyber Security & Digital Forensics">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-200 shrink-0"></span>
-                    <span>B.Sc Cyber</span>
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 hover:text-indigo-600 transition-colors cursor-default" title="M.Tech Artificial Intelligence & Machine Learning">
-                    <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 ring-2 ring-indigo-200 shrink-0"></span>
-                    <span>M.Tech AI-ML</span>
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 hover:text-purple-600 transition-colors cursor-default" title="School Common Proofs (All Programs)">
-                    <span className="w-2.5 h-2.5 rounded-full bg-purple-500 ring-2 ring-purple-200 shrink-0"></span>
-                    <span>School Common</span>
-                  </span>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  {selectedRepoDocIds.length > 0 && (
+                    <span className="text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded-full">
+                      {selectedRepoDocIds.length} selected
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleSubmitToUniversity}
+                    disabled={selectedRepoDocIds.length === 0}
+                    className="px-3.5 py-1.5 bg-[#0f2748] hover:bg-[#183963] active:scale-[0.99] text-white rounded-lg text-xs font-bold transition-all shadow-2xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
+                    title={
+                      selectedRepoDocIds.length === 0
+                        ? 'Select documents with checkboxes to submit to University Coordinator'
+                        : `Submit ${selectedRepoDocIds.length} selected document(s) to University Coordinator`
+                    }
+                  >
+                    <Send className="w-3.5 h-3.5 text-blue-200" />
+                    <span>Submit to University Coordinator {selectedRepoDocIds.length > 0 ? `(${selectedRepoDocIds.length})` : ''}</span>
+                  </button>
                 </div>
               </div>
 
@@ -519,10 +589,22 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
                 <table className="w-full text-left text-xs border-collapse">
                   <thead className="bg-gray-50 border-b border-gray-200 text-gray-600 font-semibold text-[11px] uppercase tracking-wider">
                     <tr>
-                      <th className="py-2.5 px-4 w-[36%]">Metric / NAAC Hierarchy</th>
+                      <th className="py-2.5 px-4 w-[34%]">Metric / NAAC Hierarchy</th>
                       <th className="py-2.5 px-3 w-[8%]">Type</th>
-                      <th className="py-2.5 px-3 w-[26%]">Attached Document</th>
-                      <th className="py-2.5 px-3 w-[16%]">
+                      <th className="py-2.5 px-3 w-[28%]">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={allRepoSelected}
+                            onChange={handleToggleSelectAllRepo}
+                            disabled={allVisibleRepoDocs.length === 0}
+                            className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-500 cursor-pointer disabled:opacity-40 accent-[#0f2748]"
+                            title={allRepoSelected ? 'Deselect all' : 'Select all documents in School Repository'}
+                          />
+                          <span>Attached Document</span>
+                        </div>
+                      </th>
+                      <th className="py-2.5 px-3 w-[15%]">
                         <div className="flex items-center gap-1.5">
                           <span>Uploaded By</span>
                           <span 
@@ -533,7 +615,7 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
                           </span>
                         </div>
                       </th>
-                      <th className="py-2.5 px-3 w-[10%]"></th>
+                      <th className="py-2.5 px-3 w-[11%]">Date</th>
                       <th className="py-2.5 px-2 w-[4%] text-center"></th>
                     </tr>
                   </thead>
@@ -564,6 +646,26 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
                             <td colSpan={6} className="py-2.5 px-4">
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
+                                  <input
+                                    type="checkbox"
+                                    checked={critDocs.length > 0 && critDocs.every(d => selectedRepoDocIds.includes(d.id))}
+                                    onClick={(e) => e.stopPropagation()}
+                                    onChange={() => {
+                                      const allCritSel = critDocs.length > 0 && critDocs.every(d => selectedRepoDocIds.includes(d.id));
+                                      if (allCritSel) {
+                                        setSelectedRepoDocIds(prev => prev.filter(id => !critDocs.some(d => d.id === id)));
+                                      } else {
+                                        setSelectedRepoDocIds(prev => Array.from(new Set([...prev, ...critDocs.map(d => d.id)])));
+                                      }
+                                    }}
+                                    disabled={critDocs.length === 0}
+                                    className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-500 cursor-pointer disabled:opacity-40 accent-[#0f2748]"
+                                    title={
+                                      critDocs.length === 0
+                                        ? 'No documents in this criterion'
+                                        : `Select/Deselect all ${critDocs.length} documents in ${crit.code}`
+                                    }
+                                  />
                                   <button
                                     type="button"
                                     onClick={(e) => {
@@ -711,7 +813,14 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
 
                                       {/* Col 3: Attached Supporting Document Link */}
                                       <td className="py-2.5 px-3 align-top">
-                                        <div className="flex items-center gap-1.5">
+                                        <div className="flex items-center gap-2">
+                                          <input
+                                            type="checkbox"
+                                            checked={selectedRepoDocIds.includes(doc.id)}
+                                            onChange={() => handleToggleSelectRepoDoc(doc.id)}
+                                            className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-500 cursor-pointer accent-[#0f2748] shrink-0"
+                                            title={`Select "${doc.fileName || doc.title}"`}
+                                          />
                                           <FileText className="w-3.5 h-3.5 text-red-500 shrink-0" />
                                           <button
                                             type="button"
@@ -721,6 +830,15 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
                                           >
                                             {doc.fileName || doc.title}
                                           </button>
+                                          {doc.status === 'submitted_to_university' ? (
+                                            <span className="text-[10px] bg-blue-50 text-blue-700 border border-blue-200 px-1.5 py-0.2 rounded-full font-bold shrink-0 whitespace-nowrap" title="Submitted to University Coordinator">
+                                              Submitted
+                                            </span>
+                                          ) : doc.status === 'university_verified' ? (
+                                            <span className="text-[10px] bg-purple-50 text-purple-700 border border-purple-200 px-1.5 py-0.2 rounded-full font-bold shrink-0 whitespace-nowrap" title="Verified by Central IQAC">
+                                              Verified
+                                            </span>
+                                          ) : null}
                                         </div>
                                       </td>
 

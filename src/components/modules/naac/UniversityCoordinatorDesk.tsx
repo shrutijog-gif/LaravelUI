@@ -96,7 +96,9 @@ export const UniversityCoordinatorDesk: React.FC<UniversityCoordinatorDeskProps>
   }, []);
 
   // Filter queues
-  const pendingVerificationDocs = documents.filter(d => d.status === 'approved_by_school');
+  const pendingVerificationDocs = documents.filter(
+    d => d.status === 'approved_by_school' || d.status === 'submitted_to_university'
+  );
   const verifiedDocs = documents.filter(d => d.status === 'university_verified');
   const totalVerifiedCount = verifiedDocs.length;
   const overallSSRProgress = Math.min(100, Math.round((totalVerifiedCount / Math.max(1, documents.length)) * 100));
@@ -177,77 +179,75 @@ export const UniversityCoordinatorDesk: React.FC<UniversityCoordinatorDeskProps>
 
       {/* ACTION TABS BAR FOR REPOSITORY / QUEUE / SSR MODES */}
       {deskMode !== 'quick-upload' && (
-        <div className="bg-white border-b border-gray-200 sticky top-0 z-20 shadow-2xs">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-between">
-            <div className="inline-flex items-center p-1 bg-slate-100 rounded-xl border border-slate-200">
-              <button
-                type="button"
-                onClick={() => setDeskMode('quick-upload')}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  deskMode === 'quick-upload'
-                    ? 'bg-white text-purple-700 shadow-2xs border border-slate-200/80'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                <Sparkles className="w-3.5 h-3.5 text-purple-600" />
-                <span>Quick Proof Drop</span>
-              </button>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-1 flex items-center justify-between">
+          <div className="inline-flex items-center p-1 bg-slate-100 rounded-xl border border-slate-200">
+            <button
+              type="button"
+              onClick={() => setDeskMode('quick-upload')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                deskMode === 'quick-upload'
+                  ? 'bg-white text-purple-700 shadow-2xs border border-slate-200/80'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+              <span>Quick Proof Drop</span>
+            </button>
 
-              <button
-                type="button"
-                onClick={() => setDeskMode('verification-queue')}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  deskMode === 'verification-queue'
-                    ? 'bg-white text-purple-700 shadow-2xs border border-slate-200/80'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                <ShieldCheck className="w-3.5 h-3.5 text-purple-600" />
-                <span>Verification Queue</span>
-                {pendingVerificationDocs.length > 0 && (
-                  <span className="text-[10px] bg-purple-600 text-white px-1.5 py-0.2 rounded-full font-bold animate-pulse">
-                    {pendingVerificationDocs.length}
-                  </span>
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setDeskMode('repository')}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  deskMode === 'repository'
-                    ? 'bg-white text-purple-700 shadow-2xs border border-slate-200/80'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                <FolderOpen className="w-3.5 h-3.5 text-purple-600" />
-                <span>University Repository</span>
-                <span className="text-[10px] bg-purple-50 text-purple-700 border border-purple-200 px-1.5 rounded-full font-bold">
-                  {documents.length}
+            <button
+              type="button"
+              onClick={() => setDeskMode('verification-queue')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                deskMode === 'verification-queue'
+                  ? 'bg-white text-purple-700 shadow-2xs border border-slate-200/80'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-purple-600" />
+              <span>Verification Queue</span>
+              {pendingVerificationDocs.length > 0 && (
+                <span className="text-[10px] bg-purple-600 text-white px-1.5 py-0.2 rounded-full font-bold animate-pulse">
+                  {pendingVerificationDocs.length}
                 </span>
-              </button>
+              )}
+            </button>
 
-              <button
-                type="button"
-                onClick={() => setDeskMode('ssr-matrix')}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  deskMode === 'ssr-matrix'
-                    ? 'bg-white text-purple-700 shadow-2xs border border-slate-200/80'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                <BarChart3 className="w-3.5 h-3.5 text-purple-600" />
-                <span>SSR Readiness</span>
-                <span className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-300 px-1.5 rounded-full font-bold">
-                  {overallSSRProgress}%
-                </span>
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => setDeskMode('repository')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                deskMode === 'repository'
+                  ? 'bg-white text-purple-700 shadow-2xs border border-slate-200/80'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <FolderOpen className="w-3.5 h-3.5 text-purple-600" />
+              <span>University Repository</span>
+              <span className="text-[10px] bg-purple-50 text-purple-700 border border-purple-200 px-1.5 rounded-full font-bold">
+                {documents.length}
+              </span>
+            </button>
 
-            <span className="bg-purple-50 text-purple-700 px-2.5 py-1 rounded font-mono text-xs font-semibold border border-purple-200">
-              AQAR {academicYear}
-            </span>
+            <button
+              type="button"
+              onClick={() => setDeskMode('ssr-matrix')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                deskMode === 'ssr-matrix'
+                  ? 'bg-white text-purple-700 shadow-2xs border border-slate-200/80'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <BarChart3 className="w-3.5 h-3.5 text-purple-600" />
+              <span>SSR Readiness</span>
+              <span className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-300 px-1.5 rounded-full font-bold">
+                {overallSSRProgress}%
+              </span>
+            </button>
           </div>
+
+          <span className="bg-purple-50 text-purple-700 px-2.5 py-1 rounded font-mono text-xs font-semibold border border-purple-200">
+            AQAR {academicYear}
+          </span>
         </div>
       )}
 
@@ -538,7 +538,7 @@ export const UniversityCoordinatorDesk: React.FC<UniversityCoordinatorDeskProps>
                                     const matchStatus = 
                                       statusFilter === 'all' ? true :
                                       statusFilter === 'locked' ? d.status === 'university_verified' :
-                                      d.status === 'approved_by_school';
+                                      (d.status === 'approved_by_school' || d.status === 'submitted_to_university');
                                     const matchQ = !searchQuery.trim() || 
                                       (d.fileName || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
                                       (d.title || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -650,7 +650,7 @@ export const UniversityCoordinatorDesk: React.FC<UniversityCoordinatorDeskProps>
                                           ) : isApproved ? (
                                             <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
                                               <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" />
-                                              School Approved
+                                              {doc.status === 'submitted_to_university' ? 'Forwarded by School' : 'School Approved'}
                                             </span>
                                           ) : (
                                             <span className="inline-block text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
