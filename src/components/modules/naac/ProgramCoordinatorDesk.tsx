@@ -271,13 +271,18 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
     };
   }, []);
 
-  // Filter department documents (B.Tech CSE)
+  // Filter department documents (B.Tech CSE) — Exclude unsubmitted drafts (drafts stay in personal upload staging until submitted to coordinator)
   const deptDocs = (Array.isArray(documents) ? documents : []).filter(d => 
-    Boolean(d && (d.programId === 'prog-cse' || d.programName?.includes('Computer Science') || d.schoolId === 'sch-tech'))
+    Boolean(
+      d && 
+      d.status !== 'draft' && 
+      (d.programId === 'prog-cse' || d.programName?.includes('Computer Science') || d.schoolId === 'sch-tech')
+    )
   );
 
   const isDocSubmittedStatus = (status?: string) => 
     status === 'submitted_to_school' || 
+    status === 'submitted_to_university' ||
     status === 'approved_by_school' || 
     status === 'university_verified';
 
@@ -418,10 +423,11 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
   // Handle request revision
   const handleSaveRevisionRequest = () => {
     if (!revisionDoc) return;
-    requestRevisionFromFaculty(revisionDoc.id, revisionNote || 'Please update proof according to Jan 2023 NAAC guidelines.');
+    requestRevisionFromFaculty(revisionDoc.id, revisionNote || 'Please update proof according to NAAC guidelines.');
     setRevisionDoc(null);
     setRevisionNote('');
-    showToast('Revision request sent back to faculty member');
+    setDocuments(getStoredNaacDocuments());
+    showToast(`Sent "${revisionDoc.fileName || revisionDoc.title}" back to faculty for revision`);
   };
 
   // Handle local file upload (supports multiple files)
@@ -1159,9 +1165,9 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
                                   <span>Attached Document</span>
                                 </div>
                               </th>
-                              <th className="py-2.5 px-3 w-[12%]">Uploaded By</th>
+                              <th className="py-2.5 px-3 w-[11%]">Uploaded By</th>
                               <th className="py-2.5 px-3 w-[8%]">Date</th>
-                              <th className="py-2.5 px-2 w-[4%] text-center">Action</th>
+                              <th className="py-2.5 px-3 w-[8%] text-center">Action</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-gray-100">
@@ -1349,7 +1355,7 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
                                                               ? 'opacity-25 cursor-not-allowed bg-gray-200 accent-gray-400'
                                                               : 'text-emerald-600 focus:ring-emerald-500 cursor-pointer accent-[#0f2748]'
                                                           }`}
-                                                          title={isDocSubmitted ? 'Already submitted to School Coordinator' : `Select "${doc.fileName || doc.title}"`}
+                                                          title={isDocSubmitted ? 'Already submitted to School Coordinator' : `Select "${doc.fileName || doc.title}" to submit to School Coordinator`}
                                                         />
                                                         <FileText className="w-3.5 h-3.5 text-red-500 shrink-0" />
                                                         <button
@@ -1360,9 +1366,24 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
                                                         >
                                                           {doc.fileName || doc.title}
                                                         </button>
-                                                        {isDocSubmitted && (
-                                                          <span className="px-1.5 py-0.2 bg-blue-50 text-blue-700 border border-blue-200 rounded text-[10px] font-semibold shrink-0">
-                                                            With School
+                                                        {doc.status === 'draft' && (
+                                                          <span className="px-1.5 py-0.2 bg-amber-50 text-amber-700 border border-amber-200 rounded text-[10px] font-semibold shrink-0" title="Draft evidence">
+                                                            Draft
+                                                          </span>
+                                                        )}
+                                                        {(!doc.status || doc.status === 'submitted_to_program') && (
+                                                          <span className="px-1.5 py-0.2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded text-[10px] font-semibold shrink-0" title="Submitted to Program Coordinator (Ready to submit to School)">
+                                                            Submitted to Program Coordinator
+                                                          </span>
+                                                        )}
+                                                        {doc.status === 'submitted_to_school' && (
+                                                          <span className="px-1.5 py-0.2 bg-blue-50 text-blue-700 border border-blue-200 rounded text-[10px] font-semibold shrink-0" title="Submitted to School Coordinator">
+                                                            Submitted to School Coordinator
+                                                          </span>
+                                                        )}
+                                                        {(doc.status === 'submitted_to_university' || doc.status === 'approved_by_school' || doc.status === 'university_verified') && (
+                                                          <span className="px-1.5 py-0.2 bg-purple-50 text-purple-700 border border-purple-200 rounded text-[10px] font-semibold shrink-0" title="Submitted to University Coordinator">
+                                                            Submitted to University Coordinator
                                                           </span>
                                                         )}
                                                       </div>
@@ -1380,19 +1401,30 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
                                                   {formatDocDate(doc.uploadedAt)}
                                                 </td>
 
-                                                {/* Col 6: Delete Trash Action */}
-                                                <td className="py-2.5 px-2 text-center align-top">
-                                                  <button
-                                                    type="button"
-                                                    onClick={(e) => {
-                                                      e.stopPropagation();
-                                                      handleDeleteDocument(doc.id, doc.fileName || doc.title);
-                                                    }}
-                                                    className="p-1 text-gray-400 hover:text-red-600 rounded transition-colors cursor-pointer"
-                                                    title="Delete document"
-                                                  >
-                                                    <Trash2 className="w-3.5 h-3.5" />
-                                                  </button>
+                                                {/* Col 6: Revise / Request Changes Action */}
+                                                <td className="py-2.5 px-3 text-center align-top whitespace-nowrap">
+                                                  {isDocSubmittedStatus(doc.status) ? (
+                                                    <span 
+                                                      className="inline-block text-[10px] font-semibold text-gray-400 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded cursor-not-allowed"
+                                                      title="Submitted to School Coordinator — Locked"
+                                                    >
+                                                      Locked
+                                                    </span>
+                                                  ) : (
+                                                    <button
+                                                      type="button"
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setRevisionDoc(doc);
+                                                        setRevisionNote(doc.coordinatorFeedback || '');
+                                                      }}
+                                                      className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded text-[11px] font-bold cursor-pointer transition-colors shadow-2xs"
+                                                      title="Send back to faculty for revision with feedback"
+                                                    >
+                                                      <RotateCcw className="w-3 h-3 text-amber-600" />
+                                                      Revise
+                                                    </button>
+                                                  )}
                                                 </td>
                                               </tr>
                                             ));
@@ -1998,14 +2030,16 @@ export const ProgramCoordinatorDesk: React.FC<ProgramCoordinatorDeskProps> = ({
                                     >
                                       <ExternalLink className="w-3.5 h-3.5" />
                                     </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleDeleteDocument(doc.id, doc.title)}
-                                      className="p-1 text-gray-400 hover:text-red-600 rounded cursor-pointer"
-                                      title="Delete Document"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
+                                    {doc.status === 'draft' && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDeleteDocument(doc.id, doc.title)}
+                                        className="p-1 text-gray-400 hover:text-red-600 rounded cursor-pointer"
+                                        title="Delete Document"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    )}
                                   </div>
                                 </td>
                               </tr>

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Menu, Globe, Building2, ChevronDown, ShieldCheck, Layers, FileText, Wrench, FileSpreadsheet, LogOut, User } from 'lucide-react';
+import { Menu, Globe, Building2, ChevronDown, ShieldCheck, Layers, FileText, Wrench, FileSpreadsheet, LogOut, User, RotateCcw } from 'lucide-react';
 import { collegeTenantsList, getActiveTenant, setActiveTenantId, CollegeTenant } from '../../data/tenantData';
 import { logout, getStoredAuthUser } from '../../services/authService';
+import { resetNaacDemoData } from '../../data/naacDmsData';
 
 interface HeaderProps {
   toggleSidebar: () => void;
@@ -29,6 +30,20 @@ export const Header: React.FC<HeaderProps> = ({
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const currentUser = getStoredAuthUser();
   const isSuperadmin = portalRole === 'superadmin';
+  const [isResettingDemo, setIsResettingDemo] = useState(false);
+  const [resetToast, setResetToast] = useState<string | null>(null);
+
+  const handleResetDemo = () => {
+    setIsResettingDemo(true);
+    resetNaacDemoData();
+    setResetToast('Demo reset: All NAAC documents restored to Draft status.');
+    setTimeout(() => {
+      setIsResettingDemo(false);
+    }, 600);
+    setTimeout(() => {
+      setResetToast(null);
+    }, 3500);
+  };
 
   useEffect(() => {
     const handleTenantChange = () => {
@@ -282,6 +297,20 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         )}
 
+        {/* Reset Demo Button */}
+        <button 
+          type="button"
+          onClick={handleResetDemo}
+          disabled={isResettingDemo}
+          className="p-1.5 sm:p-2 hover:bg-amber-50 rounded-lg text-gray-700 hover:text-amber-600 transition-colors cursor-pointer relative group disabled:opacity-50"
+          title="Reset Demo (Restore all documents to Draft)"
+        >
+          <RotateCcw className={`w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-500 ${isResettingDemo ? 'animate-spin text-amber-600' : 'group-hover:-rotate-45'}`} />
+          <span className="absolute top-full mt-2 right-0 bg-gray-900 text-white text-[11px] font-semibold px-2.5 py-1 rounded shadow-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+            Reset Demo (Set all to Draft)
+          </span>
+        </button>
+
         {/* Globe icon to visit storefront */}
         <button 
           type="button"
@@ -384,6 +413,14 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </div>
       </div>
+
+      {/* Demo Reset Toast Notification */}
+      {resetToast && (
+        <div className="fixed top-16 right-6 z-50 bg-[#0f2748] text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-xl flex items-center gap-2.5 border border-blue-400/30 animate-in slide-in-from-top-2">
+          <RotateCcw className="w-4 h-4 text-amber-400 shrink-0" />
+          <span>{resetToast}</span>
+        </div>
+      )}
     </header>
   );
 };

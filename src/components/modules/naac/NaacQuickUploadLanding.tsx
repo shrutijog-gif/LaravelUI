@@ -147,6 +147,7 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
   useEffect(() => {
     const handleSync = () => {
       setDocuments(getStoredNaacDocuments());
+      setSelectedDocIds([]);
       try {
         const saved = localStorage.getItem(myDocsStorageKey);
         if (saved) {
@@ -200,8 +201,10 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
   const isDocSubmitted = (doc: NaacEvidenceDocument) =>
     Boolean(
       doc && (
+        doc.status === 'submitted_to_program' ||
         doc.status === 'submitted_to_school' ||
         doc.status === 'approved_by_school' ||
+        doc.status === 'submitted_to_university' ||
         doc.status === 'university_verified'
       )
     );
@@ -987,10 +990,10 @@ Respond in JSON ONLY:
     }
 
     const nextStatus = role === 'school'
-      ? 'approved_by_school'
+      ? 'submitted_to_university'
       : role === 'university'
       ? 'university_verified'
-      : 'submitted_to_school';
+      : 'submitted_to_program';
 
     const targetLabel = submitTargetName || (role === 'school' ? 'University Coordinator' : role === 'university' ? 'Permanent SSR Archive' : 'Program Coordinator');
 
@@ -1011,10 +1014,22 @@ Respond in JSON ONLY:
     setTimeout(() => setSuccessToast(null), 4500);
   };
 
-  // Delete document from my documents
+  // Delete document from my documents (only drafts can be deleted)
   const handleDeleteMyDoc = (docId: string, title: string) => {
+    const doc = documents.find((d) => d.id === docId);
+    if (doc && isDocSubmitted(doc)) {
+      setSuccessToast('Cannot delete: Document has already been submitted.');
+      setTimeout(() => setSuccessToast(null), 3000);
+      return;
+    }
+
     if (window.confirm(`Delete evidence file "${title}"?`)) {
-      deleteNaacDocument(docId);
+      const deleted = deleteNaacDocument(docId);
+      if (!deleted) {
+        setSuccessToast('Submitted documents cannot be deleted.');
+        setTimeout(() => setSuccessToast(null), 3000);
+        return;
+      }
       const updated = myDocIds.filter((id) => id !== docId);
       setMyDocIds(updated);
       setSelectedDocIds((prev) => prev.filter((id) => id !== docId));
@@ -1883,10 +1898,7 @@ Respond in JSON ONLY:
                                 {/* Documents under this Criterion: Checkbox -> Metric -> File Name -> Status -> Action */}
                                 {docsInCrit.map((doc) => {
                                   const isChecked = selectedDocIds.includes(doc.id);
-                                  const isSubmitted =
-                                    doc.status === 'submitted_to_school' ||
-                                    doc.status === 'approved_by_school' ||
-                                    doc.status === 'university_verified';
+                                  const isSubmitted = isDocSubmitted(doc);
 
                                   return (
                                     <tr
@@ -1927,17 +1939,37 @@ Respond in JSON ONLY:
                                         >
                                           {doc.fileName}
                                         </div>
+                                        {doc.coordinatorReviewStatus === 'changes_requested' && doc.coordinatorFeedback && (
+                                          <div className="text-[10px] text-amber-700 font-medium truncate mt-0.5" title={doc.coordinatorFeedback}>
+                                            <span className="font-bold">Note:</span> {doc.coordinatorFeedback}
+                                          </div>
+                                        )}
                                       </td>
 
-                                      {/* 4. Status: Draft or Submitted */}
+                                      {/* 4. Status: 4-Tier Workflow */}
                                       <td className="py-2 px-3 align-middle text-center whitespace-nowrap">
-                                        {isSubmitted ? (
-                                          <span className="inline-block text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
-                                            Submitted
+                                        {doc.status === 'draft' || !doc.status ? (
+                                          <span 
+                                            className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                                              doc.coordinatorReviewStatus === 'changes_requested'
+                                                ? 'text-amber-800 bg-amber-100/90 border border-amber-300'
+                                                : 'text-amber-700 bg-amber-50 border border-amber-200'
+                                            }`}
+                                            title={doc.coordinatorFeedback ? `Revision requested: "${doc.coordinatorFeedback}"` : 'Draft evidence'}
+                                          >
+                                            {doc.coordinatorReviewStatus === 'changes_requested' ? 'Changes Requested' : 'Draft'}
+                                          </span>
+                                        ) : doc.status === 'submitted_to_program' ? (
+                                          <span className="inline-block text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full" title="Submitted to Program Coordinator">
+                                            Submitted to Program Coordinator
+                                          </span>
+                                        ) : doc.status === 'submitted_to_school' ? (
+                                          <span className="inline-block text-[10px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full" title="Submitted to School Coordinator">
+                                            Submitted to School Coordinator
                                           </span>
                                         ) : (
-                                          <span className="inline-block text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
-                                            Draft
+                                          <span className="inline-block text-[10px] font-semibold text-purple-700 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-full" title="Submitted to University Coordinator">
+                                            Submitted to University Coordinator
                                           </span>
                                         )}
                                       </td>
@@ -1955,9 +1987,14 @@ Respond in JSON ONLY:
                                           </button>
                                           <button
                                             type="button"
-                                            onClick={() => handleDeleteMyDoc(doc.id, doc.fileName || doc.title)}
-                                            className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded cursor-pointer transition-colors"
-                                            title="Delete from My Documents"
+                                            disabled={isSubmitted}
+                                            onClick={() => !isSubmitted && handleDeleteMyDoc(doc.id, doc.fileName || doc.title)}
+                                            className={`p-1 rounded transition-colors ${
+                                              isSubmitted
+                                                ? 'opacity-20 cursor-not-allowed text-gray-300'
+                                                : 'text-gray-400 hover:text-red-600 hover:bg-red-50 cursor-pointer'
+                                            }`}
+                                            title={isSubmitted ? 'Submitted documents cannot be deleted' : 'Delete from My Documents'}
                                           >
                                             <Trash2 className="w-3.5 h-3.5" />
                                           </button>
@@ -1991,10 +2028,7 @@ Respond in JSON ONLY:
                                 </tr>
                                 {otherDocs.map((doc) => {
                                   const isChecked = selectedDocIds.includes(doc.id);
-                                  const isSubmitted =
-                                    doc.status === 'submitted_to_school' ||
-                                    doc.status === 'approved_by_school' ||
-                                    doc.status === 'university_verified';
+                                  const isSubmitted = isDocSubmitted(doc);
                                   return (
                                     <tr key={doc.id} className={`hover:bg-blue-50/30 transition-colors group ${isChecked ? 'bg-blue-50/20' : ''}`}>
                                       <td className="py-2 px-3 text-center align-middle">
@@ -2024,15 +2058,35 @@ Respond in JSON ONLY:
                                         >
                                           {doc.fileName}
                                         </div>
+                                        {doc.coordinatorReviewStatus === 'changes_requested' && doc.coordinatorFeedback && (
+                                          <div className="text-[10px] text-amber-700 font-medium truncate mt-0.5" title={doc.coordinatorFeedback}>
+                                            <span className="font-bold">Note:</span> {doc.coordinatorFeedback}
+                                          </div>
+                                        )}
                                       </td>
                                       <td className="py-2 px-3 align-middle text-center whitespace-nowrap">
-                                        {isSubmitted ? (
-                                          <span className="inline-block text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
-                                            Submitted
+                                        {doc.status === 'draft' || !doc.status ? (
+                                          <span 
+                                            className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                                              doc.coordinatorReviewStatus === 'changes_requested'
+                                                ? 'text-amber-800 bg-amber-100/90 border border-amber-300'
+                                                : 'text-amber-700 bg-amber-50 border border-amber-200'
+                                            }`}
+                                            title={doc.coordinatorFeedback ? `Revision requested: "${doc.coordinatorFeedback}"` : 'Draft evidence'}
+                                          >
+                                            {doc.coordinatorReviewStatus === 'changes_requested' ? 'Changes Requested' : 'Draft'}
+                                          </span>
+                                        ) : doc.status === 'submitted_to_program' ? (
+                                          <span className="inline-block text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full" title="Submitted to Program Coordinator">
+                                            Submitted to Program Coordinator
+                                          </span>
+                                        ) : doc.status === 'submitted_to_school' ? (
+                                          <span className="inline-block text-[10px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full" title="Submitted to School Coordinator">
+                                            Submitted to School Coordinator
                                           </span>
                                         ) : (
-                                          <span className="inline-block text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
-                                            Draft
+                                          <span className="inline-block text-[10px] font-semibold text-purple-700 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-full" title="Submitted to University Coordinator">
+                                            Submitted to University Coordinator
                                           </span>
                                         )}
                                       </td>
@@ -2048,9 +2102,14 @@ Respond in JSON ONLY:
                                           </button>
                                           <button
                                             type="button"
-                                            onClick={() => handleDeleteMyDoc(doc.id, doc.fileName || doc.title)}
-                                            className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded cursor-pointer transition-colors"
-                                            title="Delete from My Documents"
+                                            disabled={isSubmitted}
+                                            onClick={() => !isSubmitted && handleDeleteMyDoc(doc.id, doc.fileName || doc.title)}
+                                            className={`p-1 rounded transition-colors ${
+                                              isSubmitted
+                                                ? 'opacity-20 cursor-not-allowed text-gray-300'
+                                                : 'text-gray-400 hover:text-red-600 hover:bg-red-50 cursor-pointer'
+                                            }`}
+                                            title={isSubmitted ? 'Submitted documents cannot be deleted' : 'Delete from My Documents'}
                                           >
                                             <Trash2 className="w-3.5 h-3.5" />
                                           </button>

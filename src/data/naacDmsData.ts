@@ -42,9 +42,11 @@ export interface NaacMetric {
 
 export type NaacWorkflowStatus = 
   | 'draft'
+  | 'submitted_to_program'
   | 'submitted_to_school'
   | 'changes_requested'
   | 'approved_by_school'
+  | 'submitted_to_university'
   | 'university_verified';
 
 export interface NaacEvidenceDocument {
@@ -523,7 +525,7 @@ const INITIAL_NAAC_DOCUMENTS: NaacEvidenceDocument[] = [
     fileSize: '3.1 MB',
     uploadedBy: 'Prof. Priyanka Deshmukh',
     uploadedAt: '2026-10-08T11:30:00Z',
-    status: 'submitted_to_school',
+    status: 'draft',
     version: 'v1.0',
     submittedByFacultyId: 'fac-5',
     facultyName: 'Prof. Priyanka Deshmukh',
@@ -550,7 +552,7 @@ const INITIAL_NAAC_DOCUMENTS: NaacEvidenceDocument[] = [
     fileSize: '2.4 MB',
     uploadedBy: 'Dr. Ramesh Gupta',
     uploadedAt: '2026-10-09T14:20:00Z',
-    status: 'submitted_to_school',
+    status: 'draft',
     version: 'v1.0',
     submittedByFacultyId: 'fac-1',
     facultyName: 'Dr. Ramesh Gupta',
@@ -856,12 +858,13 @@ export const compileDocumentIntoDossier = (docId: string, coordinatorNotes?: str
 };
 
 /**
- * Program Coordinator Action: Request revision from faculty member with feedback
+ * Program Coordinator Action: Request revision from faculty member with feedback (reverts status to 'draft' so it leaves repository and returns to faculty drawer)
  */
 export const requestRevisionFromFaculty = (docId: string, feedback: string): void => {
   const current = getStoredNaacDocuments();
   const doc = current.find(d => d.id === docId);
   if (doc) {
+    doc.status = 'draft';
     doc.coordinatorReviewStatus = 'changes_requested';
     doc.coordinatorFeedback = feedback;
     saveAllNaacDocuments(current);
@@ -957,9 +960,62 @@ export const verifyUniversityDocument = (docId: string, verified: boolean, note:
   }
 };
 
-export const deleteNaacDocument = (docId: string): void => {
+export const deleteNaacDocument = (docId: string): boolean => {
   const current = getStoredNaacDocuments();
+  const target = current.find(d => d.id === docId);
+  // Protect submitted documents from deletion (only drafts can be deleted)
+  if (target && target.status && target.status !== 'draft') {
+    return false;
+  }
   const filtered = current.filter(d => d.id !== docId);
   saveAllNaacDocuments(filtered);
+  return true;
+};
+
+/**
+ * Reset NAAC Demo: Sets all documents to 'draft' (so My Documents drawer has all documents as Draft with active checkboxes ready to submit), clears reviews, and restores default tracked doc IDs
+ */
+export const resetNaacDemoData = (): void => {
+  const current = getStoredNaacDocuments();
+  const resetDocs: NaacEvidenceDocument[] = current.map(doc => ({
+    ...doc,
+    status: 'draft' as NaacWorkflowStatus,
+    coordinatorReviewStatus: undefined,
+    coordinatorFeedback: undefined,
+    compiledAt: undefined,
+    schoolReviewNote: undefined,
+    schoolReviewedBy: undefined,
+    schoolReviewedAt: undefined,
+    universityReviewNote: undefined,
+    universityVerifiedBy: undefined,
+    universityVerifiedAt: undefined,
+  }));
+
+  saveAllNaacDocuments(resetDocs);
+
+  // Restore clean default seeds for coordinator doc ID lists
+  const defaultProgramDocIds = [
+    'naac-cse-fac-5',
+    'naac-cse-fac-5-b',
+    'naac-cse-fac-5-c',
+    'naac-cse-fac-5-d',
+    'naac-cse-fac-5-e',
+    'naac-cse-fac-1',
+    'naac-cse-fac-1-b',
+    'naac-cse-fac-3',
+    'naac-cse-fac-2',
+    'naac-cse-fac-4',
+  ];
+  try {
+    localStorage.setItem('naac_my_uploaded_doc_ids_prog_cse', JSON.stringify(defaultProgramDocIds));
+    localStorage.setItem('naac_my_uploaded_doc_ids_program', JSON.stringify(defaultProgramDocIds));
+    localStorage.setItem('naac_my_uploaded_doc_ids_school', JSON.stringify(['naac-doc-2', 'naac-cse-fac-5', 'naac-cse-fac-5-b', 'naac-cse-fac-3']));
+    localStorage.setItem('naac_my_uploaded_doc_ids_university', JSON.stringify(['naac-doc-4', 'naac-doc-2', 'naac-cse-fac-5']));
+  } catch (err) {
+    console.warn('Could not reset tracked doc IDs in localStorage', err);
+  }
+
+  window.dispatchEvent(new Event('naac-dms-updated'));
+  window.dispatchEvent(new Event('storage'));
 };
 

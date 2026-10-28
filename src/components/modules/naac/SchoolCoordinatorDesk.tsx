@@ -82,6 +82,9 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
   const [revisionDoc, setRevisionDoc] = useState<NaacEvidenceDocument | null>(null);
   const [revisionFeedback, setRevisionFeedback] = useState<string>('');
 
+  // Batch Selection State for Program Submissions Review
+  const [selectedReviewDocIds, setSelectedReviewDocIds] = useState<string[]>([]);
+
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 4000);
@@ -200,6 +203,23 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
     showToast(`✅ Approved "${doc.fileName}" and forwarded to University IQAC!`);
   };
 
+  // Batch Approve Selected Documents
+  const handleBatchApproveSelected = () => {
+    if (selectedReviewDocIds.length === 0) return;
+    const count = selectedReviewDocIds.length;
+    selectedReviewDocIds.forEach(id => {
+      reviewSchoolDocument(
+        id, 
+        true, 
+        'Approved by School Coordinator & Dean. All evidentiary requirements satisfied for AQAR/SSR compilation.',
+        'Dr. Rajesh Sharma (School Coordinator)'
+      );
+    });
+    setSelectedReviewDocIds([]);
+    refreshDocuments();
+    showToast(`✅ Successfully approved ${count} document${count > 1 ? 's' : ''} and forwarded to University IQAC!`);
+  };
+
   // Submit Revision Feedback
   const handleSubmitRevision = () => {
     if (!revisionDoc) return;
@@ -282,6 +302,24 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
 
               <button
                 type="button"
+                onClick={() => setDeskMode('review-queue')}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  deskMode === 'review-queue'
+                    ? 'bg-white text-blue-700 shadow-2xs border border-slate-200/80'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <FileCheck2 className="w-3.5 h-3.5 text-blue-600" />
+                <span>Review Program Documents</span>
+                {pendingReviewDocs.length > 0 && (
+                  <span className="text-[10px] bg-amber-500 text-white px-1.5 py-0.2 rounded-full font-bold animate-pulse">
+                    {pendingReviewDocs.length}
+                  </span>
+                )}
+              </button>
+
+              <button
+                type="button"
                 onClick={() => setDeskMode('repository')}
                 className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                   deskMode === 'repository'
@@ -294,24 +332,6 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
                 <span className="text-[10px] bg-blue-50 text-blue-700 border border-blue-200 px-1.5 rounded-full font-bold">
                   {schoolDocs.length}
                 </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setDeskMode('review-queue')}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  deskMode === 'review-queue'
-                    ? 'bg-white text-blue-700 shadow-2xs border border-slate-200/80'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                <FileCheck2 className="w-3.5 h-3.5 text-blue-600" />
-                <span>Program Review Queue</span>
-                {pendingReviewDocs.length > 0 && (
-                  <span className="text-[10px] bg-amber-500 text-white px-1.5 py-0.2 rounded-full font-bold animate-pulse">
-                    {pendingReviewDocs.length}
-                  </span>
-                )}
               </button>
             </div>
 
@@ -343,6 +363,20 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
 
                 <button
                   type="button"
+                  onClick={() => setDeskMode('review-queue')}
+                  className="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer text-gray-600 hover:text-gray-900"
+                >
+                  <FileCheck2 className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Review Program Documents</span>
+                  {pendingReviewDocs.length > 0 && (
+                    <span className="text-[10px] bg-amber-500 text-white px-1.5 py-0.2 rounded-full font-bold animate-pulse">
+                      {pendingReviewDocs.length}
+                    </span>
+                  )}
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => setDeskMode('repository')}
                   className="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer text-gray-600 hover:text-gray-900"
                 >
@@ -351,20 +385,6 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
                   <span className="text-[10px] bg-blue-50 text-blue-700 border border-blue-200 px-1.5 rounded-full font-bold">
                     {schoolDocs.length}
                   </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setDeskMode('review-queue')}
-                  className="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer text-gray-600 hover:text-gray-900"
-                >
-                  <FileCheck2 className="w-3.5 h-3.5 text-blue-600" />
-                  <span>Program Review Queue</span>
-                  {pendingReviewDocs.length > 0 && (
-                    <span className="text-[10px] bg-amber-500 text-white px-1.5 py-0.2 rounded-full font-bold animate-pulse">
-                      {pendingReviewDocs.length}
-                    </span>
-                  )}
                 </button>
               </div>
             }
@@ -413,7 +433,7 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
                     onChange={(e) => setSelectedProgramFilter(e.target.value)}
                     className="px-2 py-1.5 bg-slate-50 border border-gray-300 rounded-lg text-xs font-semibold text-gray-800 cursor-pointer focus:ring-1 focus:ring-blue-500 max-w-[170px] truncate"
                   >
-                    <option value="all">All Programs ({currentSchool.programs.length})</option>
+                    <option value="all">All Programs (5)</option>
                     <option value="prog-cse">🔵 B.Tech CSE</option>
                     <option value="prog-bca">🟢 BCA & Cloud</option>
                     <option value="prog-cyber">🟢 B.Sc Cyber</option>
@@ -759,26 +779,49 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
           <div className="space-y-4 animate-in fade-in">
             {/* Header info */}
             <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
+              <div className="flex items-center gap-2.5">
                 <h3 className="text-sm font-bold text-gray-900">
                   Department Submissions Awaiting School Review ({pendingReviewDocs.length})
                 </h3>
+                {selectedReviewDocIds.length > 0 && (
+                  <span className="text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
+                    {selectedReviewDocIds.length} selected
+                  </span>
+                )}
               </div>
 
-              <div className="flex items-center gap-2 shrink-0">
-                <span className="text-xs font-semibold text-gray-600 whitespace-nowrap">Program:</span>
-                <select
-                  value={selectedProgramFilter}
-                  onChange={(e) => setSelectedProgramFilter(e.target.value)}
-                  className="px-2.5 py-1.5 bg-slate-50 border border-gray-300 rounded-lg text-xs font-semibold text-gray-800 cursor-pointer focus:ring-1 focus:ring-blue-500 max-w-[200px] truncate"
+              <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+                {/* Batch Approve Button */}
+                <button
+                  type="button"
+                  onClick={handleBatchApproveSelected}
+                  disabled={selectedReviewDocIds.length === 0}
+                  className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white rounded-lg text-xs font-bold transition-all shadow-2xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
+                  title={
+                    selectedReviewDocIds.length === 0
+                      ? 'Select documents with checkboxes to batch approve'
+                      : `Approve and forward ${selectedReviewDocIds.length} selected documents to University IQAC`
+                  }
                 >
-                  <option value="all">All Programs ({currentSchool.programs.length})</option>
-                  <option value="prog-cse">🔵 B.Tech CSE</option>
-                  <option value="prog-bca">🟢 BCA & Cloud</option>
-                  <option value="prog-cyber">🟢 B.Sc Cyber</option>
-                  <option value="prog-ai">🟣 M.Tech AI-ML</option>
-                  <option value="school-common">🟣 School Common</option>
-                </select>
+                  <Check className="w-3.5 h-3.5" />
+                  <span>Approve Selected {selectedReviewDocIds.length > 0 ? `(${selectedReviewDocIds.length})` : ''}</span>
+                </button>
+
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-semibold text-gray-600 whitespace-nowrap">Program:</span>
+                  <select
+                    value={selectedProgramFilter}
+                    onChange={(e) => setSelectedProgramFilter(e.target.value)}
+                    className="px-2.5 py-1.5 bg-slate-50 border border-gray-300 rounded-lg text-xs font-semibold text-gray-800 cursor-pointer focus:ring-1 focus:ring-blue-500 max-w-[200px] truncate"
+                  >
+                    <option value="all">All Programs (5)</option>
+                    <option value="prog-cse">🔵 B.Tech CSE</option>
+                    <option value="prog-bca">🟢 BCA & Cloud</option>
+                    <option value="prog-cyber">🟢 B.Sc Cyber</option>
+                    <option value="prog-ai">🟣 M.Tech AI-ML</option>
+                    <option value="school-common">🟣 School Common</option>
+                  </select>
+                </div>
               </div>
             </div>
 
@@ -836,74 +879,109 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
                   <table className="w-full text-left text-xs border-collapse">
                     <thead className="bg-slate-50 border-b border-gray-200 text-gray-600 font-bold text-[11px] uppercase tracking-wider">
                       <tr>
-                        <th className="py-2.5 px-4 w-[18%]">Program / Dept</th>
-                        <th className="py-2.5 px-3 w-[12%]">Metric</th>
-                        <th className="py-2.5 px-4 w-[36%]">Document Title & File</th>
+                        <th className="py-2.5 px-3 w-10 text-center">
+                          {(() => {
+                            const currentQueueDocs = pendingReviewDocs.filter(matchesProgram);
+                            const allSelected = currentQueueDocs.length > 0 && currentQueueDocs.every(d => selectedReviewDocIds.includes(d.id));
+                            return (
+                              <input
+                                type="checkbox"
+                                checked={allSelected}
+                                onChange={() => {
+                                  if (allSelected) {
+                                    setSelectedReviewDocIds(prev => prev.filter(id => !currentQueueDocs.some(d => d.id === id)));
+                                  } else {
+                                    const newIds = Array.from(new Set([...selectedReviewDocIds, ...currentQueueDocs.map(d => d.id)]));
+                                    setSelectedReviewDocIds(newIds);
+                                  }
+                                }}
+                                disabled={currentQueueDocs.length === 0}
+                                className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-500 cursor-pointer disabled:opacity-40 accent-[#0f2748]"
+                                title={allSelected ? 'Deselect all' : 'Select all documents'}
+                              />
+                            );
+                          })()}
+                        </th>
+                        <th className="py-2.5 px-3 w-[22%]">Program / Dept</th>
+                        <th className="py-2.5 px-3 w-[10%]">Metric</th>
+                        <th className="py-2.5 px-4 w-[32%]">File Name</th>
                         <th className="py-2.5 px-3 w-[16%]">Submitted By</th>
-                        <th className="py-2.5 px-4 w-[18%] text-right">Review Action</th>
+                        <th className="py-2.5 px-4 w-[16%] text-right">Review Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                       {pendingReviewDocs
                         .filter(matchesProgram)
-                        .map((doc) => (
-                          <tr key={doc.id} className="hover:bg-blue-50/30 transition-colors">
-                            {/* Program */}
-                            <td className="py-3 px-4 align-top">
-                              <span className="font-bold text-gray-900 block text-xs">
-                                {doc.programName}
-                              </span>
-                              <span className="text-[10px] text-gray-500">
-                                {doc.academicYear}
-                              </span>
-                            </td>
+                        .map((doc) => {
+                          const isSelected = selectedReviewDocIds.includes(doc.id);
+                          const dept = getDepartmentDot(doc);
+                          return (
+                            <tr key={doc.id} className={`hover:bg-blue-50/30 transition-colors ${isSelected ? 'bg-blue-50/20' : ''}`}>
+                              {/* Row Checkbox */}
+                              <td className="py-3 px-3 text-center align-middle">
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => {
+                                    setSelectedReviewDocIds(prev =>
+                                      prev.includes(doc.id) ? prev.filter(id => id !== doc.id) : [...prev, doc.id]
+                                    );
+                                  }}
+                                  className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-500 cursor-pointer accent-[#0f2748]"
+                                  title={`Select "${doc.fileName}"`}
+                                />
+                              </td>
 
-                            {/* Metric */}
-                            <td className="py-3 px-3 align-top">
-                              <span className="font-mono text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded inline-block">
-                                {doc.metricCode}
-                              </span>
-                              <span className="block text-[10px] text-gray-500 mt-1">
-                                {doc.criterionCode}
-                              </span>
-                            </td>
-
-                            {/* File Name & Title */}
-                            <td className="py-3 px-4 align-top">
-                              <div
-                                onClick={() => openFileInNewTab(doc.fileUrl)}
-                                className="font-semibold text-gray-900 hover:text-blue-700 cursor-pointer text-xs leading-snug"
-                                title={doc.fileName}
-                              >
-                                {doc.fileName}
-                              </div>
-                              <p className="text-[11px] text-gray-500 mt-0.5 line-clamp-1">
-                                {doc.title}
-                              </p>
-                              {doc.fileSize && (
-                                <span className="text-[10px] text-gray-400 mt-0.5 inline-block">
-                                  {doc.fileSize}
-                                </span>
-                              )}
-                            </td>
-
-                            {/* Submitted By */}
-                            <td className="py-3 px-3 align-top">
-                              {(() => {
-                                const dept = getDepartmentDot(doc);
-                                return (
-                                  <div className="flex items-center gap-1.5 truncate" title={`Department: ${dept.label} • Submitted by ${doc.uploadedBy}`}>
-                                    <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${dept.color}`} title={`Department: ${dept.label}`} />
-                                    <span className="font-semibold text-gray-800 block text-xs truncate">
-                                      {doc.uploadedBy}
+                              {/* Program / Dept with Department Indicator Dot */}
+                              <td className="py-3 px-3 align-top">
+                                <div className="flex items-start gap-2">
+                                  <span className={`w-2.5 h-2.5 rounded-full shrink-0 mt-0.5 ${dept.color}`} title={`Department: ${dept.label}`} />
+                                  <div>
+                                    <span className="font-bold text-gray-900 block text-xs leading-snug">
+                                      {doc.programName}
+                                    </span>
+                                    <span className="text-[10px] text-gray-500 block mt-0.5">
+                                      {doc.academicYear}
                                     </span>
                                   </div>
-                                );
-                              })()}
-                              <span className="text-[10px] text-gray-400 block pl-4 mt-0.5">
-                                {doc.uploadedAt ? doc.uploadedAt.split('T')[0] : 'Recent'}
-                              </span>
-                            </td>
+                                </div>
+                              </td>
+
+                              {/* Metric */}
+                              <td className="py-3 px-3 align-top">
+                                <span className="font-mono text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded inline-block">
+                                  {doc.metricCode}
+                                </span>
+                                <span className="block text-[10px] text-gray-500 mt-1">
+                                  {doc.criterionCode}
+                                </span>
+                              </td>
+
+                              {/* File Name only (no description subtitle) */}
+                              <td className="py-3 px-4 align-top">
+                                <div
+                                  onClick={() => openFileInNewTab(doc.fileUrl)}
+                                  className="font-semibold text-gray-900 hover:text-blue-700 cursor-pointer text-xs leading-snug truncate"
+                                  title={doc.fileName}
+                                >
+                                  {doc.fileName}
+                                </div>
+                                {doc.fileSize && (
+                                  <span className="text-[10px] text-gray-400 mt-0.5 inline-block">
+                                    {doc.fileSize}
+                                  </span>
+                                )}
+                              </td>
+
+                              {/* Submitted By (no department dot here) */}
+                              <td className="py-3 px-3 align-top">
+                                <span className="font-semibold text-gray-800 block text-xs truncate">
+                                  {doc.uploadedBy}
+                                </span>
+                                <span className="text-[10px] text-gray-400 block mt-0.5">
+                                  {doc.uploadedAt ? doc.uploadedAt.split('T')[0] : 'Recent'}
+                                </span>
+                              </td>
 
                             {/* Actions */}
                             <td className="py-3 px-4 align-top text-right">
@@ -939,7 +1017,8 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
                               </div>
                             </td>
                           </tr>
-                        ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
