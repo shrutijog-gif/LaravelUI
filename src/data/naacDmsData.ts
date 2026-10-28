@@ -936,6 +936,47 @@ export const submitSelectedDocumentsToSchool = (docIds: string[]): number => {
   return count;
 };
 
+/**
+ * Generic Batch Submission helper: atomically updates multiple documents in a single storage save & dispatch
+ */
+export const submitBatchNaacDocuments = (
+  docIds: string[],
+  nextStatus: NaacWorkflowStatus,
+  meta?: {
+    coordinatorReviewStatus?: 'pending_review' | 'compiled' | 'changes_requested';
+    schoolReviewedBy?: string;
+    schoolReviewedAt?: string;
+    universityVerifiedBy?: string;
+    universityVerifiedAt?: string;
+  }
+): number => {
+  const current = getStoredNaacDocuments();
+  let count = 0;
+  const idSet = new Set(docIds);
+  current.forEach(doc => {
+    if (doc && doc.id && idSet.has(doc.id)) {
+      doc.status = nextStatus;
+      doc.uploadedAt = new Date().toISOString();
+      if (meta?.coordinatorReviewStatus) {
+        doc.coordinatorReviewStatus = meta.coordinatorReviewStatus;
+      }
+      if (meta?.schoolReviewedBy) {
+        doc.schoolReviewedBy = meta.schoolReviewedBy;
+        doc.schoolReviewedAt = meta.schoolReviewedAt || new Date().toISOString();
+      }
+      if (meta?.universityVerifiedBy) {
+        doc.universityVerifiedBy = meta.universityVerifiedBy;
+        doc.universityVerifiedAt = meta.universityVerifiedAt || new Date().toISOString();
+      }
+      count++;
+    }
+  });
+  if (count > 0) {
+    saveAllNaacDocuments(current);
+  }
+  return count;
+};
+
 export const reviewSchoolDocument = (docId: string, approved: boolean, note: string, reviewerName: string = 'Dr. Rajesh Sharma'): void => {
   const current = getStoredNaacDocuments();
   const doc = current.find(d => d.id === docId);

@@ -34,12 +34,14 @@ import {
 } from 'lucide-react';
 import { 
   NAAC_CRITERIA_SUMMARY, 
-  NAAC_METRICS_LIST, 
+  NAAC_METRICS_LIST,
   KEY_INDICATORS,
   NaacEvidenceDocument, 
+  NaacWorkflowStatus,
   getStoredNaacDocuments, 
   addOrUpdateNaacDocument, 
-  deleteNaacDocument 
+  deleteNaacDocument,
+  submitBatchNaacDocuments
 } from '../../../data/naacDmsData';
 import { openFileInNewTab } from '../../../utils/fileHelper';
 
@@ -146,8 +148,26 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
   // Auto-sync documents when data layer updates in this tab or another tab
   useEffect(() => {
     const handleSync = () => {
-      setDocuments(getStoredNaacDocuments());
-      setSelectedDocIds([]);
+      const freshDocs = getStoredNaacDocuments();
+      setDocuments(freshDocs);
+      // Clean up selectedDocIds to retain only still-unsubmitted selected documents instead of blindly wiping selection
+      setSelectedDocIds((prev) => {
+        if (prev.length === 0) return prev;
+        const freshMap = new Map(freshDocs.map((d) => [d.id, d]));
+        return prev.filter((id) => {
+          const doc = freshMap.get(id);
+          return (
+            doc &&
+            !Boolean(
+              doc.status === 'submitted_to_program' ||
+              doc.status === 'submitted_to_school' ||
+              doc.status === 'approved_by_school' ||
+              doc.status === 'submitted_to_university' ||
+              doc.status === 'university_verified'
+            )
+          );
+        });
+      });
       try {
         const saved = localStorage.getItem(myDocsStorageKey);
         if (saved) {
@@ -214,8 +234,14 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
   // Selection state for submitting documents to coordinator (default unchecked)
   const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
 
+  // True if ALL unsubmitted documents across all criteria are currently selected
+  const isAllSelected =
+    unsubmittedDocs.length > 0 &&
+    unsubmittedDocs.every((d) => selectedDocIds.includes(d.id));
+
+  // Toggle selection of all unsubmitted documents
   const handleToggleSelectAll = () => {
-    if (selectedDocIds.length === unsubmittedDocs.length && unsubmittedDocs.length > 0) {
+    if (isAllSelected) {
       setSelectedDocIds([]);
     } else {
       setSelectedDocIds(unsubmittedDocs.map((d) => d.id));
@@ -229,6 +255,20 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
     setSelectedDocIds((prev) =>
       prev.includes(docId) ? prev.filter((id) => id !== docId) : [...prev, docId]
     );
+  };
+
+  // Toggle selection for all unsubmitted documents within a specific criterion group
+  const handleToggleSelectCriterion = (docsInCrit: NaacEvidenceDocument[]) => {
+    const unsubmittedInCrit = docsInCrit.filter((d) => !isDocSubmitted(d));
+    if (unsubmittedInCrit.length === 0) return;
+    const allCritSelected = unsubmittedInCrit.every((d) => selectedDocIds.includes(d.id));
+    if (allCritSelected) {
+      const critIds = new Set(unsubmittedInCrit.map((d) => d.id));
+      setSelectedDocIds((prev) => prev.filter((id) => !critIds.has(id)));
+    } else {
+      const newIds = unsubmittedInCrit.map((d) => d.id);
+      setSelectedDocIds((prev) => Array.from(new Set([...prev, ...newIds])));
+    }
   };
 
   // Sync documents from storage
@@ -982,14 +1022,17 @@ Respond in JSON ONLY:
 
   // Submit selected documents to Coordinator / University / Archive
   const handleSubmitToCoordinator = () => {
-    const docsToSubmit = myDocuments.filter((doc) => selectedDocIds.includes(doc.id));
-    if (docsToSubmit.length === 0) {
+    const targetDocIds = selectedDocIds.filter((id) =>
+      unsubmittedDocs.some((d) => d.id === id)
+    );
+
+    if (targetDocIds.length === 0) {
       setSuccessToast('Please select at least one document to submit.');
       setTimeout(() => setSuccessToast(null), 3000);
       return;
     }
 
-    const nextStatus = role === 'school'
+    const nextStatus: NaacWorkflowStatus = role === 'school'
       ? 'submitted_to_university'
       : role === 'university'
       ? 'university_verified'
@@ -997,20 +1040,17 @@ Respond in JSON ONLY:
 
     const targetLabel = submitTargetName || (role === 'school' ? 'University Coordinator' : role === 'university' ? 'Permanent SSR Archive' : 'Program Coordinator');
 
-    docsToSubmit.forEach((doc) => {
-      addOrUpdateNaacDocument({
-        ...doc,
-        status: nextStatus,
-        coordinatorReviewStatus: role === 'program' ? 'pending_review' : doc.coordinatorReviewStatus,
-        schoolReviewedBy: role === 'school' ? (uploaderName || 'Dean (School Coordinator)') : doc.schoolReviewedBy,
-        schoolReviewedAt: role === 'school' ? new Date().toISOString() : doc.schoolReviewedAt,
-        universityVerifiedBy: role === 'university' ? (uploaderName || 'IQAC Central Committee') : doc.universityVerifiedBy,
-        universityVerifiedAt: role === 'university' ? new Date().toISOString() : doc.universityVerifiedAt,
-      });
+    const count = submitBatchNaacDocuments(targetDocIds, nextStatus, {
+      coordinatorReviewStatus: role === 'program' ? 'pending_review' : undefined,
+      schoolReviewedBy: role === 'school' ? (uploaderName || 'Dean (School Coordinator)') : undefined,
+      schoolReviewedAt: role === 'school' ? new Date().toISOString() : undefined,
+      universityVerifiedBy: role === 'university' ? (uploaderName || 'IQAC Central Committee') : undefined,
+      universityVerifiedAt: role === 'university' ? new Date().toISOString() : undefined,
     });
+
     setSelectedDocIds([]);
     refreshDocuments();
-    setSuccessToast(`✨ Successfully submitted ${docsToSubmit.length} selected document${docsToSubmit.length === 1 ? '' : 's'} to ${targetLabel}!`);
+    setSuccessToast(`✨ Successfully submitted ${count} selected document${count === 1 ? '' : 's'} to ${targetLabel}!`);
     setTimeout(() => setSuccessToast(null), 4500);
   };
 
@@ -1847,13 +1887,15 @@ Respond in JSON ONLY:
                             <th className="py-2 px-3 w-9 text-center">
                               <input
                                 type="checkbox"
-                                checked={unsubmittedDocs.length > 0 && selectedDocIds.length === unsubmittedDocs.length}
+                                checked={isAllSelected}
                                 disabled={unsubmittedDocs.length === 0}
                                 onChange={handleToggleSelectAll}
                                 className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 accent-[#0f2748]"
                                 title={
                                   unsubmittedDocs.length === 0
                                     ? 'All documents are already submitted'
+                                    : isAllSelected
+                                    ? 'Deselect all unsubmitted documents'
                                     : 'Select all unsubmitted documents'
                                 }
                               />
@@ -1866,19 +1908,44 @@ Respond in JSON ONLY:
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                           {NAAC_CRITERIA_SUMMARY.map((crit) => {
-                            const docsInCrit = myDocuments.filter(
-                              (d) =>
+                            const docsInCrit = myDocuments.filter((d) => {
+                              const canon = toCanonicalCrit(d.criterionCode || '');
+                              if (canon) {
+                                return canon.toLowerCase() === crit.code.toLowerCase();
+                              }
+                              return (
                                 d.criterionCode?.toLowerCase() === crit.code.toLowerCase() ||
-                                toCanonicalCrit(d.criterionCode || '').toLowerCase() === crit.code.toLowerCase() ||
                                 d.criterionId === crit.id
-                            );
+                              );
+                            });
                             if (docsInCrit.length === 0) return null;
+
+                            const unsubmittedInCrit = docsInCrit.filter((d) => !isDocSubmitted(d));
+                            const isCritSelected =
+                              unsubmittedInCrit.length > 0 &&
+                              unsubmittedInCrit.every((d) => selectedDocIds.includes(d.id));
 
                             return (
                               <React.Fragment key={crit.code}>
-                                {/* Criterion Group Subheader Row */}
+                                {/* Criterion Group Subheader Row with Group Select Checkbox */}
                                 <tr className="bg-slate-50/80 border-y border-slate-200/80">
-                                  <td colSpan={5} className="py-1.5 px-3">
+                                  <td className="py-1.5 px-3 text-center align-middle">
+                                    <input
+                                      type="checkbox"
+                                      checked={isCritSelected}
+                                      disabled={unsubmittedInCrit.length === 0}
+                                      onChange={() => handleToggleSelectCriterion(docsInCrit)}
+                                      className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 accent-[#0f2748]"
+                                      title={
+                                        unsubmittedInCrit.length === 0
+                                          ? 'All documents in this criterion are submitted'
+                                          : isCritSelected
+                                          ? `Deselect all in ${crit.code}`
+                                          : `Select all in ${crit.code}`
+                                      }
+                                    />
+                                  </td>
+                                  <td colSpan={4} className="py-1.5 px-3">
                                     <div className="flex items-center justify-between">
                                       <div className="flex items-center gap-2 min-w-0">
                                         <span className="font-mono text-[10px] font-bold text-[#0f2748] bg-white px-1.5 py-0.5 rounded border border-slate-200 shrink-0">
@@ -2010,14 +2077,40 @@ Respond in JSON ONLY:
                           {/* Fallback for documents with non-standard criteria */}
                           {(() => {
                             const standardCritCodes = new Set(NAAC_CRITERIA_SUMMARY.map((c) => c.code.toLowerCase()));
-                            const otherDocs = myDocuments.filter(
-                              (d) => !standardCritCodes.has(toCanonicalCrit(d.criterionCode || '').toLowerCase())
-                            );
+                            const otherDocs = myDocuments.filter((d) => {
+                              const canon = toCanonicalCrit(d.criterionCode || '');
+                              if (canon && standardCritCodes.has(canon.toLowerCase())) return false;
+                              return !NAAC_CRITERIA_SUMMARY.some(
+                                (c) => c.code.toLowerCase() === d.criterionCode?.toLowerCase() || c.id === d.criterionId
+                              );
+                            });
                             if (otherDocs.length === 0) return null;
+
+                            const unsubmittedInOther = otherDocs.filter((d) => !isDocSubmitted(d));
+                            const isOtherSelected =
+                              unsubmittedInOther.length > 0 &&
+                              unsubmittedInOther.every((d) => selectedDocIds.includes(d.id));
+
                             return (
                               <React.Fragment key="other-criteria">
                                 <tr className="bg-slate-50/80 border-y border-slate-200/80">
-                                  <td colSpan={5} className="py-1.5 px-3">
+                                  <td className="py-1.5 px-3 text-center align-middle">
+                                    <input
+                                      type="checkbox"
+                                      checked={isOtherSelected}
+                                      disabled={unsubmittedInOther.length === 0}
+                                      onChange={() => handleToggleSelectCriterion(otherDocs)}
+                                      className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 accent-[#0f2748]"
+                                      title={
+                                        unsubmittedInOther.length === 0
+                                          ? 'All additional documents are submitted'
+                                          : isOtherSelected
+                                          ? 'Deselect all additional documents'
+                                          : 'Select all additional documents'
+                                      }
+                                    />
+                                  </td>
+                                  <td colSpan={4} className="py-1.5 px-3">
                                     <div className="flex items-center justify-between">
                                       <span className="text-[11px] font-bold text-gray-800">Additional Ingested Evidence</span>
                                       <span className="text-[10px] font-semibold text-gray-500 bg-white px-2 py-0.5 rounded-full border border-slate-200">
@@ -2143,7 +2236,7 @@ Respond in JSON ONLY:
                     }
                   >
                     <Send className="w-3.5 h-3.5 text-blue-200" />
-                    <span>Submit</span>
+                    <span>Submit{selectedDocIds.length > 0 ? ` (${selectedDocIds.length})` : ''}</span>
                   </button>
 
                   {/* 2. View Program Repository Action Button */}
