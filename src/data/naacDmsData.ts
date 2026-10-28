@@ -397,7 +397,8 @@ const INITIAL_NAAC_DOCUMENTS: NaacEvidenceDocument[] = [
     submittedByFacultyId: 'fac-1',
     facultyName: 'Dr. Ramesh Gupta',
     facultyDesignation: 'Associate Professor & Criterion 2 Lead',
-    coordinatorReviewStatus: 'pending_review',
+    coordinatorReviewStatus: 'changes_requested',
+    coordinatorFeedback: 'Please attach evaluated sample answer sheets with Bloom level mapping for Sem 3 and Sem 5 to satisfy QnM verification.',
   },
   {
     id: 'naac-cse-fac-1-b',
@@ -874,6 +875,45 @@ export const requestRevisionFromFaculty = (docId: string, feedback: string): voi
     doc.coordinatorFeedback = feedback;
     saveAllNaacDocuments(current);
   }
+};
+
+/**
+ * Faculty Action: Replace / Re-upload revised evidence file in response to revision feedback
+ */
+export const replaceFacultyDocumentFile = (
+  docId: string, 
+  newFile: { fileName: string; fileSize: string; fileUrl: string }
+): NaacEvidenceDocument | undefined => {
+  const current = getStoredNaacDocuments();
+  const doc = current.find(d => d.id === docId);
+  if (doc) {
+    doc.fileName = newFile.fileName;
+    doc.fileSize = newFile.fileSize;
+    doc.fileUrl = newFile.fileUrl;
+    doc.version = doc.version === 'v1.0' ? 'v1.1' : 'v1.2';
+    doc.uploadedAt = new Date().toISOString().split('T')[0];
+    doc.status = 'draft';
+    doc.coordinatorReviewStatus = 'pending_review';
+    saveAllNaacDocuments(current);
+    return doc;
+  }
+  return undefined;
+};
+
+/**
+ * Faculty Action: Submit a single document to Program Coordinator (HOD)
+ */
+export const submitDocumentToProgram = (docId: string): NaacEvidenceDocument | undefined => {
+  const current = getStoredNaacDocuments();
+  const doc = current.find(d => d.id === docId);
+  if (doc) {
+    doc.status = 'submitted_to_program';
+    doc.coordinatorReviewStatus = 'pending_review';
+    doc.uploadedAt = new Date().toISOString();
+    saveAllNaacDocuments(current);
+    return doc;
+  }
+  return undefined;
 };
 
 /**

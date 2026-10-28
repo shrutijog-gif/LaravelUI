@@ -861,7 +861,7 @@ Respond in JSON ONLY:
       }
       refreshDocuments();
 
-      setSuccessToast(`✨ Ingested "${file.name}" as Draft into ${initialCrit} › Metric ${initialMetric}! Visible in My Documents.`);
+      setSuccessToast(`✨ Ingested "${file.name}" as Draft into ${initialCrit} › Metric ${initialMetric}! Visible in My Evidence.`);
       setTimeout(() => setSuccessToast(null), 4500);
 
       if (useAi) {
@@ -1030,7 +1030,7 @@ Respond in JSON ONLY:
     }
     refreshDocuments();
 
-    setSuccessToast(`Document "${fileName}" confirmed in ${cleanCritCode} › Metric ${cleanMetricCode}! Open My Documents to submit.`);
+    setSuccessToast(`Document "${fileName}" confirmed in ${cleanCritCode} › Metric ${cleanMetricCode}! Open My Evidence to submit.`);
     setTimeout(() => setSuccessToast(null), 5000);
 
     // Reset Form for next upload
@@ -1194,23 +1194,6 @@ Respond in JSON ONLY:
         )}
 
         <div className="flex items-center gap-2 sm:gap-3">
-          {/* My Documents Drawer Trigger Button */}
-          <button
-            type="button"
-            onClick={() => setIsMyDocsDrawerOpen(true)}
-            className="px-3.5 py-1.5 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-lg shadow-2xs border border-slate-300 inline-flex items-center gap-1.5 cursor-pointer transition-colors"
-            title="Open My Uploaded Documents Drawer"
-          >
-            <FolderOpen className={`w-3.5 h-3.5 ${role === 'program' ? 'text-emerald-600' : 'text-blue-600'}`} />
-            <span>My Documents</span>
-            <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold border ${
-              role === 'program' 
-                ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
-                : 'bg-blue-50 text-blue-700 border-blue-200'
-            }`}>
-              {myDocuments.length}
-            </span>
-          </button>
 
           {role !== 'program' && role !== 'school' && role !== 'university' && !hideTopUploadButton && (
             <button

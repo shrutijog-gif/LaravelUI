@@ -188,7 +188,7 @@ export const Layout: React.FC<LayoutProps> = ({
             ) : activeModuleId === 'nirf-showcase' ? (
               <NirfShowcaseAdmin />
             ) : activeModuleId === 'naac-faculty' || activeModuleId.startsWith('faculty-') ? (
-              <FacultyDesk />
+              <FacultyDesk initialTab={activeModuleId === 'faculty-evidence' ? 'my-evidence' : 'quick-upload'} />
             ) : activeModuleId === 'naac-school' || activeModuleId.startsWith('school-') ? (
               <SchoolCoordinatorDesk />
             ) : activeModuleId === 'naac-university' || activeModuleId.startsWith('univ-') ? (

@@ -37,6 +37,11 @@ export const facultyMenuItems: MenuItem[] = [
     label: 'Quick Proof Drop',
     icon: 'file',
   },
+  {
+    id: 'faculty-evidence',
+    label: 'My Evidence',
+    icon: 'layers',
+  },
 ];
 
 export const programCoordinatorMenuItems: MenuItem[] = [
