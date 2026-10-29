@@ -238,7 +238,7 @@ export const UniversityCoordinatorDesk: React.FC<UniversityCoordinatorDeskProps>
               }`}
             >
               <BarChart3 className="w-3.5 h-3.5 text-purple-600" />
-              <span>SSR Readiness</span>
+              <span>NAAC Readiness</span>
               <span className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-300 px-1.5 rounded-full font-bold">
                 {overallSSRProgress}%
               </span>
@@ -302,7 +302,7 @@ export const UniversityCoordinatorDesk: React.FC<UniversityCoordinatorDeskProps>
                   className="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer text-gray-600 hover:text-gray-900"
                 >
                   <BarChart3 className="w-3.5 h-3.5 text-purple-600" />
-                  <span>SSR Readiness</span>
+                  <span>NAAC Readiness</span>
                   <span className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-300 px-1.5 rounded-full font-bold">
                     {overallSSRProgress}%
                   </span>
