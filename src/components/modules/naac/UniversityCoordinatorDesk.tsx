@@ -21,7 +21,20 @@ import {
   Award,
   Lock,
   MessageSquare,
-  Layers
+  Layers,
+  Cpu,
+  Briefcase,
+  Palette,
+  HeartPulse,
+  UtensilsCrossed,
+  Bell,
+  Send,
+  AlertTriangle,
+  Mail,
+  User,
+  GraduationCap,
+  ArrowRight,
+  Maximize2
 } from 'lucide-react';
 import { 
   ITM_SCHOOLS, 
@@ -29,12 +42,64 @@ import {
   NAAC_METRICS_LIST, 
   KEY_INDICATORS,
   NaacEvidenceDocument, 
+  NaacSchool,
+  NaacProgram,
   getStoredNaacDocuments, 
   verifyUniversityDocument,
   deleteNaacDocument 
 } from '../../../data/naacDmsData';
 import { openFileInNewTab } from '../../../utils/fileHelper';
 import { NaacQuickUploadLanding } from './NaacQuickUploadLanding';
+
+const SCHOOL_THEMES: Record<string, {
+  color: string;
+  bgLight: string;
+  borderLight: string;
+  badgeBg: string;
+  icon: React.ElementType;
+  gradient: string;
+}> = {
+  'sch-tech': {
+    color: 'text-blue-600',
+    bgLight: 'bg-blue-50',
+    borderLight: 'border-blue-200',
+    badgeBg: 'bg-blue-100 text-blue-800 border-blue-200',
+    icon: Cpu,
+    gradient: 'from-blue-600 to-indigo-700',
+  },
+  'sch-mgmt': {
+    color: 'text-emerald-600',
+    bgLight: 'bg-emerald-50',
+    borderLight: 'border-emerald-200',
+    badgeBg: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+    icon: Briefcase,
+    gradient: 'from-emerald-600 to-teal-700',
+  },
+  'sch-design': {
+    color: 'text-purple-600',
+    bgLight: 'bg-purple-50',
+    borderLight: 'border-purple-200',
+    badgeBg: 'bg-purple-100 text-purple-800 border-purple-200',
+    icon: Palette,
+    gradient: 'from-purple-600 to-pink-600',
+  },
+  'sch-health': {
+    color: 'text-teal-600',
+    bgLight: 'bg-teal-50',
+    borderLight: 'border-teal-200',
+    badgeBg: 'bg-teal-100 text-teal-800 border-teal-200',
+    icon: HeartPulse,
+    gradient: 'from-teal-600 to-cyan-700',
+  },
+  'sch-hospitality': {
+    color: 'text-amber-600',
+    bgLight: 'bg-amber-50',
+    borderLight: 'border-amber-200',
+    badgeBg: 'bg-amber-100 text-amber-800 border-amber-200',
+    icon: UtensilsCrossed,
+    gradient: 'from-amber-600 to-orange-600',
+  },
+};
 
 interface UniversityCoordinatorDeskProps {
   initialTab?: 'quick-upload' | 'repository' | 'verification-queue' | 'ssr-matrix';
@@ -76,9 +141,46 @@ export const UniversityCoordinatorDesk: React.FC<UniversityCoordinatorDeskProps>
   const [reopenDoc, setReopenDoc] = useState<NaacEvidenceDocument | null>(null);
   const [reopenNote, setReopenNote] = useState<string>('');
 
+  // School Slide-Over Drawer & Reminder States
+  const [selectedSchoolForDrawer, setSelectedSchoolForDrawer] = useState<NaacSchool | null>(null);
+  const [remindersSent, setRemindersSent] = useState<Record<string, string>>({});
+
+  // School card expand/collapse state (default: all collapsed for super clean view)
+  const [expandedSchools, setExpandedSchools] = useState<Record<string, boolean>>({});
+
+  const toggleSchoolExpand = (schoolId: string) => {
+    setExpandedSchools(prev => ({ ...prev, [schoolId]: !prev[schoolId] }));
+  };
+
+  const expandAllSchools = () => {
+    const all: Record<string, boolean> = {};
+    ITM_SCHOOLS.forEach(s => { all[s.id] = true; });
+    setExpandedSchools(all);
+  };
+
+  const collapseAllSchools = () => {
+    setExpandedSchools({});
+  };
+
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 4000);
+  };
+
+  const handleSendReminder = (program: NaacProgram, schoolName: string) => {
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    setRemindersSent(prev => ({ ...prev, [program.id]: timeStr }));
+    showToast(`📢 Official IQAC Reminder sent to ${program.coordinatorName} (${program.coordinatorEmail}) for ${program.shortCode} evidence proof submission.`);
+  };
+
+  const handleSendBatchReminders = (school: NaacSchool) => {
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const updated: Record<string, string> = {};
+    school.programs.forEach(p => {
+      updated[p.id] = timeStr;
+    });
+    setRemindersSent(prev => ({ ...prev, ...updated }));
+    showToast(`📢 Batch IQAC Reminders sent to all ${school.programs.length} program coordinators across ${school.shortCode}.`);
   };
 
   const refreshDocuments = () => {
@@ -196,6 +298,22 @@ export const UniversityCoordinatorDesk: React.FC<UniversityCoordinatorDeskProps>
 
             <button
               type="button"
+              onClick={() => setDeskMode('ssr-matrix')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                deskMode === 'ssr-matrix'
+                  ? 'bg-white text-purple-700 shadow-2xs border border-slate-200/80'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <BarChart3 className="w-3.5 h-3.5 text-purple-600" />
+              <span>NAAC Readiness</span>
+              <span className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-300 px-1.5 rounded-full font-bold">
+                {overallSSRProgress}%
+              </span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => setDeskMode('verification-queue')}
               className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                 deskMode === 'verification-queue'
@@ -227,22 +345,6 @@ export const UniversityCoordinatorDesk: React.FC<UniversityCoordinatorDeskProps>
                 {documents.length}
               </span>
             </button>
-
-            <button
-              type="button"
-              onClick={() => setDeskMode('ssr-matrix')}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                deskMode === 'ssr-matrix'
-                  ? 'bg-white text-purple-700 shadow-2xs border border-slate-200/80'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              <BarChart3 className="w-3.5 h-3.5 text-purple-600" />
-              <span>NAAC Readiness</span>
-              <span className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-300 px-1.5 rounded-full font-bold">
-                {overallSSRProgress}%
-              </span>
-            </button>
           </div>
 
           <span className="bg-purple-50 text-purple-700 px-2.5 py-1 rounded font-mono text-xs font-semibold border border-purple-200">
@@ -272,6 +374,18 @@ export const UniversityCoordinatorDesk: React.FC<UniversityCoordinatorDeskProps>
 
                 <button
                   type="button"
+                  onClick={() => setDeskMode('ssr-matrix')}
+                  className="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer text-gray-600 hover:text-gray-900"
+                >
+                  <BarChart3 className="w-3.5 h-3.5 text-purple-600" />
+                  <span>NAAC Readiness</span>
+                  <span className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-300 px-1.5 rounded-full font-bold">
+                    {overallSSRProgress}%
+                  </span>
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => setDeskMode('verification-queue')}
                   className="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer text-gray-600 hover:text-gray-900"
                 >
@@ -293,18 +407,6 @@ export const UniversityCoordinatorDesk: React.FC<UniversityCoordinatorDeskProps>
                   <span>University Repository</span>
                   <span className="text-[10px] bg-purple-50 text-purple-700 border border-purple-200 px-1.5 rounded-full font-bold">
                     {documents.length}
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setDeskMode('ssr-matrix')}
-                  className="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer text-gray-600 hover:text-gray-900"
-                >
-                  <BarChart3 className="w-3.5 h-3.5 text-purple-600" />
-                  <span>NAAC Readiness</span>
-                  <span className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-300 px-1.5 rounded-full font-bold">
-                    {overallSSRProgress}%
                   </span>
                 </button>
               </div>
@@ -877,71 +979,463 @@ export const UniversityCoordinatorDesk: React.FC<UniversityCoordinatorDeskProps>
               </div>
             </div>
 
-            {/* School by School Readiness Matrix */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {ITM_SCHOOLS.map(school => {
-                const schoolAllDocs = documents.filter(d => d.schoolId === school.id);
-                const schoolVerified = schoolAllDocs.filter(d => d.status === 'university_verified').length;
-                const pct = schoolAllDocs.length > 0 ? Math.round((schoolVerified / schoolAllDocs.length) * 100) : 0;
+            {/* School by School Executive Cards */}
+            <div>
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <div>
+                  <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                    <Building2 className="w-5 h-5 text-purple-600" />
+                    <span>Constituent Schools Audit &amp; Program-wise Status</span>
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Live accreditation readiness by criteria coverage. Click any card to open the program audit drawer.
+                  </p>
+                </div>
 
-                return (
-                  <div key={school.id} className="bg-white rounded-xl border border-gray-200 p-4 shadow-2xs space-y-3">
-                    <div className="flex items-start justify-between gap-2">
+                <span className="text-xs font-semibold text-purple-700 bg-purple-50 border border-purple-200 px-3 py-1 rounded-full shadow-2xs shrink-0">
+                  5 Constituent Schools
+                </span>
+              </div>
+
+              {/* Spacious 2-Column Responsive Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                {ITM_SCHOOLS.map(school => {
+                  const theme = SCHOOL_THEMES[school.id] || SCHOOL_THEMES['sch-tech'];
+                  const SchoolIcon = theme.icon;
+                  const schoolAllDocs = documents.filter(d => d.schoolId === school.id);
+                  const schoolVerified = schoolAllDocs.filter(d => d.status === 'university_verified').length;
+                  
+                  // Calculate readiness by how many criteria (out of 7) have documents
+                  const criteriaWithDocs = new Set(schoolAllDocs.map(d => d.criterionCode));
+                  const coveredCriteriaCount = criteriaWithDocs.size;
+                  const readinessPct = Math.round((coveredCriteriaCount / 7) * 100);
+
+                  return (
+                    <div 
+                      key={school.id} 
+                      className="bg-white rounded-2xl border border-gray-200 hover:border-purple-300 shadow-xs hover:shadow-md transition-all duration-200 flex flex-col justify-between overflow-hidden"
+                    >
+                      {/* Top colored accent line */}
+                      <div className={`h-1.5 w-full bg-gradient-to-r ${theme.gradient}`} />
+
+                      <div className="p-5 flex-1 flex flex-col justify-between">
+                        <div>
+                          {/* 1. LOGO, COLLEGE NAME & SCHOOL COORDINATOR */}
+                          <div className="flex items-start justify-between gap-3 mb-3.5">
+                            <div className="flex items-center gap-3 min-w-0">
+                              {/* School Logo */}
+                              <div className={`w-11 h-11 rounded-xl bg-gradient-to-tr ${theme.gradient} text-white flex items-center justify-center shadow-xs shrink-0`}>
+                                <SchoolIcon className="w-5 h-5 stroke-[2.2]" />
+                              </div>
+
+                              {/* College Name & School Coordinator */}
+                              <div className="min-w-0">
+                                <p className="text-xs text-gray-500 truncate">
+                                  School Coordinator: <strong className="text-gray-800 font-semibold">{school.coordinatorName}</strong>
+                                </p>
+                                <h4 className="text-sm font-bold text-gray-900 mt-0.5 leading-snug truncate" title={school.name}>
+                                  {school.name}
+                                </h4>
+                              </div>
+                            </div>
+
+                            {/* Top Quick Actions */}
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => handleSendBatchReminders(school)}
+                                className="px-2 py-1 rounded-lg text-[11px] font-semibold text-gray-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
+                                title="Send IQAC reminder to all program coordinators in this school"
+                              >
+                                <Bell className="w-3 h-3 text-slate-600" />
+                                <span className="hidden sm:inline">Remind All</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => setSelectedSchoolForDrawer(school)}
+                                className="p-1 text-gray-400 hover:text-purple-700 hover:bg-purple-50 rounded-lg cursor-pointer transition-colors"
+                                title="Open full slide-over audit drawer"
+                              >
+                                <Maximize2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* 2. NAAC READINESS STRIP (Common Green for All Cards) */}
+                          <div className="px-3.5 py-2.5 bg-slate-50 rounded-xl border border-gray-100 space-y-1.5 mb-3.5">
+                            <div className="flex items-center justify-between text-xs">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-bold text-gray-700">NAAC Readiness:</span>
+                                <span className="font-semibold text-emerald-700">
+                                  {coveredCriteriaCount} of 7 Criteria Covered
+                                </span>
+                              </div>
+
+                              <span className="font-extrabold text-xs text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
+                                {readinessPct}%
+                              </span>
+                            </div>
+
+                            {/* Readiness Meter */}
+                            <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                              <div 
+                                className="h-2 rounded-full transition-all duration-500 bg-emerald-500"
+                                style={{ width: `${readinessPct}%` }}
+                              />
+                            </div>
+                          </div>
+
+                          {/* 3. PROGRAM NAMES (Simple List) */}
+                          <div className="space-y-1.5">
+                            <div className="flex items-center justify-between text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                              <span>Academic Programs ({school.programs.length})</span>
+                              <span>Readiness</span>
+                            </div>
+
+                            {school.programs.map(program => {
+                              const progDocs = documents.filter(d => 
+                                d.schoolId === school.id && 
+                                (d.programId === program.id || (!d.programId && school.programs[0]?.id === program.id))
+                              );
+                              const progCriteriaWithDocs = new Set(progDocs.map(d => d.criterionCode));
+                              const progPct = Math.round((progCriteriaWithDocs.size / 7) * 100);
+
+                              return (
+                                <div 
+                                  key={program.id}
+                                  className="text-xs text-gray-800 font-medium py-1.5 px-3 rounded-lg bg-slate-50/70 border border-slate-100 flex items-center justify-between gap-2 hover:bg-slate-100/70 transition-colors"
+                                >
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-purple-500 shrink-0" />
+                                    <span className="truncate">{program.name}</span>
+                                  </div>
+
+                                  <span className="text-[11px] font-bold font-mono text-emerald-800 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-md shrink-0">
+                                    {progPct}%
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* 4. OPEN DRAWER ACTION BUTTON */}
+                        <button
+                          type="button"
+                          onClick={() => setSelectedSchoolForDrawer(school)}
+                          className="mt-4 w-full py-2 px-3 bg-[#0f2748] hover:bg-[#183963] text-white rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs group"
+                        >
+                          <span>View Details</span>
+                          <ArrowRight className="w-3.5 h-3.5 transform group-hover:translate-x-0.5 transition-transform" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* SLIDE-OVER DRAWER: DETAILED PROGRAM-WISE CRITERIA MATRIX & COORDINATOR AUDIT */}
+      {selectedSchoolForDrawer && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex justify-end animate-in fade-in duration-200"
+          onClick={() => setSelectedSchoolForDrawer(null)}
+        >
+          <div 
+            className="w-full max-w-2xl bg-white h-full shadow-2xl flex flex-col border-l border-gray-200 animate-in slide-in-from-right duration-300 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Drawer Header */}
+            {(() => {
+              const theme = SCHOOL_THEMES[selectedSchoolForDrawer.id] || SCHOOL_THEMES['sch-tech'];
+              const SchoolIcon = theme.icon;
+              const schoolDocs = documents.filter(d => d.schoolId === selectedSchoolForDrawer.id);
+              const verifiedDocsCount = schoolDocs.filter(d => d.status === 'university_verified').length;
+              const schoolPct = schoolDocs.length > 0 ? Math.round((verifiedDocsCount / schoolDocs.length) * 100) : 0;
+
+              return (
+                <div className="p-5 border-b border-gray-200 bg-slate-50 shrink-0">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                      <div className={`w-12 h-12 rounded-xl bg-gradient-to-tr ${theme.gradient} text-white flex items-center justify-center shadow-xs shrink-0`}>
+                        <SchoolIcon className="w-6 h-6 stroke-[2.2]" />
+                      </div>
                       <div>
-                        <span className="text-[10px] font-bold text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200">
-                          {school.shortCode}
-                        </span>
-                        <h4 className="text-xs font-bold text-gray-900 mt-1 line-clamp-1" title={school.name}>
-                          {school.name}
-                        </h4>
-                        <p className="text-[10px] text-gray-400 mt-0.5">
-                          Dean: {school.deanName}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-mono font-extrabold text-purple-700 bg-purple-100/80 border border-purple-200 px-2 py-0.5 rounded">
+                            {selectedSchoolForDrawer.shortCode}
+                          </span>
+                          <span className="text-xs font-semibold text-gray-500">
+                            Dean: <strong className="text-gray-900">{selectedSchoolForDrawer.deanName}</strong>
+                          </span>
+                        </div>
+                        <h2 className="text-base font-black text-gray-900 mt-1 leading-snug">
+                          {selectedSchoolForDrawer.name}
+                        </h2>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          School Coordinator: <span className="font-semibold text-gray-700">{selectedSchoolForDrawer.coordinatorName}</span>
                         </p>
                       </div>
-                      <span className="text-xs font-bold text-purple-800 bg-purple-50 px-2 py-1 rounded-lg">
-                        {pct}%
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setSelectedSchoolForDrawer(null)}
+                      className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-200 rounded-lg cursor-pointer transition-colors"
+                      title="Close drawer (Esc)"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  {/* School Progress & Batch Actions Card */}
+                  <div className="mt-4 bg-white rounded-xl p-3.5 border border-slate-200 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-gray-700">SSR Audit Readiness:</span>
+                        <span className="text-xs font-extrabold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                          {schoolPct}%
+                        </span>
+                        <span className="text-[11px] text-gray-500">
+                          ({verifiedDocsCount} verified of {schoolDocs.length} proofs)
+                        </span>
+                      </div>
+                      <div className="w-56 bg-gray-100 rounded-full h-2 overflow-hidden">
+                        <div 
+                          className="h-2 rounded-full bg-emerald-500 transition-all duration-500"
+                          style={{ width: `${schoolPct}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleSendBatchReminders(selectedSchoolForDrawer)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 transition-colors shadow-2xs cursor-pointer shrink-0"
+                      title="Send IQAC reminder to all program coordinators in this school"
+                    >
+                      <Bell className="w-3.5 h-3.5 text-purple-600" />
+                      <span>Remind All Programs</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Drawer Body: Program-wise Cards List (Scrollable) */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-4">
+              <div className="flex items-center justify-between text-xs text-gray-500 font-bold uppercase tracking-wider">
+                <span>{selectedSchoolForDrawer.programs.length} Constituent Academic Programs</span>
+                <span className="text-[11px] font-normal normal-case text-gray-400">
+                  Criteria C1 to C7 Coverage
+                </span>
+              </div>
+
+              {selectedSchoolForDrawer.programs.map((program) => {
+                // Program-specific documents
+                const programDocs = documents.filter(d => 
+                  d.schoolId === selectedSchoolForDrawer.id && 
+                  (d.programId === program.id || (!d.programId && selectedSchoolForDrawer.programs[0]?.id === program.id))
+                );
+
+                const verifiedCount = programDocs.filter(d => d.status === 'university_verified').length;
+                const pendingCount = programDocs.filter(d => d.status === 'approved_by_school' || d.status === 'submitted_to_university' || d.status === 'submitted_to_program').length;
+
+                // Criteria status breakdown
+                const criteriaStatusMap = NAAC_CRITERIA_SUMMARY.map(crit => {
+                  const critDocs = programDocs.filter(d => d.criterionCode === crit.code);
+                  const isVerified = critDocs.some(d => d.status === 'university_verified');
+                  const isPending = critDocs.some(d => d.status === 'approved_by_school' || d.status === 'submitted_to_university' || d.status === 'submitted_to_program');
+                  const count = critDocs.length;
+                  return {
+                    code: crit.code,
+                    short: crit.code.replace('Criterion ', 'C'),
+                    name: crit.name,
+                    count,
+                    status: isVerified ? 'verified' : isPending ? 'pending' : count > 0 ? 'uploaded' : 'missing',
+                  };
+                });
+
+                const missingCriteria = criteriaStatusMap.filter(c => c.status === 'missing');
+                const isReminderSent = !!remindersSent[program.id];
+
+                return (
+                  <div 
+                    key={program.id}
+                    className="bg-white rounded-xl border border-gray-200 p-4 shadow-2xs hover:border-slate-300 transition-all space-y-3 text-left"
+                  >
+                    {/* Program Header */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                            program.degreeType === 'UG' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                            program.degreeType === 'PG' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                            'bg-amber-50 text-amber-700 border-amber-200'
+                          }`}>
+                            {program.degreeType}
+                          </span>
+                          <span className="font-mono text-xs font-extrabold text-gray-800 bg-gray-100 px-2 py-0.5 rounded border border-gray-200">
+                            {program.shortCode}
+                          </span>
+                        </div>
+                        <h4 className="text-xs sm:text-sm font-bold text-gray-900 mt-1">
+                          {program.name}
+                        </h4>
+                      </div>
+
+                      <div className="text-right shrink-0">
+                        <span className="text-xs font-extrabold text-purple-800 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded">
+                          {verifiedCount} / {programDocs.length} Verified
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Program Coordinator Profile Pill */}
+                    <div className="bg-slate-50 rounded-lg p-2.5 border border-slate-200/90 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-7 h-7 rounded-full bg-purple-100 text-purple-700 font-bold flex items-center justify-center text-[11px] shrink-0">
+                          <User className="w-3.5 h-3.5" />
+                        </div>
+                        <div>
+                          <p className="font-bold text-gray-900 leading-tight">
+                            {program.coordinatorName}
+                          </p>
+                          <a 
+                            href={`mailto:${program.coordinatorEmail}`}
+                            className="text-[11px] text-gray-500 hover:text-purple-600 flex items-center gap-1 transition-colors"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Mail className="w-3 h-3" />
+                            <span>{program.coordinatorEmail}</span>
+                          </a>
+                        </div>
+                      </div>
+
+                      <span className="text-[10px] font-semibold text-gray-500 bg-white px-2 py-0.5 rounded border border-gray-200 shrink-0 self-start sm:self-auto">
+                        Program Coordinator
                       </span>
                     </div>
 
-                    <div className="space-y-1">
-                      <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
-                        <div 
-                          className="bg-purple-600 h-1.5 rounded-full transition-all duration-300"
-                          style={{ width: `${pct}%` }}
-                        />
+                    {/* Criteria Status Heatmap (Criteria 1 to 7) */}
+                    <div>
+                      <div className="flex items-center justify-between text-[11px] font-semibold text-gray-500 mb-1.5">
+                        <span>Criteria Heatmap (C1 – C7):</span>
+                        <span className="text-[10px] text-gray-400">
+                          {7 - missingCriteria.length}/7 Criteria Uploaded
+                        </span>
                       </div>
-                      <div className="flex items-center justify-between text-[10px] text-gray-400 pt-0.5">
-                        <span>{schoolVerified} verified</span>
-                        <span>{schoolAllDocs.length} total proofs</span>
+                      <div className="grid grid-cols-7 gap-1.5">
+                        {criteriaStatusMap.map((crit) => {
+                          const bg = 
+                            crit.status === 'verified' ? 'bg-emerald-500 text-white border-emerald-600' :
+                            crit.status === 'pending' ? 'bg-amber-400 text-amber-950 border-amber-500' :
+                            crit.status === 'uploaded' ? 'bg-blue-100 text-blue-800 border-blue-300' :
+                            'bg-gray-100 text-gray-400 border-gray-200';
+
+                          return (
+                            <div 
+                              key={crit.code}
+                              className={`py-1.5 rounded-lg border text-center font-mono text-[10px] font-bold flex flex-col items-center justify-center transition-all ${bg}`}
+                              title={`${crit.code} (${crit.name}): ${crit.count} proof(s) - Status: ${crit.status}`}
+                            >
+                              <span>{crit.short}</span>
+                              <span className="text-[9px] opacity-90 font-normal">
+                                {crit.count > 0 ? `${crit.count}p` : '—'}
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
 
-                    {/* Criteria mini badges */}
-                    <div className="pt-2 border-t border-gray-100 flex flex-wrap gap-1">
-                      {NAAC_CRITERIA_SUMMARY.map(c => {
-                        const hasDocs = schoolAllDocs.some(d => d.criterionCode === c.code);
-                        return (
-                          <span 
-                            key={c.code}
-                            className={`text-[9px] font-mono px-1.5 py-0.2 rounded ${
-                              hasDocs 
-                                ? 'bg-emerald-50 text-emerald-700 font-bold border border-emerald-200' 
-                                : 'bg-gray-100 text-gray-400'
-                            }`}
-                            title={`${c.code}: ${hasDocs ? 'Has proofs' : 'Empty'}`}
-                          >
-                            {c.code.replace('Criterion ', 'C')}
-                          </span>
-                        );
-                      })}
+                    {/* Warning Callout for Missing Criteria */}
+                    {missingCriteria.length > 0 ? (
+                      <div className="bg-rose-50 border border-rose-200/90 rounded-lg p-2.5 flex items-start gap-2 text-xs text-rose-800">
+                        <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0 mt-0.5" />
+                        <div className="min-w-0 flex-1">
+                          <p className="font-bold text-rose-900 leading-tight">
+                            {missingCriteria.length} Criteria Missing Proofs
+                          </p>
+                          <p className="text-[11px] text-rose-700 mt-0.5">
+                            No evidence proofs recorded for: {missingCriteria.map(m => m.short).join(', ')}.
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-emerald-50 border border-emerald-200/80 rounded-lg p-2 flex items-center gap-2 text-xs text-emerald-800">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <span className="font-semibold">All 7 NAAC criteria have active evidence submissions.</span>
+                      </div>
+                    )}
+
+                    {/* Program Actions Footer */}
+                    <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-100">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedSchoolFilter(selectedSchoolForDrawer.id);
+                          setSearchQuery(program.shortCode);
+                          setSelectedSchoolForDrawer(null);
+                          setDeskMode('repository');
+                          showToast(`Filtered repository to ${program.name}`);
+                        }}
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-600 hover:text-purple-700 py-1 px-2.5 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+                        title="View evidence proofs for this program in the Master Repository"
+                      >
+                        <FolderOpen className="w-3.5 h-3.5 text-purple-600" />
+                        <span>View Proofs ({programDocs.length})</span>
+                      </button>
+
+                      {/* Send Reminder Action Button */}
+                      <button
+                        type="button"
+                        onClick={() => handleSendReminder(program, selectedSchoolForDrawer.name)}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-2xs cursor-pointer ${
+                          isReminderSent 
+                            ? 'bg-emerald-50 text-emerald-800 border border-emerald-300'
+                            : 'bg-[#0f2748] hover:bg-[#183963] text-white'
+                        }`}
+                        title={`Send official IQAC reminder email to ${program.coordinatorName}`}
+                      >
+                        {isReminderSent ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[2.5]" />
+                            <span>Reminder Sent ({remindersSent[program.id]})</span>
+                          </>
+                        ) : (
+                          <>
+                            <Bell className="w-3.5 h-3.5 text-amber-300" />
+                            <span>Send Reminder</span>
+                          </>
+                        )}
+                      </button>
                     </div>
                   </div>
                 );
               })}
             </div>
+
+            {/* Drawer Bottom Footer */}
+            <div className="p-4 border-t border-gray-200 bg-slate-50 flex items-center justify-between shrink-0">
+              <span className="text-xs text-gray-500 font-medium">
+                University IQAC Oversight &bull; Real-time SSR Dossier Monitoring
+              </span>
+              <button
+                type="button"
+                onClick={() => setSelectedSchoolForDrawer(null)}
+                className="px-4 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold text-xs rounded-lg transition-colors cursor-pointer"
+              >
+                Close Drawer
+              </button>
+            </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* RE-OPEN WITH FEEDBACK MODAL */}
       {reopenDoc && (
