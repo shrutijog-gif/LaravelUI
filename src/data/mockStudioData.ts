@@ -754,7 +754,13 @@ export const generateDynamicSampleItems = (schema: ModuleSchema, targetTenantId:
     const rowData: Record<string, any> = {};
     schema.fields.forEach(f => {
       if (f.type === 'image') rowData[f.name] = p.image;
-      else if (f.type === 'file_pdf') {
+      else if (f.type === 'document_link') {
+        rowData[f.name] = SAMPLE_PDF;
+        rowData[`${f.name}_title`] = `${schema.name || 'Document'} File 0${idx + 1}`;
+        rowData[`${f.name}_text`] = `${schema.name || 'Document'} File 0${idx + 1}`;
+        rowData[`${f.name}_filename`] = `${schema.name ? schema.name.replace(/\s+/g, '_') : 'Document'}_0${idx + 1}.pdf`;
+        rowData['fileUrl'] = SAMPLE_PDF;
+      } else if (f.type === 'file_pdf') {
         rowData[f.name] = SAMPLE_PDF;
         rowData[`${f.name}_filename`] = `${schema.name.replace(/\s+/g, '_')}_Doc_${idx + 1}.pdf`;
       } else if (f.type === 'number') rowData[f.name] = p.year;

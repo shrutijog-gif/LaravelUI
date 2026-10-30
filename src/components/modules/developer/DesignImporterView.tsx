@@ -53,9 +53,9 @@ export const DesignImporterView: React.FC<DesignImporterViewProps> = ({ onNaviga
   const [targetScope, setTargetScope] = useState<'both' | 'header' | 'footer'>('both');
   
   // Custom extracted colors state
-  const [primaryColor, setPrimaryColor] = useState('#0c2367');
-  const [secondaryColor, setSecondaryColor] = useState('#168884');
-  const [accentColor, setAccentColor] = useState('#f4c430');
+  const [primaryColor, setPrimaryColor] = useState('#0f2748');
+  const [secondaryColor, setSecondaryColor] = useState('#2563eb');
+  const [accentColor, setAccentColor] = useState('#f59e0b');
 
   // Platform selection: Figma (active) vs Lovable (planned)
   const [sourcePlatform, setSourcePlatform] = useState<'figma' | 'lovable'>('figma');

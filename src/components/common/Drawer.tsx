@@ -8,6 +8,7 @@ interface DrawerProps {
   children: React.ReactNode;
   footer?: React.ReactNode;
   maxWidth?: string;
+  position?: 'left' | 'right';
 }
 
 export const Drawer: React.FC<DrawerProps> = ({
@@ -16,7 +17,8 @@ export const Drawer: React.FC<DrawerProps> = ({
   title,
   children,
   footer,
-  maxWidth = 'max-w-2xl'
+  maxWidth = 'max-w-2xl',
+  position = 'right'
 }) => {
   // Lock body scroll and handle Escape key while drawer is open
   useEffect(() => {
@@ -48,8 +50,8 @@ export const Drawer: React.FC<DrawerProps> = ({
         onClick={onClose}
       />
 
-      {/* Right Slide-over Drawer Panel */}
-      <div className={`fixed inset-y-0 top-0 bottom-0 right-0 z-[9999] w-full ${maxWidth} h-screen h-[100dvh] max-h-screen max-h-[100dvh] bg-white shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-right duration-300`}>
+      {/* Slide-over Drawer Panel */}
+      <div className={`fixed inset-y-0 top-0 bottom-0 ${position === 'left' ? 'left-0 slide-in-from-left' : 'right-0 slide-in-from-right'} z-[9999] w-full ${maxWidth} h-screen h-[100dvh] max-h-screen max-h-[100dvh] bg-white shadow-2xl flex flex-col overflow-hidden animate-in duration-300`}>
         {/* Drawer Header - Pinned at top */}
         <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-white shrink-0 sticky top-0 z-20">
           <h3 className="text-base font-bold text-gray-900">
