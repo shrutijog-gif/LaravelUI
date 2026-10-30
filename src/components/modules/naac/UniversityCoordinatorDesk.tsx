@@ -948,37 +948,6 @@ export const UniversityCoordinatorDesk: React.FC<UniversityCoordinatorDeskProps>
         {/* VIEW 4: SPECIALIZED GRID - CROSS-SCHOOL SSR READINESS MATRIX */}
         {deskMode === 'ssr-matrix' && (
           <div className="space-y-5 animate-in fade-in">
-            {/* Executive Progress Card */}
-            <div className="bg-gradient-to-r from-[#0f2748] to-[#1e3a5f] rounded-2xl p-6 text-white shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-6">
-              <div className="space-y-1">
-                <span className="px-2.5 py-0.5 rounded-full bg-purple-400/20 text-purple-200 border border-purple-300/30 text-[10px] font-bold uppercase tracking-wider">
-                  Executive Accreditation Dossier
-                </span>
-                <h2 className="text-xl font-black">
-                  Institutional SSR Readiness: {overallSSRProgress}%
-                </h2>
-                <p className="text-xs text-slate-300 max-w-xl">
-                  {totalVerifiedCount} of {documents.length} evidence proofs verified and locked across all 5 Constituent Schools for NAAC SSR submission.
-                </p>
-              </div>
-
-              <div className="w-full md:w-72 bg-white/10 p-4 rounded-xl border border-white/10 shrink-0">
-                <div className="flex items-center justify-between text-xs font-bold mb-1.5">
-                  <span>Audit Progress</span>
-                  <span>{overallSSRProgress}%</span>
-                </div>
-                <div className="w-full bg-white/20 rounded-full h-2.5 overflow-hidden">
-                  <div 
-                    className="bg-emerald-400 h-2.5 rounded-full transition-all duration-500"
-                    style={{ width: `${overallSSRProgress}%` }}
-                  />
-                </div>
-                <span className="text-[10px] text-slate-300 mt-2 block">
-                  Target: 100% Lock before SSR upload window
-                </span>
-              </div>
-            </div>
-
             {/* School by School Executive Cards */}
             <div>
               <div className="flex items-center justify-between gap-3 mb-4">
@@ -987,9 +956,7 @@ export const UniversityCoordinatorDesk: React.FC<UniversityCoordinatorDeskProps>
                     <Building2 className="w-5 h-5 text-purple-600" />
                     <span>Constituent Schools Audit &amp; Program-wise Status</span>
                   </h3>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    Live accreditation readiness by criteria coverage. Click any card to open the program audit drawer.
-                  </p>
+                 
                 </div>
 
                 <span className="text-xs font-semibold text-purple-700 bg-purple-50 border border-purple-200 px-3 py-1 rounded-full shadow-2xs shrink-0">
@@ -997,8 +964,8 @@ export const UniversityCoordinatorDesk: React.FC<UniversityCoordinatorDeskProps>
                 </span>
               </div>
 
-              {/* Spacious 2-Column Responsive Grid */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+              {/* 3-Column Responsive Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                 {ITM_SCHOOLS.map(school => {
                   const theme = SCHOOL_THEMES[school.id] || SCHOOL_THEMES['sch-tech'];
                   const SchoolIcon = theme.icon;
@@ -1013,121 +980,79 @@ export const UniversityCoordinatorDesk: React.FC<UniversityCoordinatorDeskProps>
                   return (
                     <div 
                       key={school.id} 
-                      className="bg-white rounded-2xl border border-gray-200 hover:border-purple-300 shadow-xs hover:shadow-md transition-all duration-200 flex flex-col justify-between overflow-hidden"
+                      className="bg-white rounded-2xl border border-gray-200/80 hover:border-purple-300 shadow-xs hover:shadow-md transition-all duration-200 flex flex-col justify-between overflow-hidden"
                     >
                       {/* Top colored accent line */}
                       <div className={`h-1.5 w-full bg-gradient-to-r ${theme.gradient}`} />
 
                       <div className="p-5 flex-1 flex flex-col justify-between">
                         <div>
-                          {/* 1. LOGO, COLLEGE NAME & SCHOOL COORDINATOR */}
-                          <div className="flex items-start justify-between gap-3 mb-3.5">
-                            <div className="flex items-center gap-3 min-w-0">
-                              {/* School Logo */}
-                              <div className={`w-11 h-11 rounded-xl bg-gradient-to-tr ${theme.gradient} text-white flex items-center justify-center shadow-xs shrink-0`}>
-                                <SchoolIcon className="w-5 h-5 stroke-[2.2]" />
-                              </div>
-
-                              {/* College Name & School Coordinator */}
-                              <div className="min-w-0">
-                                <p className="text-xs text-gray-500 truncate">
-                                  School Coordinator: <strong className="text-gray-800 font-semibold">{school.coordinatorName}</strong>
-                                </p>
-                                <h4 className="text-sm font-bold text-gray-900 mt-0.5 leading-snug truncate" title={school.name}>
-                                  {school.name}
-                                </h4>
-                              </div>
+                          {/* 1. LOGO & COLLEGE NAME (Fixed height matching logo so 1-line & 2-line titles align identically) */}
+                          <div className="flex items-center gap-3 mb-3">
+                            {/* School Logo */}
+                            <div className={`w-11 h-11 rounded-xl bg-gradient-to-tr ${theme.gradient} text-white flex items-center justify-center shadow-xs shrink-0`}>
+                              <SchoolIcon className="w-5 h-5 stroke-[2.2]" />
                             </div>
 
-                            {/* Top Quick Actions */}
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              <button
-                                type="button"
-                                onClick={() => handleSendBatchReminders(school)}
-                                className="px-2 py-1 rounded-lg text-[11px] font-semibold text-gray-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
-                                title="Send IQAC reminder to all program coordinators in this school"
-                              >
-                                <Bell className="w-3 h-3 text-slate-600" />
-                                <span className="hidden sm:inline">Remind All</span>
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => setSelectedSchoolForDrawer(school)}
-                                className="p-1 text-gray-400 hover:text-purple-700 hover:bg-purple-50 rounded-lg cursor-pointer transition-colors"
-                                title="Open full slide-over audit drawer"
-                              >
-                                <Maximize2 className="w-3.5 h-3.5" />
-                              </button>
+                            {/* College Name (Fixed height h-11 matching w-11 logo so 1-line & 2-line names align identically) */}
+                            <div className="min-w-0 flex-1 h-11 flex flex-col justify-center">
+                              <h4 className="text-sm font-bold text-gray-900 leading-tight line-clamp-2" title={school.name}>
+                                {school.name}
+                              </h4>
                             </div>
                           </div>
 
-                          {/* 2. NAAC READINESS STRIP (Common Green for All Cards) */}
-                          <div className="px-3.5 py-2.5 bg-slate-50 rounded-xl border border-gray-100 space-y-1.5 mb-3.5">
-                            <div className="flex items-center justify-between text-xs">
-                              <div className="flex items-center gap-1.5">
-                                <span className="font-bold text-gray-700">NAAC Readiness:</span>
-                                <span className="font-semibold text-emerald-700">
-                                  {coveredCriteriaCount} of 7 Criteria Covered
-                                </span>
-                              </div>
+                          {/* SCHOOL COORDINATOR ROW WITH INLINE REMINDER (Aligned at the exact same baseline across all cards) */}
+                          <div className="flex items-center justify-between gap-2 mb-3.5 pt-2.5 border-t border-gray-100">
+                            <p className="text-xs font-medium text-gray-600 truncate">
+                              School Coordinator: <strong className="text-gray-900 font-semibold">{school.coordinatorName}</strong>
+                            </p>
 
-                              <span className="font-extrabold text-xs text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
+                            <button
+                              type="button"
+                              onClick={() => handleSendBatchReminders(school)}
+                              className="p-1 text-gray-400 hover:text-purple-700 hover:bg-purple-50 rounded-lg cursor-pointer transition-colors shrink-0"
+                              title="Send IQAC reminder to school coordinator"
+                            >
+                              <Bell className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+
+                          {/* 2. UNIFIED METRICS & READINESS PANEL */}
+                          <div className="bg-slate-50/80 rounded-xl p-3.5 border border-slate-200/70 space-y-2.5">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="font-semibold text-gray-700">SSR Readiness</span>
+                              <span className="font-black text-sm text-emerald-700">
                                 {readinessPct}%
                               </span>
                             </div>
 
                             {/* Readiness Meter */}
-                            <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                            <div className="w-full bg-gray-200/80 rounded-full h-2 overflow-hidden">
                               <div 
                                 className="h-2 rounded-full transition-all duration-500 bg-emerald-500"
                                 style={{ width: `${readinessPct}%` }}
                               />
                             </div>
-                          </div>
 
-                          {/* 3. PROGRAM NAMES (Simple List) */}
-                          <div className="space-y-1.5">
-                            <div className="flex items-center justify-between text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">
-                              <span>Academic Programs ({school.programs.length})</span>
-                              <span>Readiness</span>
+                            {/* Secondary Stats Row */}
+                            <div className="flex items-center justify-between text-[11px] text-gray-500 pt-0.5">
+                              <span>{coveredCriteriaCount} of 7 Criteria Covered</span>
+                              <span className="font-semibold text-gray-700 bg-white px-2 py-0.5 rounded-md border border-gray-200 shadow-2xs">
+                                {school.programs.length} Programs
+                              </span>
                             </div>
-
-                            {school.programs.map(program => {
-                              const progDocs = documents.filter(d => 
-                                d.schoolId === school.id && 
-                                (d.programId === program.id || (!d.programId && school.programs[0]?.id === program.id))
-                              );
-                              const progCriteriaWithDocs = new Set(progDocs.map(d => d.criterionCode));
-                              const progPct = Math.round((progCriteriaWithDocs.size / 7) * 100);
-
-                              return (
-                                <div 
-                                  key={program.id}
-                                  className="text-xs text-gray-800 font-medium py-1.5 px-3 rounded-lg bg-slate-50/70 border border-slate-100 flex items-center justify-between gap-2 hover:bg-slate-100/70 transition-colors"
-                                >
-                                  <div className="flex items-center gap-2 min-w-0">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-purple-500 shrink-0" />
-                                    <span className="truncate">{program.name}</span>
-                                  </div>
-
-                                  <span className="text-[11px] font-bold font-mono text-emerald-800 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-md shrink-0">
-                                    {progPct}%
-                                  </span>
-                                </div>
-                              );
-                            })}
                           </div>
                         </div>
 
-                        {/* 4. OPEN DRAWER ACTION BUTTON */}
+                        {/* 3. OPEN DRAWER ACTION BUTTON */}
                         <button
                           type="button"
                           onClick={() => setSelectedSchoolForDrawer(school)}
-                          className="mt-4 w-full py-2 px-3 bg-[#0f2748] hover:bg-[#183963] text-white rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs group"
+                          className="mt-4 w-full py-2.5 px-3 bg-white hover:bg-purple-50 text-gray-800 hover:text-purple-700 border border-gray-200 hover:border-purple-300 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs group"
                         >
-                          <span>View Details</span>
-                          <ArrowRight className="w-3.5 h-3.5 transform group-hover:translate-x-0.5 transition-transform" />
+                          <span>View Details &amp; Criteria</span>
+                          <ArrowRight className="w-3.5 h-3.5 transform group-hover:translate-x-0.5 transition-transform text-gray-400 group-hover:text-purple-600" />
                         </button>
                       </div>
                     </div>
