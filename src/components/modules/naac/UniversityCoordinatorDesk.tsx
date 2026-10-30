@@ -173,6 +173,12 @@ export const UniversityCoordinatorDesk: React.FC<UniversityCoordinatorDeskProps>
     showToast(`📢 Official IQAC Reminder sent to ${program.coordinatorName} (${program.coordinatorEmail}) for ${program.shortCode} evidence proof submission.`);
   };
 
+  const handleSendSchoolCoordinatorReminder = (school: NaacSchool) => {
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    setRemindersSent(prev => ({ ...prev, [school.id]: timeStr }));
+    showToast(`📢 Official IQAC Reminder sent to School Coordinator ${school.coordinatorName} for ${school.name}.`);
+  };
+
   const handleSendBatchReminders = (school: NaacSchool) => {
     const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const updated: Record<string, string> = {};
@@ -1010,11 +1016,15 @@ export const UniversityCoordinatorDesk: React.FC<UniversityCoordinatorDeskProps>
 
                             <button
                               type="button"
-                              onClick={() => handleSendBatchReminders(school)}
+                              onClick={() => handleSendSchoolCoordinatorReminder(school)}
                               className="p-1 text-gray-400 hover:text-purple-700 hover:bg-purple-50 rounded-lg cursor-pointer transition-colors shrink-0"
-                              title="Send IQAC reminder to school coordinator"
+                              title={`Send IQAC reminder to School Coordinator (${school.coordinatorName})`}
                             >
-                              <Bell className="w-3.5 h-3.5" />
+                              {remindersSent[school.id] ? (
+                                <Check className="w-3.5 h-3.5 text-emerald-600" />
+                              ) : (
+                                <Bell className="w-3.5 h-3.5" />
+                              )}
                             </button>
                           </div>
 
@@ -1067,7 +1077,7 @@ export const UniversityCoordinatorDesk: React.FC<UniversityCoordinatorDeskProps>
       {/* SLIDE-OVER DRAWER: DETAILED PROGRAM-WISE CRITERIA MATRIX & COORDINATOR AUDIT */}
       {selectedSchoolForDrawer && (
         <div 
-          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex justify-end animate-in fade-in duration-200"
+          className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex justify-end animate-in fade-in duration-200"
           onClick={() => setSelectedSchoolForDrawer(null)}
         >
           <div 
@@ -1079,31 +1089,44 @@ export const UniversityCoordinatorDesk: React.FC<UniversityCoordinatorDeskProps>
               const theme = SCHOOL_THEMES[selectedSchoolForDrawer.id] || SCHOOL_THEMES['sch-tech'];
               const SchoolIcon = theme.icon;
               const schoolDocs = documents.filter(d => d.schoolId === selectedSchoolForDrawer.id);
-              const verifiedDocsCount = schoolDocs.filter(d => d.status === 'university_verified').length;
-              const schoolPct = schoolDocs.length > 0 ? Math.round((verifiedDocsCount / schoolDocs.length) * 100) : 0;
+              const criteriaWithDocs = new Set(schoolDocs.map(d => d.criterionCode));
+              const coveredCriteriaCount = criteriaWithDocs.size;
+              const readinessPct = Math.round((coveredCriteriaCount / 7) * 100);
 
               return (
                 <div className="p-5 border-b border-gray-200 bg-slate-50 shrink-0">
                   <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-3">
-                      <div className={`w-12 h-12 rounded-xl bg-gradient-to-tr ${theme.gradient} text-white flex items-center justify-center shadow-xs shrink-0`}>
+                    <div className="flex items-start gap-3.5">
+                      <div className={`w-12 h-12 rounded-xl bg-gradient-to-tr ${theme.gradient} text-white flex items-center justify-center shadow-xs shrink-0 mt-0.5`}>
                         <SchoolIcon className="w-6 h-6 stroke-[2.2]" />
                       </div>
                       <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-xs font-mono font-extrabold text-purple-700 bg-purple-100/80 border border-purple-200 px-2 py-0.5 rounded">
-                            {selectedSchoolForDrawer.shortCode}
-                          </span>
-                          <span className="text-xs font-semibold text-gray-500">
-                            Dean: <strong className="text-gray-900">{selectedSchoolForDrawer.deanName}</strong>
-                          </span>
-                        </div>
-                        <h2 className="text-base font-black text-gray-900 mt-1 leading-snug">
+                        <h2 className="text-base font-bold text-gray-900 leading-snug">
                           {selectedSchoolForDrawer.name}
                         </h2>
-                        <p className="text-xs text-gray-500 mt-0.5">
-                          School Coordinator: <span className="font-semibold text-gray-700">{selectedSchoolForDrawer.coordinatorName}</span>
-                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <p className="text-xs text-gray-600">
+                            School Coordinator: <strong className="text-sm font-bold text-gray-950">{selectedSchoolForDrawer.coordinatorName}</strong>
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => handleSendSchoolCoordinatorReminder(selectedSchoolForDrawer)}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-white hover:bg-slate-50 text-gray-700 border border-gray-300 shadow-2xs transition-colors cursor-pointer shrink-0"
+                            title={`Send direct IQAC reminder to School Coordinator ${selectedSchoolForDrawer.coordinatorName}`}
+                          >
+                            {remindersSent[selectedSchoolForDrawer.id] ? (
+                              <>
+                                <Check className="w-3 h-3 text-emerald-600" />
+                                <span className="text-emerald-700 font-medium">Reminded ({remindersSent[selectedSchoolForDrawer.id]})</span>
+                              </>
+                            ) : (
+                              <>
+                                <Bell className="w-3 h-3 text-gray-500" />
+                                <span>Remind</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
                       </div>
                     </div>
 
@@ -1119,20 +1142,17 @@ export const UniversityCoordinatorDesk: React.FC<UniversityCoordinatorDeskProps>
 
                   {/* School Progress & Batch Actions Card */}
                   <div className="mt-4 bg-white rounded-xl p-3.5 border border-slate-200 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="space-y-1">
+                    <div className="space-y-1.5">
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-bold text-gray-700">SSR Audit Readiness:</span>
                         <span className="text-xs font-extrabold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                          {schoolPct}%
-                        </span>
-                        <span className="text-[11px] text-gray-500">
-                          ({verifiedDocsCount} verified of {schoolDocs.length} proofs)
+                          {readinessPct}%
                         </span>
                       </div>
                       <div className="w-56 bg-gray-100 rounded-full h-2 overflow-hidden">
                         <div 
                           className="h-2 rounded-full bg-emerald-500 transition-all duration-500"
-                          style={{ width: `${schoolPct}%` }}
+                          style={{ width: `${readinessPct}%` }}
                         />
                       </div>
                     </div>
@@ -1140,10 +1160,10 @@ export const UniversityCoordinatorDesk: React.FC<UniversityCoordinatorDeskProps>
                     <button
                       type="button"
                       onClick={() => handleSendBatchReminders(selectedSchoolForDrawer)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 transition-colors shadow-2xs cursor-pointer shrink-0"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-700 bg-white hover:bg-slate-50 border border-gray-300 transition-colors shadow-2xs cursor-pointer shrink-0"
                       title="Send IQAC reminder to all program coordinators in this school"
                     >
-                      <Bell className="w-3.5 h-3.5 text-purple-600" />
+                      <Bell className="w-3.5 h-3.5 text-gray-500" />
                       <span>Remind All Programs</span>
                     </button>
                   </div>
@@ -1160,7 +1180,7 @@ export const UniversityCoordinatorDesk: React.FC<UniversityCoordinatorDeskProps>
                 </span>
               </div>
 
-              {selectedSchoolForDrawer.programs.map((program) => {
+              {selectedSchoolForDrawer.programs.map((program, index) => {
                 // Program-specific documents
                 const programDocs = documents.filter(d => 
                   d.schoolId === selectedSchoolForDrawer.id && 
@@ -1188,62 +1208,57 @@ export const UniversityCoordinatorDesk: React.FC<UniversityCoordinatorDeskProps>
                 const missingCriteria = criteriaStatusMap.filter(c => c.status === 'missing');
                 const isReminderSent = !!remindersSent[program.id];
 
+                // Determine activity status
+                let activityText = 'No activity in 3+ days';
+                let isInactive = true;
+
+                if (programDocs.length > 0) {
+                  const sortedDocs = [...programDocs].sort((a, b) => {
+                    const dateA = new Date(a.uploadedAt || a.createdAt || 0).getTime();
+                    const dateB = new Date(b.uploadedAt || b.createdAt || 0).getTime();
+                    return dateB - dateA;
+                  });
+                  const latestDate = sortedDocs[0]?.uploadedAt || sortedDocs[0]?.createdAt;
+                  if (latestDate && !isNaN(new Date(latestDate).getTime())) {
+                    const diffMs = Date.now() - new Date(latestDate).getTime();
+                    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+
+                    if (diffHours < 24) {
+                      activityText = diffHours <= 1 ? 'Updated recently' : `Updated ${diffHours}h ago`;
+                      isInactive = false;
+                    } else if (diffDays === 1) {
+                      activityText = 'Updated yesterday';
+                      isInactive = false;
+                    } else if (diffDays <= 3) {
+                      activityText = `Updated ${diffDays} days ago`;
+                      isInactive = false;
+                    } else {
+                      activityText = `No activity since ${diffDays} days`;
+                      isInactive = true;
+                    }
+                  } else {
+                    activityText = `${programDocs.length} ${programDocs.length === 1 ? 'proof' : 'proofs'} active`;
+                    isInactive = false;
+                  }
+                } else {
+                  activityText = 'No activity in 3+ days';
+                  isInactive = true;
+                }
+
                 return (
                   <div 
                     key={program.id}
                     className="bg-white rounded-xl border border-gray-200 p-4 shadow-2xs hover:border-slate-300 transition-all space-y-3 text-left"
                   >
-                    {/* Program Header */}
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
-                            program.degreeType === 'UG' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                            program.degreeType === 'PG' ? 'bg-purple-50 text-purple-700 border-purple-200' :
-                            'bg-amber-50 text-amber-700 border-amber-200'
-                          }`}>
-                            {program.degreeType}
-                          </span>
-                          <span className="font-mono text-xs font-extrabold text-gray-800 bg-gray-100 px-2 py-0.5 rounded border border-gray-200">
-                            {program.shortCode}
-                          </span>
-                        </div>
-                        <h4 className="text-xs sm:text-sm font-bold text-gray-900 mt-1">
-                          {program.name}
-                        </h4>
-                      </div>
-
-                      <div className="text-right shrink-0">
-                        <span className="text-xs font-extrabold text-purple-800 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded">
-                          {verifiedCount} / {programDocs.length} Verified
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Program Coordinator Profile Pill */}
-                    <div className="bg-slate-50 rounded-lg p-2.5 border border-slate-200/90 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-7 h-7 rounded-full bg-purple-100 text-purple-700 font-bold flex items-center justify-center text-[11px] shrink-0">
-                          <User className="w-3.5 h-3.5" />
-                        </div>
-                        <div>
-                          <p className="font-bold text-gray-900 leading-tight">
-                            {program.coordinatorName}
-                          </p>
-                          <a 
-                            href={`mailto:${program.coordinatorEmail}`}
-                            className="text-[11px] text-gray-500 hover:text-purple-600 flex items-center gap-1 transition-colors"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <Mail className="w-3 h-3" />
-                            <span>{program.coordinatorEmail}</span>
-                          </a>
-                        </div>
-                      </div>
-
-                      <span className="text-[10px] font-semibold text-gray-500 bg-white px-2 py-0.5 rounded border border-gray-200 shrink-0 self-start sm:self-auto">
-                        Program Coordinator
-                      </span>
+                    {/* Program Header & Coordinator */}
+                    <div>
+                      <h4 className="text-sm font-bold text-gray-900 leading-snug">
+                        {index + 1}. {program.name}
+                      </h4>
+                      <p className="text-xs text-gray-500 mt-0.5 truncate">
+                        Program Coordinator: <strong className="text-gray-800 font-semibold">{program.coordinatorName}</strong>
+                      </p>
                     </div>
 
                     {/* Criteria Status Heatmap (Criteria 1 to 7) */}
@@ -1278,28 +1293,41 @@ export const UniversityCoordinatorDesk: React.FC<UniversityCoordinatorDeskProps>
                       </div>
                     </div>
 
-                    {/* Warning Callout for Missing Criteria */}
-                    {missingCriteria.length > 0 ? (
-                      <div className="bg-rose-50 border border-rose-200/90 rounded-lg p-2.5 flex items-start gap-2 text-xs text-rose-800">
-                        <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0 mt-0.5" />
-                        <div className="min-w-0 flex-1">
-                          <p className="font-bold text-rose-900 leading-tight">
-                            {missingCriteria.length} Criteria Missing Proofs
-                          </p>
-                          <p className="text-[11px] text-rose-700 mt-0.5">
-                            No evidence proofs recorded for: {missingCriteria.map(m => m.short).join(', ')}.
-                          </p>
+                    {/* Program Actions & Activity Footer */}
+                    <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-100 text-xs">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <Clock className={`w-3.5 h-3.5 ${isInactive ? 'text-amber-500' : 'text-emerald-500'}`} />
+                          <span className={`text-[11px] font-medium ${isInactive ? 'text-amber-700' : 'text-gray-600'}`}>
+                            {activityText}
+                          </span>
                         </div>
-                      </div>
-                    ) : (
-                      <div className="bg-emerald-50 border border-emerald-200/80 rounded-lg p-2 flex items-center gap-2 text-xs text-emerald-800">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                        <span className="font-semibold">All 7 NAAC criteria have active evidence submissions.</span>
-                      </div>
-                    )}
 
-                    {/* Program Actions Footer */}
-                    <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-100">
+                        {/* Remind Button placed right next to activity label */}
+                        <button
+                          type="button"
+                          onClick={() => handleSendReminder(program, selectedSchoolForDrawer.name)}
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold transition-all shadow-2xs cursor-pointer shrink-0 ${
+                            isReminderSent 
+                              ? 'bg-emerald-50 text-emerald-800 border border-emerald-300'
+                              : 'bg-white hover:bg-slate-50 text-gray-700 hover:text-gray-900 border border-gray-300 hover:border-gray-400'
+                          }`}
+                          title={`Send official IQAC reminder email to ${program.coordinatorName}`}
+                        >
+                          {isReminderSent ? (
+                            <>
+                              <Check className="w-3 h-3 text-emerald-600 stroke-[2.5]" />
+                              <span>Reminded ({remindersSent[program.id]})</span>
+                            </>
+                          ) : (
+                            <>
+                              <Bell className="w-3 h-3 text-gray-500" />
+                              <span>Remind</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+
                       <button
                         type="button"
                         onClick={() => {
@@ -1309,35 +1337,12 @@ export const UniversityCoordinatorDesk: React.FC<UniversityCoordinatorDeskProps>
                           setDeskMode('repository');
                           showToast(`Filtered repository to ${program.name}`);
                         }}
-                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-600 hover:text-purple-700 py-1 px-2.5 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-purple-700 hover:text-purple-900 py-1 rounded transition-colors cursor-pointer group shrink-0"
                         title="View evidence proofs for this program in the Master Repository"
                       >
                         <FolderOpen className="w-3.5 h-3.5 text-purple-600" />
                         <span>View Proofs ({programDocs.length})</span>
-                      </button>
-
-                      {/* Send Reminder Action Button */}
-                      <button
-                        type="button"
-                        onClick={() => handleSendReminder(program, selectedSchoolForDrawer.name)}
-                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-2xs cursor-pointer ${
-                          isReminderSent 
-                            ? 'bg-emerald-50 text-emerald-800 border border-emerald-300'
-                            : 'bg-[#0f2748] hover:bg-[#183963] text-white'
-                        }`}
-                        title={`Send official IQAC reminder email to ${program.coordinatorName}`}
-                      >
-                        {isReminderSent ? (
-                          <>
-                            <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[2.5]" />
-                            <span>Reminder Sent ({remindersSent[program.id]})</span>
-                          </>
-                        ) : (
-                          <>
-                            <Bell className="w-3.5 h-3.5 text-amber-300" />
-                            <span>Send Reminder</span>
-                          </>
-                        )}
+                        <ArrowRight className="w-3 h-3 transform group-hover:translate-x-0.5 transition-transform" />
                       </button>
                     </div>
                   </div>
@@ -1346,10 +1351,8 @@ export const UniversityCoordinatorDesk: React.FC<UniversityCoordinatorDeskProps>
             </div>
 
             {/* Drawer Bottom Footer */}
-            <div className="p-4 border-t border-gray-200 bg-slate-50 flex items-center justify-between shrink-0">
-              <span className="text-xs text-gray-500 font-medium">
-                University IQAC Oversight &bull; Real-time SSR Dossier Monitoring
-              </span>
+            <div className="p-4 border-t border-gray-200 bg-slate-50 flex items-center justify-end shrink-0">
+            
               <button
                 type="button"
                 onClick={() => setSelectedSchoolForDrawer(null)}
