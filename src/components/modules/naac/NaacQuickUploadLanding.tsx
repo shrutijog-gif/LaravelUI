@@ -1237,21 +1237,21 @@ Respond in JSON ONLY:
         </div>
       </div>
 
-      {/* Center Google-Style Uncluttered Experience */}
-      <div className="flex flex-col items-center justify-center min-h-[64vh] max-w-5xl w-full mx-auto px-4 text-center">
+      {/* Center Uncluttered Experience */}
+      <div className="flex flex-col items-center justify-center min-h-[62vh] sm:min-h-[68vh] max-w-5xl w-full mx-auto px-4 text-center pt-8 sm:pt-14 pb-8">
         {/* Bold Heading */}
         <div className="mb-5">
-          <h1 className="text-4xl sm:text-5xl font-black tracking-tight text-[#0f2748]">
+          <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-[#0f2748]">
             {headingTitle || 'Drop NAAC Evidence'}
           </h1>
           {portalSubtitle && (
-            <p className="text-xs sm:text-sm text-gray-500 mt-2 font-medium max-w-lg mx-auto">
+            <p className="text-xs sm:text-sm text-gray-500 mt-1.5 font-medium max-w-lg mx-auto">
               {portalSubtitle}
             </p>
           )}
         </div>
 
-        {/* Google-Style Upload Bar Form */}
+        {/* Upload Form */}
         <form onSubmit={handleSubmit} className="w-full space-y-4">
           {/* Hidden File Input */}
           <input
@@ -1263,66 +1263,99 @@ Respond in JSON ONLY:
           />
 
           {!uploadedFile ? (
-            /* EMPTY STATE: Capsule Upload Bar (Clickable Everywhere) */
+            /* EMPTY STATE: Wide Drag & Drop Card with Clear Auto vs Manual Division (Sleek Height & Blue Hover Border) */
             <div
               onClick={() => fileInputRef.current?.click()}
               onDragOver={handleBarDragOver}
               onDragLeave={handleBarDragLeave}
               onDrop={handleBarDrop}
-              className={`relative flex items-center bg-white border rounded-full px-4 py-2.5 sm:px-5 sm:py-3 transition-all shadow-[0_2px_14px_rgba(0,0,0,0.08)] hover:shadow-[0_6px_26px_rgba(0,0,0,0.12)] cursor-pointer w-full max-w-4xl mx-auto ${
-                isBarDragging
-                  ? 'border-blue-500 ring-4 ring-blue-100 bg-blue-50/50 scale-[1.005]'
-                  : 'border-gray-300 hover:border-blue-400 focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-100/60'
+              className={`relative w-full max-w-4xl mx-auto rounded-3xl border-2 border-dashed p-5 sm:p-6 transition-all duration-200 cursor-pointer text-center shadow-[0_4px_20px_rgba(15,39,72,0.05)] hover:shadow-[0_10px_28px_rgba(15,39,72,0.09)] min-h-[185px] flex flex-col justify-between bg-white ${
+                useAi
+                  ? 'border-indigo-300 ring-2 ring-indigo-100/70 hover:border-blue-500'
+                  : 'border-slate-300 hover:border-blue-400'
+              } ${
+                isBarDragging ? '!border-blue-500 !bg-slate-50 ring-4 ring-blue-100 scale-[1.005]' : ''
               }`}
             >
-              {/* VERY LEFT INSIDE DROP AREA: Enable AI Checkbox */}
-              <div className="flex items-center shrink-0 pr-2.5 border-r border-gray-200 mr-2.5">
-                <label
-                  htmlFor="enable-ai-inside-bar"
-                  onClick={(e) => e.stopPropagation()}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold select-none cursor-pointer transition-all ${
-                    useAi
-                      ? 'bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs'
-                      : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300'
-                  }`}
-                  title="Toggle AI Parsing. When off, destination selection is strictly manual."
-                >
-                  <input
-                    id="enable-ai-inside-bar"
-                    type="checkbox"
-                    checked={useAi}
-                    onChange={(e) => {
-                      const checked = e.target.checked;
-                      setUseAi(checked);
-                    }}
-                    className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-500 cursor-pointer accent-[#0f2748]"
-                  />
-                  <Sparkles className={`w-3.5 h-3.5 ${useAi ? 'text-amber-600 fill-amber-500' : 'text-gray-400'}`} />
-                  <span>Enable AI</span>
-                </label>
-              </div>
+              {/* Top Divided Header: Auto (AI Mode) vs Manual Mode Division */}
+              <div 
+                className="w-full flex flex-col sm:flex-row items-center justify-between gap-2.5 pb-3 mb-2 border-b border-gray-100/90"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Left: Auto (AI Mode) vs Manual Mode Segmented Division */}
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-bold text-gray-500 uppercase tracking-wider hidden sm:inline">
+                    Mode:
+                  </span>
+                  <div className="inline-flex p-1 bg-slate-100/90 rounded-xl border border-slate-200 shadow-2xs">
+                    <button
+                      type="button"
+                      onClick={() => setUseAi(true)}
+                      className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        useAi
+                          ? 'bg-white text-indigo-950 shadow-xs border border-indigo-200/80 ring-1 ring-indigo-100'
+                          : 'text-gray-500 hover:text-gray-900'
+                      }`}
+                      title="AI automatically reads document and maps to Criterion & Metric"
+                    >
+                      <Sparkles className={`w-3.5 h-3.5 ${useAi ? 'text-amber-500 fill-amber-400' : 'text-gray-400'}`} />
+                      <span>Auto (AI Mode)</span>
+                    </button>
 
-              {/* Empty State Text */}
-              <div className="flex items-center justify-between w-full min-w-0">
-                <span className="text-xs sm:text-sm text-gray-500 font-medium select-none truncate">
-                  Drop evidence file here or click anywhere to upload...
-                </span>
-                <div className="flex items-center gap-2 shrink-0 pl-2">
+                    <button
+                      type="button"
+                      onClick={() => setUseAi(false)}
+                      className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        !useAi
+                          ? 'bg-white text-gray-900 shadow-xs border border-gray-300 ring-1 ring-gray-100'
+                          : 'text-gray-500 hover:text-gray-900'
+                      }`}
+                      title="Direct manual assignment of Criterion and Metric"
+                    >
+                      <SlidersHorizontal className="w-3.5 h-3.5 text-gray-500" />
+                      <span>Manual Mode</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Right: Mode Status Pill */}
+                <div className="flex items-center gap-2 shrink-0">
                   {useAi ? (
-                    <span className="rounded-full px-2.5 py-1 text-[11px] font-bold flex items-center gap-1 bg-amber-50 text-amber-800 border border-amber-200 shadow-2xs select-none">
-                      <Sparkles className="w-3 h-3 text-amber-500" />
-                      <span>AI Active</span>
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200/90 shadow-2xs">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />
+                      <span>AI Reads &amp; Auto-Maps Criterion</span>
                     </span>
                   ) : (
-                    <span className="rounded-full px-2.5 py-1 text-[11px] font-medium flex items-center gap-1 bg-slate-100 text-slate-600 border border-slate-200 select-none">
-                      <span>Manual Mode</span>
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                      <span>Manual Mode: Coordinator assigns destination</span>
                     </span>
                   )}
                 </div>
               </div>
+
+              {/* Center Dropzone Illustration & Action (Clean White Styling & Sleek Height) */}
+              <div className="py-2.5 sm:py-3.5 flex flex-col items-center justify-center">
+                <div className="w-12 h-12 rounded-2xl bg-slate-50 border border-slate-200/90 flex items-center justify-center text-slate-600 mb-2 shadow-2xs">
+                  <Upload className="w-6 h-6 text-slate-600 stroke-[2.2]" />
+                </div>
+
+                <p className="text-sm sm:text-base font-bold text-gray-800 tracking-tight">
+                  Drag &amp; drop NAAC evidence file here
+                </p>
+
+                <div className="mt-2">
+                  <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold text-gray-700 bg-white hover:bg-gray-50 border border-gray-300 transition-colors shadow-2xs">
+                    Choose File to Upload
+                  </span>
+                </div>
+
+                <p className="text-[11px] sm:text-xs text-gray-400 mt-2 font-medium">
+                  Supports PDF, DOCX, XLSX, PNG, JPG &bull; Maximum file size: 25 MB
+                </p>
+              </div>
             </div>
           ) : (
-            /* UPLOADED FILE STATE: SINGLE UNIFIED CARD BOX (Replaces capsule bar so behind box is hidden) */
+            /* UPLOADED FILE STATE: SINGLE UNIFIED CARD BOX */
             <div
               onDragOver={handleBarDragOver}
               onDragLeave={handleBarDragLeave}

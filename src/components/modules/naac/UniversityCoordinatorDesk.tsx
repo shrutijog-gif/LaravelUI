@@ -21,7 +21,20 @@ import {
   Award,
   Lock,
   MessageSquare,
-  Layers
+  Layers,
+  Cpu,
+  Briefcase,
+  Palette,
+  HeartPulse,
+  UtensilsCrossed,
+  Bell,
+  Send,
+  AlertTriangle,
+  Mail,
+  User,
+  GraduationCap,
+  ArrowRight,
+  Maximize2
 } from 'lucide-react';
 import { 
   ITM_SCHOOLS, 
@@ -29,12 +42,64 @@ import {
   NAAC_METRICS_LIST, 
   KEY_INDICATORS,
   NaacEvidenceDocument, 
+  NaacSchool,
+  NaacProgram,
   getStoredNaacDocuments, 
   verifyUniversityDocument,
   deleteNaacDocument 
 } from '../../../data/naacDmsData';
 import { openFileInNewTab } from '../../../utils/fileHelper';
 import { NaacQuickUploadLanding } from './NaacQuickUploadLanding';
+
+const SCHOOL_THEMES: Record<string, {
+  color: string;
+  bgLight: string;
+  borderLight: string;
+  badgeBg: string;
+  icon: React.ElementType;
+  gradient: string;
+}> = {
+  'sch-tech': {
+    color: 'text-blue-600',
+    bgLight: 'bg-blue-50',
+    borderLight: 'border-blue-200',
+    badgeBg: 'bg-blue-100 text-blue-800 border-blue-200',
+    icon: Cpu,
+    gradient: 'from-blue-600 to-indigo-700',
+  },
+  'sch-mgmt': {
+    color: 'text-emerald-600',
+    bgLight: 'bg-emerald-50',
+    borderLight: 'border-emerald-200',
+    badgeBg: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+    icon: Briefcase,
+    gradient: 'from-emerald-600 to-teal-700',
+  },
+  'sch-design': {
+    color: 'text-purple-600',
+    bgLight: 'bg-purple-50',
+    borderLight: 'border-purple-200',
+    badgeBg: 'bg-purple-100 text-purple-800 border-purple-200',
+    icon: Palette,
+    gradient: 'from-purple-600 to-pink-600',
+  },
+  'sch-health': {
+    color: 'text-teal-600',
+    bgLight: 'bg-teal-50',
+    borderLight: 'border-teal-200',
+    badgeBg: 'bg-teal-100 text-teal-800 border-teal-200',
+    icon: HeartPulse,
+    gradient: 'from-teal-600 to-cyan-700',
+  },
+  'sch-hospitality': {
+    color: 'text-amber-600',
+    bgLight: 'bg-amber-50',
+    borderLight: 'border-amber-200',
+    badgeBg: 'bg-amber-100 text-amber-800 border-amber-200',
+    icon: UtensilsCrossed,
+    gradient: 'from-amber-600 to-orange-600',
+  },
+};
 
 interface UniversityCoordinatorDeskProps {
   initialTab?: 'quick-upload' | 'repository' | 'verification-queue' | 'ssr-matrix';
@@ -76,9 +141,52 @@ export const UniversityCoordinatorDesk: React.FC<UniversityCoordinatorDeskProps>
   const [reopenDoc, setReopenDoc] = useState<NaacEvidenceDocument | null>(null);
   const [reopenNote, setReopenNote] = useState<string>('');
 
+  // School Slide-Over Drawer & Reminder States
+  const [selectedSchoolForDrawer, setSelectedSchoolForDrawer] = useState<NaacSchool | null>(null);
+  const [remindersSent, setRemindersSent] = useState<Record<string, string>>({});
+
+  // School card expand/collapse state (default: all collapsed for super clean view)
+  const [expandedSchools, setExpandedSchools] = useState<Record<string, boolean>>({});
+
+  const toggleSchoolExpand = (schoolId: string) => {
+    setExpandedSchools(prev => ({ ...prev, [schoolId]: !prev[schoolId] }));
+  };
+
+  const expandAllSchools = () => {
+    const all: Record<string, boolean> = {};
+    ITM_SCHOOLS.forEach(s => { all[s.id] = true; });
+    setExpandedSchools(all);
+  };
+
+  const collapseAllSchools = () => {
+    setExpandedSchools({});
+  };
+
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 4000);
+  };
+
+  const handleSendReminder = (program: NaacProgram, schoolName: string) => {
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    setRemindersSent(prev => ({ ...prev, [program.id]: timeStr }));
+    showToast(`📢 Official IQAC Reminder sent to ${program.coordinatorName} (${program.coordinatorEmail}) for ${program.shortCode} evidence proof submission.`);
+  };
+
+  const handleSendSchoolCoordinatorReminder = (school: NaacSchool) => {
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    setRemindersSent(prev => ({ ...prev, [school.id]: timeStr }));
+    showToast(`📢 Official IQAC Reminder sent to School Coordinator ${school.coordinatorName} for ${school.name}.`);
+  };
+
+  const handleSendBatchReminders = (school: NaacSchool) => {
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const updated: Record<string, string> = {};
+    school.programs.forEach(p => {
+      updated[p.id] = timeStr;
+    });
+    setRemindersSent(prev => ({ ...prev, ...updated }));
+    showToast(`📢 Batch IQAC Reminders sent to all ${school.programs.length} program coordinators across ${school.shortCode}.`);
   };
 
   const refreshDocuments = () => {
@@ -196,6 +304,22 @@ export const UniversityCoordinatorDesk: React.FC<UniversityCoordinatorDeskProps>
 
             <button
               type="button"
+              onClick={() => setDeskMode('ssr-matrix')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                deskMode === 'ssr-matrix'
+                  ? 'bg-white text-purple-700 shadow-2xs border border-slate-200/80'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <BarChart3 className="w-3.5 h-3.5 text-purple-600" />
+              <span>NAAC Readiness</span>
+              <span className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-300 px-1.5 rounded-full font-bold">
+                {overallSSRProgress}%
+              </span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => setDeskMode('verification-queue')}
               className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                 deskMode === 'verification-queue'
@@ -227,22 +351,6 @@ export const UniversityCoordinatorDesk: React.FC<UniversityCoordinatorDeskProps>
                 {documents.length}
               </span>
             </button>
-
-            <button
-              type="button"
-              onClick={() => setDeskMode('ssr-matrix')}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                deskMode === 'ssr-matrix'
-                  ? 'bg-white text-purple-700 shadow-2xs border border-slate-200/80'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              <BarChart3 className="w-3.5 h-3.5 text-purple-600" />
-              <span>SSR Readiness</span>
-              <span className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-300 px-1.5 rounded-full font-bold">
-                {overallSSRProgress}%
-              </span>
-            </button>
           </div>
 
           <span className="bg-purple-50 text-purple-700 px-2.5 py-1 rounded font-mono text-xs font-semibold border border-purple-200">
@@ -272,6 +380,18 @@ export const UniversityCoordinatorDesk: React.FC<UniversityCoordinatorDeskProps>
 
                 <button
                   type="button"
+                  onClick={() => setDeskMode('ssr-matrix')}
+                  className="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer text-gray-600 hover:text-gray-900"
+                >
+                  <BarChart3 className="w-3.5 h-3.5 text-purple-600" />
+                  <span>NAAC Readiness</span>
+                  <span className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-300 px-1.5 rounded-full font-bold">
+                    {overallSSRProgress}%
+                  </span>
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => setDeskMode('verification-queue')}
                   className="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer text-gray-600 hover:text-gray-900"
                 >
@@ -293,18 +413,6 @@ export const UniversityCoordinatorDesk: React.FC<UniversityCoordinatorDeskProps>
                   <span>University Repository</span>
                   <span className="text-[10px] bg-purple-50 text-purple-700 border border-purple-200 px-1.5 rounded-full font-bold">
                     {documents.length}
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setDeskMode('ssr-matrix')}
-                  className="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer text-gray-600 hover:text-gray-900"
-                >
-                  <BarChart3 className="w-3.5 h-3.5 text-purple-600" />
-                  <span>SSR Readiness</span>
-                  <span className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-300 px-1.5 rounded-full font-bold">
-                    {overallSSRProgress}%
                   </span>
                 </button>
               </div>
@@ -846,102 +954,416 @@ export const UniversityCoordinatorDesk: React.FC<UniversityCoordinatorDeskProps>
         {/* VIEW 4: SPECIALIZED GRID - CROSS-SCHOOL SSR READINESS MATRIX */}
         {deskMode === 'ssr-matrix' && (
           <div className="space-y-5 animate-in fade-in">
-            {/* Executive Progress Card */}
-            <div className="bg-gradient-to-r from-[#0f2748] to-[#1e3a5f] rounded-2xl p-6 text-white shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-6">
-              <div className="space-y-1">
-                <span className="px-2.5 py-0.5 rounded-full bg-purple-400/20 text-purple-200 border border-purple-300/30 text-[10px] font-bold uppercase tracking-wider">
-                  Executive Accreditation Dossier
+            {/* School by School Executive Cards */}
+            <div>
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <div>
+                  <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                    <Building2 className="w-5 h-5 text-purple-600" />
+                    <span>Constituent Schools Audit &amp; Program-wise Status</span>
+                  </h3>
+                 
+                </div>
+
+                <span className="text-xs font-semibold text-purple-700 bg-purple-50 border border-purple-200 px-3 py-1 rounded-full shadow-2xs shrink-0">
+                  5 Constituent Schools
                 </span>
-                <h2 className="text-xl font-black">
-                  Institutional SSR Readiness: {overallSSRProgress}%
-                </h2>
-                <p className="text-xs text-slate-300 max-w-xl">
-                  {totalVerifiedCount} of {documents.length} evidence proofs verified and locked across all 5 Constituent Schools for NAAC SSR submission.
-                </p>
               </div>
 
-              <div className="w-full md:w-72 bg-white/10 p-4 rounded-xl border border-white/10 shrink-0">
-                <div className="flex items-center justify-between text-xs font-bold mb-1.5">
-                  <span>Audit Progress</span>
-                  <span>{overallSSRProgress}%</span>
-                </div>
-                <div className="w-full bg-white/20 rounded-full h-2.5 overflow-hidden">
-                  <div 
-                    className="bg-emerald-400 h-2.5 rounded-full transition-all duration-500"
-                    style={{ width: `${overallSSRProgress}%` }}
-                  />
-                </div>
-                <span className="text-[10px] text-slate-300 mt-2 block">
-                  Target: 100% Lock before SSR upload window
-                </span>
+              {/* 3-Column Responsive Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {ITM_SCHOOLS.map(school => {
+                  const theme = SCHOOL_THEMES[school.id] || SCHOOL_THEMES['sch-tech'];
+                  const SchoolIcon = theme.icon;
+                  const schoolAllDocs = documents.filter(d => d.schoolId === school.id);
+                  const schoolVerified = schoolAllDocs.filter(d => d.status === 'university_verified').length;
+                  
+                  // Calculate readiness by how many criteria (out of 7) have documents
+                  const criteriaWithDocs = new Set(schoolAllDocs.map(d => d.criterionCode));
+                  const coveredCriteriaCount = criteriaWithDocs.size;
+                  const readinessPct = Math.round((coveredCriteriaCount / 7) * 100);
+
+                  return (
+                    <div 
+                      key={school.id} 
+                      className="bg-white rounded-2xl border border-gray-200/80 hover:border-purple-300 shadow-xs hover:shadow-md transition-all duration-200 flex flex-col justify-between overflow-hidden"
+                    >
+                      {/* Top colored accent line */}
+                      <div className={`h-1.5 w-full bg-gradient-to-r ${theme.gradient}`} />
+
+                      <div className="p-5 flex-1 flex flex-col justify-between">
+                        <div>
+                          {/* 1. LOGO & COLLEGE NAME (Fixed height matching logo so 1-line & 2-line titles align identically) */}
+                          <div className="flex items-center gap-3 mb-3">
+                            {/* School Logo */}
+                            <div className={`w-11 h-11 rounded-xl bg-gradient-to-tr ${theme.gradient} text-white flex items-center justify-center shadow-xs shrink-0`}>
+                              <SchoolIcon className="w-5 h-5 stroke-[2.2]" />
+                            </div>
+
+                            {/* College Name (Fixed height h-11 matching w-11 logo so 1-line & 2-line names align identically) */}
+                            <div className="min-w-0 flex-1 h-11 flex flex-col justify-center">
+                              <h4 className="text-sm font-bold text-gray-900 leading-tight line-clamp-2" title={school.name}>
+                                {school.name}
+                              </h4>
+                            </div>
+                          </div>
+
+                          {/* SCHOOL COORDINATOR ROW WITH INLINE REMINDER (Aligned at the exact same baseline across all cards) */}
+                          <div className="flex items-center justify-between gap-2 mb-3.5 pt-2.5 border-t border-gray-100">
+                            <p className="text-xs font-medium text-gray-600 truncate">
+                              School Coordinator: <strong className="text-gray-900 font-semibold">{school.coordinatorName}</strong>
+                            </p>
+
+                            <button
+                              type="button"
+                              onClick={() => handleSendSchoolCoordinatorReminder(school)}
+                              className="p-1 text-gray-400 hover:text-purple-700 hover:bg-purple-50 rounded-lg cursor-pointer transition-colors shrink-0"
+                              title={`Send IQAC reminder to School Coordinator (${school.coordinatorName})`}
+                            >
+                              {remindersSent[school.id] ? (
+                                <Check className="w-3.5 h-3.5 text-emerald-600" />
+                              ) : (
+                                <Bell className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                          </div>
+
+                          {/* 2. UNIFIED METRICS & READINESS PANEL */}
+                          <div className="bg-slate-50/80 rounded-xl p-3.5 border border-slate-200/70 space-y-2.5">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="font-semibold text-gray-700">SSR Readiness</span>
+                              <span className="font-black text-sm text-emerald-700">
+                                {readinessPct}%
+                              </span>
+                            </div>
+
+                            {/* Readiness Meter */}
+                            <div className="w-full bg-gray-200/80 rounded-full h-2 overflow-hidden">
+                              <div 
+                                className="h-2 rounded-full transition-all duration-500 bg-emerald-500"
+                                style={{ width: `${readinessPct}%` }}
+                              />
+                            </div>
+
+                            {/* Secondary Stats Row */}
+                            <div className="flex items-center justify-between text-[11px] text-gray-500 pt-0.5">
+                              <span>{coveredCriteriaCount} of 7 Criteria Covered</span>
+                              <span className="font-semibold text-gray-700 bg-white px-2 py-0.5 rounded-md border border-gray-200 shadow-2xs">
+                                {school.programs.length} Programs
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 3. OPEN DRAWER ACTION BUTTON */}
+                        <button
+                          type="button"
+                          onClick={() => setSelectedSchoolForDrawer(school)}
+                          className="mt-4 w-full py-2.5 px-3 bg-white hover:bg-purple-50 text-gray-800 hover:text-purple-700 border border-gray-200 hover:border-purple-300 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs group"
+                        >
+                          <span>View Details &amp; Criteria</span>
+                          <ArrowRight className="w-3.5 h-3.5 transform group-hover:translate-x-0.5 transition-transform text-gray-400 group-hover:text-purple-600" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
+          </div>
+        )}
+      </div>
 
-            {/* School by School Readiness Matrix */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {ITM_SCHOOLS.map(school => {
-                const schoolAllDocs = documents.filter(d => d.schoolId === school.id);
-                const schoolVerified = schoolAllDocs.filter(d => d.status === 'university_verified').length;
-                const pct = schoolAllDocs.length > 0 ? Math.round((schoolVerified / schoolAllDocs.length) * 100) : 0;
+      {/* SLIDE-OVER DRAWER: DETAILED PROGRAM-WISE CRITERIA MATRIX & COORDINATOR AUDIT */}
+      {selectedSchoolForDrawer && (
+        <div 
+          className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex justify-end animate-in fade-in duration-200"
+          onClick={() => setSelectedSchoolForDrawer(null)}
+        >
+          <div 
+            className="w-full max-w-2xl bg-white h-full shadow-2xl flex flex-col border-l border-gray-200 animate-in slide-in-from-right duration-300 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Drawer Header */}
+            {(() => {
+              const theme = SCHOOL_THEMES[selectedSchoolForDrawer.id] || SCHOOL_THEMES['sch-tech'];
+              const SchoolIcon = theme.icon;
+              const schoolDocs = documents.filter(d => d.schoolId === selectedSchoolForDrawer.id);
+              const criteriaWithDocs = new Set(schoolDocs.map(d => d.criterionCode));
+              const coveredCriteriaCount = criteriaWithDocs.size;
+              const readinessPct = Math.round((coveredCriteriaCount / 7) * 100);
 
-                return (
-                  <div key={school.id} className="bg-white rounded-xl border border-gray-200 p-4 shadow-2xs space-y-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <span className="text-[10px] font-bold text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200">
-                          {school.shortCode}
-                        </span>
-                        <h4 className="text-xs font-bold text-gray-900 mt-1 line-clamp-1" title={school.name}>
-                          {school.name}
-                        </h4>
-                        <p className="text-[10px] text-gray-400 mt-0.5">
-                          Dean: {school.deanName}
-                        </p>
+              return (
+                <div className="p-5 border-b border-gray-200 bg-slate-50 shrink-0">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3.5">
+                      <div className={`w-12 h-12 rounded-xl bg-gradient-to-tr ${theme.gradient} text-white flex items-center justify-center shadow-xs shrink-0 mt-0.5`}>
+                        <SchoolIcon className="w-6 h-6 stroke-[2.2]" />
                       </div>
-                      <span className="text-xs font-bold text-purple-800 bg-purple-50 px-2 py-1 rounded-lg">
-                        {pct}%
-                      </span>
+                      <div>
+                        <h2 className="text-base font-bold text-gray-900 leading-snug">
+                          {selectedSchoolForDrawer.name}
+                        </h2>
+                        <div className="flex items-center gap-2 mt-1">
+                          <p className="text-xs text-gray-600">
+                            School Coordinator: <strong className="text-sm font-bold text-gray-950">{selectedSchoolForDrawer.coordinatorName}</strong>
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => handleSendSchoolCoordinatorReminder(selectedSchoolForDrawer)}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-white hover:bg-slate-50 text-gray-700 border border-gray-300 shadow-2xs transition-colors cursor-pointer shrink-0"
+                            title={`Send direct IQAC reminder to School Coordinator ${selectedSchoolForDrawer.coordinatorName}`}
+                          >
+                            {remindersSent[selectedSchoolForDrawer.id] ? (
+                              <>
+                                <Check className="w-3 h-3 text-emerald-600" />
+                                <span className="text-emerald-700 font-medium">Reminded ({remindersSent[selectedSchoolForDrawer.id]})</span>
+                              </>
+                            ) : (
+                              <>
+                                <Bell className="w-3 h-3 text-gray-500" />
+                                <span>Remind</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
                     </div>
 
-                    <div className="space-y-1">
-                      <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedSchoolForDrawer(null)}
+                      className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-200 rounded-lg cursor-pointer transition-colors"
+                      title="Close drawer (Esc)"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  {/* School Progress & Batch Actions Card */}
+                  <div className="mt-4 bg-white rounded-xl p-3.5 border border-slate-200 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-gray-700">SSR Audit Readiness:</span>
+                        <span className="text-xs font-extrabold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                          {readinessPct}%
+                        </span>
+                      </div>
+                      <div className="w-56 bg-gray-100 rounded-full h-2 overflow-hidden">
                         <div 
-                          className="bg-purple-600 h-1.5 rounded-full transition-all duration-300"
-                          style={{ width: `${pct}%` }}
+                          className="h-2 rounded-full bg-emerald-500 transition-all duration-500"
+                          style={{ width: `${readinessPct}%` }}
                         />
                       </div>
-                      <div className="flex items-center justify-between text-[10px] text-gray-400 pt-0.5">
-                        <span>{schoolVerified} verified</span>
-                        <span>{schoolAllDocs.length} total proofs</span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleSendBatchReminders(selectedSchoolForDrawer)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-700 bg-white hover:bg-slate-50 border border-gray-300 transition-colors shadow-2xs cursor-pointer shrink-0"
+                      title="Send IQAC reminder to all program coordinators in this school"
+                    >
+                      <Bell className="w-3.5 h-3.5 text-gray-500" />
+                      <span>Remind All Programs</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Drawer Body: Program-wise Cards List (Scrollable) */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-4">
+              <div className="flex items-center justify-between text-xs text-gray-500 font-bold uppercase tracking-wider">
+                <span>{selectedSchoolForDrawer.programs.length} Constituent Academic Programs</span>
+                <span className="text-[11px] font-normal normal-case text-gray-400">
+                  Criteria C1 to C7 Coverage
+                </span>
+              </div>
+
+              {selectedSchoolForDrawer.programs.map((program, index) => {
+                // Program-specific documents
+                const programDocs = documents.filter(d => 
+                  d.schoolId === selectedSchoolForDrawer.id && 
+                  (d.programId === program.id || (!d.programId && selectedSchoolForDrawer.programs[0]?.id === program.id))
+                );
+
+                const verifiedCount = programDocs.filter(d => d.status === 'university_verified').length;
+                const pendingCount = programDocs.filter(d => d.status === 'approved_by_school' || d.status === 'submitted_to_university' || d.status === 'submitted_to_program').length;
+
+                // Criteria status breakdown
+                const criteriaStatusMap = NAAC_CRITERIA_SUMMARY.map(crit => {
+                  const critDocs = programDocs.filter(d => d.criterionCode === crit.code);
+                  const isVerified = critDocs.some(d => d.status === 'university_verified');
+                  const isPending = critDocs.some(d => d.status === 'approved_by_school' || d.status === 'submitted_to_university' || d.status === 'submitted_to_program');
+                  const count = critDocs.length;
+                  return {
+                    code: crit.code,
+                    short: crit.code.replace('Criterion ', 'C'),
+                    name: crit.name,
+                    count,
+                    status: isVerified ? 'verified' : isPending ? 'pending' : count > 0 ? 'uploaded' : 'missing',
+                  };
+                });
+
+                const missingCriteria = criteriaStatusMap.filter(c => c.status === 'missing');
+                const isReminderSent = !!remindersSent[program.id];
+
+                // Determine activity status
+                let activityText = 'No activity in 3+ days';
+                let isInactive = true;
+
+                if (programDocs.length > 0) {
+                  const sortedDocs = [...programDocs].sort((a, b) => {
+                    const dateA = new Date(a.uploadedAt || a.createdAt || 0).getTime();
+                    const dateB = new Date(b.uploadedAt || b.createdAt || 0).getTime();
+                    return dateB - dateA;
+                  });
+                  const latestDate = sortedDocs[0]?.uploadedAt || sortedDocs[0]?.createdAt;
+                  if (latestDate && !isNaN(new Date(latestDate).getTime())) {
+                    const diffMs = Date.now() - new Date(latestDate).getTime();
+                    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+
+                    if (diffHours < 24) {
+                      activityText = diffHours <= 1 ? 'Updated recently' : `Updated ${diffHours}h ago`;
+                      isInactive = false;
+                    } else if (diffDays === 1) {
+                      activityText = 'Updated yesterday';
+                      isInactive = false;
+                    } else if (diffDays <= 3) {
+                      activityText = `Updated ${diffDays} days ago`;
+                      isInactive = false;
+                    } else {
+                      activityText = `No activity since ${diffDays} days`;
+                      isInactive = true;
+                    }
+                  } else {
+                    activityText = `${programDocs.length} ${programDocs.length === 1 ? 'proof' : 'proofs'} active`;
+                    isInactive = false;
+                  }
+                } else {
+                  activityText = 'No activity in 3+ days';
+                  isInactive = true;
+                }
+
+                return (
+                  <div 
+                    key={program.id}
+                    className="bg-white rounded-xl border border-gray-200 p-4 shadow-2xs hover:border-slate-300 transition-all space-y-3 text-left"
+                  >
+                    {/* Program Header & Coordinator */}
+                    <div>
+                      <h4 className="text-sm font-bold text-gray-900 leading-snug">
+                        {index + 1}. {program.name}
+                      </h4>
+                      <p className="text-xs text-gray-500 mt-0.5 truncate">
+                        Program Coordinator: <strong className="text-gray-800 font-semibold">{program.coordinatorName}</strong>
+                      </p>
+                    </div>
+
+                    {/* Criteria Status Heatmap (Criteria 1 to 7) */}
+                    <div>
+                      <div className="flex items-center justify-between text-[11px] font-semibold text-gray-500 mb-1.5">
+                        <span>Criteria Heatmap (C1 – C7):</span>
+                        <span className="text-[10px] text-gray-400">
+                          {7 - missingCriteria.length}/7 Criteria Uploaded
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-7 gap-1.5">
+                        {criteriaStatusMap.map((crit) => {
+                          const bg = 
+                            crit.status === 'verified' ? 'bg-emerald-500 text-white border-emerald-600' :
+                            crit.status === 'pending' ? 'bg-amber-400 text-amber-950 border-amber-500' :
+                            crit.status === 'uploaded' ? 'bg-blue-100 text-blue-800 border-blue-300' :
+                            'bg-gray-100 text-gray-400 border-gray-200';
+
+                          return (
+                            <div 
+                              key={crit.code}
+                              className={`py-1.5 rounded-lg border text-center font-mono text-[10px] font-bold flex flex-col items-center justify-center transition-all ${bg}`}
+                              title={`${crit.code} (${crit.name}): ${crit.count} proof(s) - Status: ${crit.status}`}
+                            >
+                              <span>{crit.short}</span>
+                              <span className="text-[9px] opacity-90 font-normal">
+                                {crit.count > 0 ? `${crit.count}p` : '—'}
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
 
-                    {/* Criteria mini badges */}
-                    <div className="pt-2 border-t border-gray-100 flex flex-wrap gap-1">
-                      {NAAC_CRITERIA_SUMMARY.map(c => {
-                        const hasDocs = schoolAllDocs.some(d => d.criterionCode === c.code);
-                        return (
-                          <span 
-                            key={c.code}
-                            className={`text-[9px] font-mono px-1.5 py-0.2 rounded ${
-                              hasDocs 
-                                ? 'bg-emerald-50 text-emerald-700 font-bold border border-emerald-200' 
-                                : 'bg-gray-100 text-gray-400'
-                            }`}
-                            title={`${c.code}: ${hasDocs ? 'Has proofs' : 'Empty'}`}
-                          >
-                            {c.code.replace('Criterion ', 'C')}
+                    {/* Program Actions & Activity Footer */}
+                    <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-100 text-xs">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <Clock className={`w-3.5 h-3.5 ${isInactive ? 'text-amber-500' : 'text-emerald-500'}`} />
+                          <span className={`text-[11px] font-medium ${isInactive ? 'text-amber-700' : 'text-gray-600'}`}>
+                            {activityText}
                           </span>
-                        );
-                      })}
+                        </div>
+
+                        {/* Remind Button placed right next to activity label */}
+                        <button
+                          type="button"
+                          onClick={() => handleSendReminder(program, selectedSchoolForDrawer.name)}
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold transition-all shadow-2xs cursor-pointer shrink-0 ${
+                            isReminderSent 
+                              ? 'bg-emerald-50 text-emerald-800 border border-emerald-300'
+                              : 'bg-white hover:bg-slate-50 text-gray-700 hover:text-gray-900 border border-gray-300 hover:border-gray-400'
+                          }`}
+                          title={`Send official IQAC reminder email to ${program.coordinatorName}`}
+                        >
+                          {isReminderSent ? (
+                            <>
+                              <Check className="w-3 h-3 text-emerald-600 stroke-[2.5]" />
+                              <span>Reminded ({remindersSent[program.id]})</span>
+                            </>
+                          ) : (
+                            <>
+                              <Bell className="w-3 h-3 text-gray-500" />
+                              <span>Remind</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedSchoolFilter(selectedSchoolForDrawer.id);
+                          setSearchQuery(program.shortCode);
+                          setSelectedSchoolForDrawer(null);
+                          setDeskMode('repository');
+                          showToast(`Filtered repository to ${program.name}`);
+                        }}
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-purple-700 hover:text-purple-900 py-1 rounded transition-colors cursor-pointer group shrink-0"
+                        title="View evidence proofs for this program in the Master Repository"
+                      >
+                        <FolderOpen className="w-3.5 h-3.5 text-purple-600" />
+                        <span>View Proofs ({programDocs.length})</span>
+                        <ArrowRight className="w-3 h-3 transform group-hover:translate-x-0.5 transition-transform" />
+                      </button>
                     </div>
                   </div>
                 );
               })}
             </div>
+
+            {/* Drawer Bottom Footer */}
+            <div className="p-4 border-t border-gray-200 bg-slate-50 flex items-center justify-end shrink-0">
+            
+              <button
+                type="button"
+                onClick={() => setSelectedSchoolForDrawer(null)}
+                className="px-4 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold text-xs rounded-lg transition-colors cursor-pointer"
+              >
+                Close Drawer
+              </button>
+            </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* RE-OPEN WITH FEEDBACK MODAL */}
       {reopenDoc && (
