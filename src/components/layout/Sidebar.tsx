@@ -65,13 +65,18 @@ export const programCoordinatorMenuItems: MenuItem[] = [
 
 export const schoolCoordinatorMenuItems: MenuItem[] = [
   {
+    id: 'school-readiness',
+    label: 'NAAC Readiness',
+    icon: 'home',
+  },
+  {
     id: 'school-queue',
     label: 'Department Review Queue',
     icon: 'layers',
   },
   {
     id: 'school-departments',
-    label: '4 Academic Programs',
+    label: 'Academic Programs',
     icon: 'circle',
   },
   {
