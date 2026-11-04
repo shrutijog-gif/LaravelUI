@@ -190,7 +190,7 @@ export const Layout: React.FC<LayoutProps> = ({
             ) : activeModuleId === 'naac-faculty' || activeModuleId.startsWith('faculty-') ? (
               <FacultyDesk initialTab={activeModuleId === 'faculty-evidence' ? 'my-evidence' : 'quick-upload'} />
             ) : activeModuleId === 'naac-school' || activeModuleId.startsWith('school-') ? (
-              <SchoolCoordinatorDesk />
+              <SchoolCoordinatorDesk initialTab={activeModuleId === 'school-queue' ? 'review-queue' : 'ssr-matrix'} />
             ) : activeModuleId === 'naac-university' || activeModuleId.startsWith('univ-') ? (
               <UniversityCoordinatorDesk />
             ) : activeModuleId === 'naac-aqar' || activeModuleId === 'naac-dms' || activeModuleId.startsWith('prog-') ? (

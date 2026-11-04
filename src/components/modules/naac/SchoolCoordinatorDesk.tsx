@@ -24,7 +24,15 @@ import {
   Eye,
   MessageSquare,
   Trash2,
-  Info
+  Info,
+  BarChart3,
+  ArrowRight,
+  Bell,
+  ShieldCheck,
+  Lock,
+  GraduationCap,
+  Filter,
+  CheckSquare
 } from 'lucide-react';
 import { 
   ITM_SCHOOLS, 
@@ -32,6 +40,7 @@ import {
   NAAC_METRICS_LIST, 
   KEY_INDICATORS,
   NaacEvidenceDocument, 
+  NaacProgram,
   getStoredNaacDocuments, 
   reviewSchoolDocument,
   reviewBatchSchoolDocuments,
@@ -40,17 +49,103 @@ import {
 } from '../../../data/naacDmsData';
 import { openFileInNewTab } from '../../../utils/fileHelper';
 import { NaacQuickUploadLanding } from './NaacQuickUploadLanding';
+import { Drawer } from '../../common/Drawer';
+
+export interface SchoolProgramMeta {
+  id: string;
+  name: string;
+  shortCode: string;
+  degreeType: 'UG' | 'PG' | 'Institutional';
+  coordinatorName: string;
+  coordinatorEmail: string;
+  isNaacFacing: boolean;
+  naacScopeLabel: string;
+  themeColor: string;
+  gradient: string;
+}
+
+export const SOT_PROGRAMS_METADATA: SchoolProgramMeta[] = [
+  {
+    id: 'prog-cse',
+    name: 'B.Tech Computer Science & Engineering',
+    shortCode: 'B.Tech CSE',
+    degreeType: 'UG',
+    coordinatorName: 'Prof. Anita Verma',
+    coordinatorEmail: 'cse.coord@itmuniversity.edu',
+    isNaacFacing: true,
+    naacScopeLabel: '🎯 Facing NAAC',
+    themeColor: 'blue',
+    gradient: 'from-blue-600 to-indigo-700',
+  },
+  {
+    id: 'prog-bca',
+    name: 'BCA & Cloud Computing',
+    shortCode: 'BCA',
+    degreeType: 'UG',
+    coordinatorName: 'Prof. Ramesh Kulkarni',
+    coordinatorEmail: 'bca.coord@itmuniversity.edu',
+    isNaacFacing: true,
+    naacScopeLabel: '🎯 Facing NAAC',
+    themeColor: 'teal',
+    gradient: 'from-teal-600 to-emerald-700',
+  },
+  {
+    id: 'prog-cyber',
+    name: 'B.Sc Cyber Security & Digital Forensics',
+    shortCode: 'B.Sc Cyber',
+    degreeType: 'UG',
+    coordinatorName: 'Prof. Neha Gupta',
+    coordinatorEmail: 'cyber.coord@itmuniversity.edu',
+    isNaacFacing: false,
+    naacScopeLabel: '📋 Non-Facing (Contributor)',
+    themeColor: 'emerald',
+    gradient: 'from-emerald-600 to-cyan-700',
+  },
+  {
+    id: 'prog-ai',
+    name: 'M.Tech Artificial Intelligence & Machine Learning',
+    shortCode: 'M.Tech AI',
+    degreeType: 'PG',
+    coordinatorName: 'Dr. Sanjeev Rao',
+    coordinatorEmail: 'ai.coord@itmuniversity.edu',
+    isNaacFacing: false,
+    naacScopeLabel: '📋 Non-Facing (Contributor)',
+    themeColor: 'indigo',
+    gradient: 'from-indigo-600 to-purple-700',
+  },
+  {
+    id: 'school-common',
+    name: "School Level / Dean's Office Common Proofs",
+    shortCode: 'School Common',
+    degreeType: 'Institutional',
+    coordinatorName: 'Dr. Rajesh Sharma',
+    coordinatorEmail: 'rajesh.sharma@itmuniversity.edu',
+    isNaacFacing: true,
+    naacScopeLabel: '🏛️ School Common',
+    themeColor: 'purple',
+    gradient: 'from-slate-700 to-gray-900',
+  },
+];
 
 interface SchoolCoordinatorDeskProps {
-  initialTab?: 'quick-upload' | 'repository' | 'review-queue';
+  initialTab?: 'quick-upload' | 'ssr-matrix' | 'repository' | 'review-queue';
 }
 
 export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
-  initialTab = 'quick-upload',
+  initialTab = 'ssr-matrix',
 }) => {
-  const [deskMode, setDeskMode] = useState<'quick-upload' | 'repository' | 'review-queue'>(initialTab);
+  const [deskMode, setDeskMode] = useState<'quick-upload' | 'ssr-matrix' | 'repository' | 'review-queue'>(initialTab);
   const [documents, setDocuments] = useState<NaacEvidenceDocument[]>(() => getStoredNaacDocuments());
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // NAAC Readiness & Drawer States
+  const [selectedProgramForDrawer, setSelectedProgramForDrawer] = useState<string | null>(null);
+  const [remindersSent, setRemindersSent] = useState<Record<string, string>>({});
+  const [tableScopeFilter, setTableScopeFilter] = useState<'all' | 'facing' | 'non-facing'>('all');
+  const [tableStatusFilter, setTableStatusFilter] = useState<'all' | 'pending' | 'approved'>('all');
+  const [tableSearchQuery, setTableSearchQuery] = useState<string>('');
+  const [drawerTabFilter, setDrawerTabFilter] = useState<'all' | 'pending' | 'approved' | 'missing'>('all');
+  const [drawerSearch, setDrawerSearch] = useState<string>('');
 
   // School context: School of Technology & Computer Engineering (sch-tech)
   const currentSchool = ITM_SCHOOLS.find(s => s.id === 'sch-tech') || ITM_SCHOOLS[0];
@@ -219,6 +314,69 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
   const filteredSchoolDocs = schoolDocs.filter(matchesProgram);
   const filteredPendingDocs = pendingReviewDocs.filter(matchesProgram);
 
+  // Helper to match a document to a specific academic program in this school
+  const matchesProgramId = (doc: NaacEvidenceDocument, progId: string) => {
+    if (progId === 'school-common') {
+      return (
+        doc.programId === 'school-common' ||
+        !doc.programId ||
+        doc.programId === 'sch-tech' ||
+        doc.programId === 'sch-eng' ||
+        doc.uploadedBy?.includes('School Coordinator') ||
+        doc.uploadedBy?.includes('Rajesh Sharma') ||
+        doc.title?.toLowerCase().includes('dean') ||
+        doc.title?.toLowerCase().includes('governing') ||
+        doc.title?.toLowerCase().includes('fdp')
+      );
+    }
+    if (progId === 'prog-cse') {
+      return (
+        doc.programId === 'prog-cse' ||
+        doc.programName?.toLowerCase().includes('cse') ||
+        doc.programName?.toLowerCase().includes('computer science') ||
+        doc.fileName?.toLowerCase().includes('cse') ||
+        doc.id?.includes('cse')
+      );
+    }
+    if (progId === 'prog-bca') {
+      return (
+        doc.programId === 'prog-bca' ||
+        doc.programName?.toLowerCase().includes('bca') ||
+        doc.programName?.toLowerCase().includes('cloud') ||
+        doc.fileName?.toLowerCase().includes('bca') ||
+        doc.id?.includes('bca')
+      );
+    }
+    if (progId === 'prog-cyber') {
+      return (
+        doc.programId === 'prog-cyber' ||
+        doc.programName?.toLowerCase().includes('cyber') ||
+        doc.fileName?.toLowerCase().includes('cyber') ||
+        doc.id?.includes('cyber')
+      );
+    }
+    if (progId === 'prog-ai') {
+      return (
+        doc.programId === 'prog-ai' ||
+        doc.programName?.toLowerCase().includes('ai') ||
+        doc.programName?.toLowerCase().includes('artificial') ||
+        doc.fileName?.toLowerCase().includes('ai') ||
+        doc.id?.includes('ai')
+      );
+    }
+    return doc.programId === progId;
+  };
+
+  // Overall School Readiness calculation: % of 7 NAAC criteria covered by at least 1 document in this school
+  const schoolCriteriaWithDocs = new Set(allSchoolDocs.map(d => d.criterionCode));
+  const overallSchoolReadiness = Math.min(100, Math.round((schoolCriteriaWithDocs.size / 7) * 100));
+
+  const handleSendProgramReminder = (prog: SchoolProgramMeta) => {
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    setRemindersSent(prev => ({ ...prev, [prog.id]: timeStr }));
+    showToast(`📢 Official School IQAC Reminder sent to ${prog.coordinatorName} (${prog.coordinatorEmail}) for ${prog.shortCode} evidence proof submission.`);
+  };
+
   // Approve & Move to School Repository
   const handleApproveDocument = (doc: NaacEvidenceDocument) => {
     const targetIds = [doc.id, doc.fileName].filter(Boolean) as string[];
@@ -373,6 +531,22 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
 
             <button
               type="button"
+              onClick={() => setDeskMode('ssr-matrix')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                deskMode === 'ssr-matrix'
+                  ? 'bg-white text-blue-700 shadow-2xs border border-slate-200/80'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <BarChart3 className="w-3.5 h-3.5 text-blue-600" />
+              <span>NAAC Readiness</span>
+              <span className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-300 px-1.5 rounded-full font-bold">
+                {overallSchoolReadiness}%
+              </span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => setDeskMode('review-queue')}
               className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                 deskMode === 'review-queue'
@@ -429,6 +603,18 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
                 >
                   <Sparkles className="w-3.5 h-3.5 text-blue-600" />
                   <span>Quick Proof Drop</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setDeskMode('ssr-matrix')}
+                  className="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer text-gray-600 hover:text-gray-900"
+                >
+                  <BarChart3 className="w-3.5 h-3.5 text-blue-600" />
+                  <span>NAAC Readiness</span>
+                  <span className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-300 px-1.5 rounded-full font-bold">
+                    {overallSchoolReadiness}%
+                  </span>
                 </button>
 
                 <button
@@ -1163,6 +1349,493 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
             )}
           </div>
         )}
+
+        {/* VIEW 4: SPECIALIZED GRID - SCHOOL NAAC READINESS & PROGRAM AUDIT */}
+        {deskMode === 'ssr-matrix' && (
+          <div className="space-y-6 animate-in fade-in">
+            {/* 1. TOP EXECUTIVE HEADER WITH METRIC STRIP */}
+            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-200/90 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="p-1.5 rounded-lg bg-blue-50 text-blue-700 border border-blue-200">
+                    <Building2 className="w-4 h-4" />
+                  </span>
+                  <h3 className="text-base font-bold text-gray-900">
+                    School NAAC Readiness &amp; Program Submission Audit
+                  </h3>
+                  <span className="text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded-full">
+                    SOT • {currentSchool.name}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500 mt-1 max-w-2xl">
+                  Multi-program compliance tracker for Dr. Rajesh Sharma (School Coordinator). Monitor active evidence submissions across all academic programs, distinguishing NAAC-facing programs from institutional data contributors.
+                </p>
+              </div>
+
+              {/* Overall School Readiness Meter */}
+              <div className="flex items-center gap-4 bg-slate-50 border border-slate-200/80 p-3 rounded-xl shrink-0">
+                <div className="text-right">
+                  <span className="text-[11px] font-semibold text-gray-500 block">Overall School SSR Readiness</span>
+                  <div className="flex items-center justify-end gap-1.5 mt-0.5">
+                    <span className="text-lg font-black text-emerald-700 leading-none">
+                      {overallSchoolReadiness}%
+                    </span>
+                    <span className="text-[10px] text-gray-400 font-medium">({schoolCriteriaWithDocs.size}/7 Criteria)</span>
+                  </div>
+                </div>
+                <div className="w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 font-bold shrink-0">
+                  <ShieldCheck className="w-6 h-6" />
+                </div>
+              </div>
+            </div>
+
+            {/* 2. PROGRAM OVERVIEW BOXES (4-5 BOXES) */}
+            <div>
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <div className="flex items-center gap-2">
+                  <h4 className="text-sm font-bold text-gray-900 flex items-center gap-1.5">
+                    <GraduationCap className="w-4 h-4 text-blue-600" />
+                    <span>Academic Programs Under School of Technology ({SOT_PROGRAMS_METADATA.length})</span>
+                  </h4>
+                  <span className="text-[11px] text-gray-500 hidden sm:inline">
+                    Click any program card to open its full evidence audit drawer
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1.5 text-xs">
+                  <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                    2 Facing NAAC
+                  </span>
+                  <span className="text-[11px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
+                    2 Contributing
+                  </span>
+                  <span className="text-[11px] font-semibold text-purple-700 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-full">
+                    1 Common
+                  </span>
+                </div>
+              </div>
+
+              {/* Responsive 5-Box Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3.5">
+                {SOT_PROGRAMS_METADATA.map((prog) => {
+                  const progAllDocs = allSchoolDocs.filter(d => matchesProgramId(d, prog.id));
+                  const progCriteriaSet = new Set(progAllDocs.map(d => d.criterionCode));
+                  const progReadinessPct = Math.min(100, Math.round((progCriteriaSet.size / 7) * 100));
+
+                  return (
+                    <div
+                      key={prog.id}
+                      className="bg-white rounded-2xl border border-gray-200/90 hover:border-blue-400 shadow-2xs hover:shadow-md transition-all duration-200 flex flex-col justify-between overflow-hidden group cursor-pointer"
+                      onClick={() => {
+                        setSelectedProgramForDrawer(prog.id);
+                        setDrawerTabFilter('all');
+                      }}
+                    >
+                      {/* Top colored accent gradient strip */}
+                      <div className={`h-1.5 w-full bg-gradient-to-r ${prog.gradient}`} />
+
+                      <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+                        {/* Title & Tag */}
+                        <div>
+                          <div className="flex items-center justify-between gap-1.5 mb-1.5">
+                            <span className="font-mono text-[11px] font-bold text-gray-700 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded">
+                              {prog.shortCode}
+                            </span>
+                            <span 
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap ${
+                                prog.isNaacFacing 
+                                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300' 
+                                  : prog.id === 'school-common'
+                                  ? 'bg-slate-100 text-slate-800 border-slate-300'
+                                  : 'bg-blue-50 text-blue-800 border-blue-200'
+                              }`}
+                            >
+                              {prog.naacScopeLabel}
+                            </span>
+                          </div>
+
+                          <h5 
+                            className="text-xs font-bold text-gray-900 leading-snug line-clamp-2 min-h-[32px]" 
+                            title={prog.name}
+                          >
+                            {prog.name}
+                          </h5>
+
+                          {/* Coordinator Row with inline Reminder Ping */}
+                          <div className="mt-2.5 pt-2 border-t border-gray-100 flex items-center justify-between gap-1">
+                            <div className="min-w-0 flex-1">
+                              <span className="text-[10px] text-gray-400 block uppercase tracking-wider font-semibold">Coordinator</span>
+                              <span className="text-xs font-semibold text-gray-800 truncate block" title={prog.coordinatorName}>
+                                {prog.coordinatorName}
+                              </span>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSendProgramReminder(prog);
+                              }}
+                              className="p-1.5 text-gray-400 hover:text-blue-700 hover:bg-blue-50 rounded-lg cursor-pointer transition-colors shrink-0"
+                              title={`Send submission reminder to ${prog.coordinatorName}`}
+                            >
+                              {remindersSent[prog.id] ? (
+                                <Check className="w-3.5 h-3.5 text-emerald-600" />
+                              ) : (
+                                <Bell className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Progress and Stats Box */}
+                        <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-200/70 space-y-1.5">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-[11px] font-semibold text-gray-600">Readiness</span>
+                            <span className="text-xs font-black text-emerald-700">{progReadinessPct}%</span>
+                          </div>
+
+                          {/* Meter Bar */}
+                          <div className="w-full bg-gray-200/80 rounded-full h-1.5 overflow-hidden">
+                            <div 
+                              className="h-1.5 rounded-full transition-all duration-500 bg-emerald-500"
+                              style={{ width: `${progReadinessPct}%` }}
+                            />
+                          </div>
+
+                          <div className="flex items-center justify-between text-[10px] text-gray-500 pt-0.5">
+                            <span>{progCriteriaSet.size}/7 Criteria</span>
+                            <span className="font-semibold text-gray-700">{progAllDocs.length} Proofs</span>
+                          </div>
+                        </div>
+
+                        {/* Action CTA Button */}
+                        <button
+                          type="button"
+                          className="w-full py-1.5 px-2 bg-white hover:bg-blue-50 text-gray-800 hover:text-blue-700 border border-gray-200 hover:border-blue-300 rounded-lg text-[11px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer shadow-2xs group-hover:bg-blue-50"
+                        >
+                          <span>Open Drawer</span>
+                          <ArrowRight className="w-3 h-3 text-gray-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-transform" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 3. CONSOLIDATED MASTER DOCUMENTS TABLE (WITH ROWSPAN MERGED FIRST COLUMN) */}
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-2xs overflow-hidden">
+              {/* Table Top Filter Bar */}
+              <div className="p-4 border-b border-gray-200 bg-white flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                <div>
+                  <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-blue-600" />
+                    <span>Consolidated Evidence Submissions Across All Programs</span>
+                  </h4>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Program-wise merged view (rowSpan) detailing submitted files, uploader faculty/coordinator, and School Review approvals.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  {/* Scope Filter Pills */}
+                  <div className="inline-flex items-center bg-gray-100 p-0.5 rounded-lg border border-gray-200 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setTableScopeFilter('all')}
+                      className={`px-2.5 py-1 rounded-md font-semibold transition-all cursor-pointer ${
+                        tableScopeFilter === 'all'
+                          ? 'bg-white text-blue-700 shadow-2xs font-bold'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      All ({SOT_PROGRAMS_METADATA.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTableScopeFilter('facing')}
+                      className={`px-2.5 py-1 rounded-md font-semibold transition-all cursor-pointer ${
+                        tableScopeFilter === 'facing'
+                          ? 'bg-white text-emerald-700 shadow-2xs font-bold'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      🎯 Facing NAAC (2)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTableScopeFilter('non-facing')}
+                      className={`px-2.5 py-1 rounded-md font-semibold transition-all cursor-pointer ${
+                        tableScopeFilter === 'non-facing'
+                          ? 'bg-white text-blue-700 shadow-2xs font-bold'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      📋 Non-Facing (2)
+                    </button>
+                  </div>
+
+                  {/* Status Filter */}
+                  <select
+                    value={tableStatusFilter}
+                    onChange={(e) => setTableStatusFilter(e.target.value as any)}
+                    className="px-2.5 py-1 bg-slate-50 border border-gray-300 rounded-lg text-xs font-semibold text-gray-700 cursor-pointer"
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="pending">Pending School Review</option>
+                    <option value="approved">Approved into School Repo</option>
+                  </select>
+
+                  {/* Search */}
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-2" />
+                    <input
+                      type="text"
+                      placeholder="Search proofs, metrics..."
+                      value={tableSearchQuery}
+                      onChange={(e) => setTableSearchQuery(e.target.value)}
+                      className="pl-8 pr-2.5 py-1 text-xs border border-gray-300 rounded-lg w-40 focus:ring-1 focus:ring-blue-500 bg-white"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Table Data */}
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead className="bg-slate-50 border-b border-gray-200 text-gray-600 font-bold text-[11px] uppercase tracking-wider">
+                    <tr>
+                      <th className="py-2.5 px-4 w-[23%]">Program &amp; Scope (Merged)</th>
+                      <th className="py-2.5 px-3 w-[14%]">Metric &amp; Criterion</th>
+                      <th className="py-2.5 px-3 w-[33%]">Evidence Proof</th>
+                      <th className="py-2.5 px-3 w-[15%]">Submitted By</th>
+                      <th className="py-2.5 px-3 w-[9%] text-center">Status</th>
+                      <th className="py-2.5 px-2 w-[6%] text-center">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {(() => {
+                      const displayedProgs = SOT_PROGRAMS_METADATA.filter(prog => {
+                        if (tableScopeFilter === 'facing') return prog.isNaacFacing && prog.id !== 'school-common';
+                        if (tableScopeFilter === 'non-facing') return !prog.isNaacFacing;
+                        return true;
+                      });
+
+                      return displayedProgs.map((prog) => {
+                        const progAllDocs = allSchoolDocs.filter(d => matchesProgramId(d, prog.id));
+                        const matchingDocs = progAllDocs.filter(d => {
+                          const matchesStatus = 
+                            tableStatusFilter === 'all' ? true :
+                            tableStatusFilter === 'pending' ? d.status === 'submitted_to_school' :
+                            (d.status === 'approved_by_school' || d.status === 'university_verified');
+                          const matchesSearch = !tableSearchQuery.trim() ||
+                            d.fileName.toLowerCase().includes(tableSearchQuery.toLowerCase()) ||
+                            d.title.toLowerCase().includes(tableSearchQuery.toLowerCase()) ||
+                            d.metricCode.includes(tableSearchQuery) ||
+                            (d.uploadedBy && d.uploadedBy.toLowerCase().includes(tableSearchQuery.toLowerCase()));
+                          return matchesStatus && matchesSearch;
+                        });
+
+                        // Program without matching documents
+                        if (matchingDocs.length === 0) {
+                          return (
+                            <tr key={prog.id} className="border-b border-gray-200 hover:bg-slate-50/50">
+                              <td className="py-3 px-4 align-top bg-slate-50/70 border-r border-gray-200">
+                                <div className="font-bold text-gray-900 text-xs">{prog.name}</div>
+                                <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${prog.isNaacFacing ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-blue-50 text-blue-800 border-blue-200'}`}>
+                                    {prog.naacScopeLabel}
+                                  </span>
+                                  <span className="text-[10px] bg-white border border-gray-200 px-1.5 py-0.5 rounded text-gray-600 font-semibold">
+                                    {prog.degreeType}
+                                  </span>
+                                </div>
+                                <div className="text-[11px] text-gray-500 mt-2">
+                                  Coord: <strong className="text-gray-700">{prog.coordinatorName}</strong>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedProgramForDrawer(prog.id)}
+                                  className="mt-2 text-[11px] font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 cursor-pointer"
+                                >
+                                  <span>Open Drawer</span>
+                                  <ArrowRight className="w-3 h-3" />
+                                </button>
+                              </td>
+
+                              <td colSpan={5} className="py-6 px-4 text-center align-middle bg-white">
+                                <div className="flex flex-col items-center justify-center gap-1">
+                                  <span className="text-xs text-gray-400 italic">
+                                    No evidence documents match current filter.
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSendProgramReminder(prog)}
+                                    className="mt-1 px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded text-xs font-semibold cursor-pointer flex items-center gap-1"
+                                  >
+                                    <Bell className="w-3 h-3" />
+                                    <span>Remind {prog.coordinatorName} to Submit</span>
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        }
+
+                        // Program with matching documents (Merged RowSpan First Cell)
+                        return matchingDocs.map((doc, docIdx) => (
+                          <tr key={`${prog.id}-${doc.id}-${docIdx}`} className="hover:bg-blue-50/20 transition-colors border-b border-gray-100">
+                            {/* FIRST COLUMN (Merged with rowSpan) */}
+                            {docIdx === 0 && (
+                              <td
+                                rowSpan={matchingDocs.length}
+                                className="py-3 px-4 align-top bg-slate-50/70 border-r border-gray-200 min-w-[210px]"
+                              >
+                                <div className="font-bold text-gray-900 text-xs leading-snug">{prog.name}</div>
+                                
+                                <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
+                                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${prog.isNaacFacing ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-blue-50 text-blue-800 border-blue-200'}`}>
+                                    {prog.naacScopeLabel}
+                                  </span>
+                                  <span className="text-[10px] bg-white border border-gray-200 px-1.5 py-0.5 rounded text-gray-600 font-semibold">
+                                    {prog.degreeType}
+                                  </span>
+                                </div>
+
+                                <div className="text-[11px] text-gray-600 mt-2.5">
+                                  Coord: <strong className="text-gray-800">{prog.coordinatorName}</strong>
+                                </div>
+                                <div className="text-[10px] text-gray-400 mt-0.5 truncate" title={prog.coordinatorEmail}>
+                                  {prog.coordinatorEmail}
+                                </div>
+
+                                <div className="mt-3 flex items-center justify-between gap-1 pt-2 border-t border-gray-200">
+                                  <span className="text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
+                                    {matchingDocs.length} Proof{matchingDocs.length > 1 ? 's' : ''}
+                                  </span>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSendProgramReminder(prog)}
+                                    className="p-1 text-gray-400 hover:text-blue-700 hover:bg-white rounded cursor-pointer transition-colors"
+                                    title={`Send reminder to ${prog.coordinatorName}`}
+                                  >
+                                    {remindersSent[prog.id] ? (
+                                      <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                    ) : (
+                                      <Bell className="w-3.5 h-3.5" />
+                                    )}
+                                  </button>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedProgramForDrawer(prog.id)}
+                                  className="mt-2.5 w-full py-1.5 px-2 bg-white hover:bg-blue-50 border border-gray-200 hover:border-blue-300 text-gray-700 hover:text-blue-700 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                                >
+                                  <span>Open Drawer</span>
+                                  <ArrowRight className="w-3 h-3 text-gray-400" />
+                                </button>
+                              </td>
+                            )}
+
+                            {/* Col 2: Metric */}
+                            <td className="py-3 px-3 align-top border-r border-gray-100">
+                              <span className="font-mono text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded inline-block">
+                                {doc.metricCode}
+                              </span>
+                              <span className="text-[10px] font-semibold text-gray-500 bg-gray-100 border border-gray-200 px-1.5 py-0.5 rounded ml-1.5">
+                                {doc.metricType || 'QnM'}
+                              </span>
+                              <span className="block text-[11px] text-gray-500 mt-1 font-medium">
+                                {doc.criterionCode}
+                              </span>
+                            </td>
+
+                            {/* Col 3: Attached Proof */}
+                            <td className="py-3 px-3 align-top border-r border-gray-100">
+                              <div
+                                onClick={() => openFileInNewTab(doc.fileUrl)}
+                                className="font-semibold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer text-xs leading-snug flex items-center gap-1.5"
+                                title={doc.fileName}
+                              >
+                                <FileText className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                                <span className="truncate max-w-[260px]">{doc.fileName}</span>
+                              </div>
+                              <p className="text-[11px] text-gray-600 mt-0.5 line-clamp-1">
+                                {doc.title}
+                              </p>
+                              {doc.fileSize && (
+                                <span className="text-[10px] text-gray-400 mt-0.5 inline-block">
+                                  {doc.fileSize}
+                                </span>
+                              )}
+                            </td>
+
+                            {/* Col 4: Submitted By */}
+                            <td className="py-3 px-3 align-top border-r border-gray-100">
+                              <span className="font-bold text-gray-900 block text-xs">
+                                {doc.facultyName || doc.uploadedBy}
+                              </span>
+                              <span className="text-[10px] text-gray-400 block mt-0.5">
+                                {formatDocDate(doc.uploadedAt)}
+                              </span>
+                            </td>
+
+                            {/* Col 5: Status */}
+                            <td className="py-3 px-3 align-top text-center border-r border-gray-100">
+                              {doc.status === 'approved_by_school' ? (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                  <span>Approved</span>
+                                </span>
+                              ) : doc.status === 'university_verified' ? (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-purple-700 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-full">
+                                  <Lock className="w-3 h-3 text-purple-600" />
+                                  <span>Verified</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                                  <Clock className="w-3 h-3 text-amber-600" />
+                                  <span>Pending Review</span>
+                                </span>
+                              )}
+                            </td>
+
+                            {/* Col 6: Actions */}
+                            <td className="py-3 px-2 align-top text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                {doc.status === 'submitted_to_school' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleApproveDocument(doc)}
+                                    className="p-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded cursor-pointer transition-colors"
+                                    title="Quick Approve into School Repo"
+                                  >
+                                    <Check className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => openFileInNewTab(doc.fileUrl)}
+                                  className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded cursor-pointer transition-colors"
+                                  title="Open PDF"
+                                >
+                                  <ExternalLink className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ));
+                      });
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* REVISION FEEDBACK MODAL */}
@@ -1223,6 +1896,305 @@ export const SchoolCoordinatorDesk: React.FC<SchoolCoordinatorDeskProps> = ({
           </div>
         </div>
       )}
+
+      {/* SLIDE-OVER DRAWER: DETAILED PROGRAM AUDIT & SUBMISSIONS */}
+      {(() => {
+        const selectedDrawerProg = SOT_PROGRAMS_METADATA.find(p => p.id === selectedProgramForDrawer);
+        if (!selectedDrawerProg) return null;
+
+        const drawerAllDocs = allSchoolDocs.filter(d => matchesProgramId(d, selectedDrawerProg.id));
+        const drawerCriteriaWithDocs = new Set(drawerAllDocs.map(d => d.criterionCode));
+        const drawerReadinessPct = Math.min(100, Math.round((drawerCriteriaWithDocs.size / 7) * 100));
+        const drawerPendingDocs = drawerAllDocs.filter(d => d.status === 'submitted_to_school');
+        const drawerApprovedDocs = drawerAllDocs.filter(d => d.status === 'approved_by_school' || d.status === 'university_verified');
+        const missingCriteriaList = NAAC_CRITERIA_SUMMARY.filter(c => !drawerCriteriaWithDocs.has(c.code));
+
+        const filteredDrawerDocs = drawerAllDocs.filter(d => {
+          if (drawerTabFilter === 'pending') return d.status === 'submitted_to_school';
+          if (drawerTabFilter === 'approved') return d.status === 'approved_by_school' || d.status === 'university_verified';
+          return true;
+        }).filter(d => {
+          if (!drawerSearch.trim()) return true;
+          return (
+            d.fileName.toLowerCase().includes(drawerSearch.toLowerCase()) ||
+            d.title.toLowerCase().includes(drawerSearch.toLowerCase()) ||
+            d.metricCode.includes(drawerSearch) ||
+            (d.uploadedBy && d.uploadedBy.toLowerCase().includes(drawerSearch.toLowerCase()))
+          );
+        });
+
+        return (
+          <Drawer
+            isOpen={Boolean(selectedProgramForDrawer)}
+            onClose={() => setSelectedProgramForDrawer(null)}
+            title={`Program Evidence Audit — ${selectedDrawerProg.shortCode}`}
+            maxWidth="max-w-2xl"
+          >
+            <div className="p-5 space-y-5">
+              {/* Drawer Top Program Banner */}
+              <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-xs font-bold text-gray-700 bg-white border border-slate-200 px-2 py-0.5 rounded">
+                        {selectedDrawerProg.shortCode}
+                      </span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${selectedDrawerProg.isNaacFacing ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-blue-50 text-blue-800 border-blue-200'}`}>
+                        {selectedDrawerProg.naacScopeLabel}
+                      </span>
+                      <span className="text-[10px] font-semibold text-gray-500 bg-white border border-gray-200 px-1.5 py-0.5 rounded">
+                        {selectedDrawerProg.degreeType}
+                      </span>
+                    </div>
+                    <h4 className="text-sm font-bold text-gray-900 mt-1">
+                      {selectedDrawerProg.name}
+                    </h4>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Coordinator: <strong className="text-gray-800">{selectedDrawerProg.coordinatorName}</strong> ({selectedDrawerProg.coordinatorEmail})
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSendProgramReminder(selectedDrawerProg)}
+                    className="px-3 py-1.5 bg-white hover:bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-2xs shrink-0"
+                    title={`Send submission reminder to ${selectedDrawerProg.coordinatorName}`}
+                  >
+                    {remindersSent[selectedDrawerProg.id] ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-600" />
+                        <span className="text-emerald-700">Reminder Sent</span>
+                      </>
+                    ) : (
+                      <>
+                        <Bell className="w-3.5 h-3.5" />
+                        <span>Send Reminder</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {/* Progress bar */}
+                <div className="pt-2 border-t border-slate-200/80 space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-gray-600">NAAC SSR Progress</span>
+                    <span className="font-black text-emerald-700">{drawerReadinessPct}% ({drawerCriteriaWithDocs.size}/7 Criteria Covered)</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                    <div 
+                      className="h-2 rounded-full bg-emerald-500 transition-all duration-300"
+                      style={{ width: `${drawerReadinessPct}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Drawer Sub-tabs */}
+              <div className="flex items-center justify-between gap-2 border-b border-gray-200 pb-2">
+                <div className="flex items-center gap-1 overflow-x-auto text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setDrawerTabFilter('all')}
+                    className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                      drawerTabFilter === 'all'
+                        ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    All Docs ({drawerAllDocs.length})
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setDrawerTabFilter('pending')}
+                    className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                      drawerTabFilter === 'pending'
+                        ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    <span>Pending Review</span>
+                    {drawerPendingDocs.length > 0 && (
+                      <span className="text-[10px] bg-amber-500 text-white px-1.5 py-0.2 rounded-full">
+                        {drawerPendingDocs.length}
+                      </span>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setDrawerTabFilter('approved')}
+                    className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                      drawerTabFilter === 'approved'
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Approved ({drawerApprovedDocs.length})
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setDrawerTabFilter('missing')}
+                    className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                      drawerTabFilter === 'missing'
+                        ? 'bg-red-50 text-red-700 border border-red-200'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    <span>Missing Criteria</span>
+                    {missingCriteriaList.length > 0 && (
+                      <span className="text-[10px] bg-red-500 text-white px-1.5 py-0.2 rounded-full">
+                        {missingCriteriaList.length}
+                      </span>
+                    )}
+                  </button>
+                </div>
+
+                {drawerTabFilter !== 'missing' && (
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2 top-2" />
+                    <input
+                      type="text"
+                      placeholder="Search docs..."
+                      value={drawerSearch}
+                      onChange={(e) => setDrawerSearch(e.target.value)}
+                      className="pl-7 pr-2 py-1 text-xs border border-gray-300 rounded-lg w-32 focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Drawer Content */}
+              {drawerTabFilter === 'missing' ? (
+                <div className="space-y-3">
+                  <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-xl text-xs text-amber-800">
+                    <p className="font-semibold">⚠️ Action Required: Missing Criteria</p>
+                    <p className="mt-0.5 text-[11px] text-amber-700">
+                      The following Criteria (out of 7) do not have any evidence proofs uploaded by this program yet.
+                    </p>
+                  </div>
+
+                  {missingCriteriaList.length === 0 ? (
+                    <div className="text-center py-8 bg-slate-50 rounded-xl border border-slate-200">
+                      <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
+                      <p className="text-xs font-bold text-gray-800">All 7 Criteria Covered!</p>
+                      <p className="text-[11px] text-gray-500 mt-0.5">This program has submitted proofs across all 7 NAAC criteria.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5">
+                      {missingCriteriaList.map(crit => (
+                        <div key={crit.id} className="p-3.5 bg-white border border-gray-200 rounded-xl flex items-center justify-between gap-3 shadow-2xs">
+                          <div>
+                            <span className="font-mono text-xs font-bold text-[#0f2748] bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                              {crit.code}
+                            </span>
+                            <h5 className="text-xs font-bold text-gray-900 mt-1">
+                              {crit.name}
+                            </h5>
+                            <p className="text-[11px] text-gray-400 mt-0.5">
+                              Weightage: {crit.weightage} marks • No proofs submitted
+                            </p>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              showToast(`📢 Reminder sent to ${selectedDrawerProg.coordinatorName} for ${crit.code}: ${crit.name}`);
+                            }}
+                            className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-semibold cursor-pointer shrink-0 flex items-center gap-1"
+                          >
+                            <Bell className="w-3 h-3" />
+                            <span>Request Proof</span>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {filteredDrawerDocs.length === 0 ? (
+                    <div className="text-center py-10 bg-slate-50 rounded-xl border border-slate-200">
+                      <FileText className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                      <p className="text-xs font-bold text-gray-800">No documents found</p>
+                      <p className="text-[11px] text-gray-500 mt-0.5">No evidence matching current tab or search filters.</p>
+                    </div>
+                  ) : (
+                    filteredDrawerDocs.map(doc => (
+                      <div key={doc.id} className="p-3.5 bg-white border border-gray-200 rounded-xl hover:border-blue-300 transition-all shadow-2xs space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded">
+                              {doc.metricCode}
+                            </span>
+                            <span className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200">
+                              {doc.criterionCode}
+                            </span>
+                          </div>
+
+                          {doc.status === 'approved_by_school' ? (
+                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                              Approved into School Repo
+                            </span>
+                          ) : doc.status === 'university_verified' ? (
+                            <span className="text-[10px] font-bold text-purple-700 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-full">
+                              University Verified
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                              Pending Review
+                            </span>
+                          )}
+                        </div>
+
+                        <div>
+                          <div
+                            onClick={() => openFileInNewTab(doc.fileUrl)}
+                            className="text-xs font-bold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer flex items-center gap-1.5"
+                          >
+                            <FileText className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                            <span>{doc.fileName}</span>
+                          </div>
+                          <p className="text-[11px] text-gray-600 mt-0.5">
+                            {doc.title}
+                          </p>
+                        </div>
+
+                        <div className="pt-2 border-t border-gray-100 flex items-center justify-between text-[11px] text-gray-400">
+                          <span>By: <strong className="text-gray-700">{doc.facultyName || doc.uploadedBy}</strong> • {formatDocDate(doc.uploadedAt)}</span>
+                          
+                          <div className="flex items-center gap-1.5">
+                            {doc.status === 'submitted_to_school' && (
+                              <button
+                                type="button"
+                                onClick={() => handleApproveDocument(doc)}
+                                className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[11px] font-bold flex items-center gap-1 cursor-pointer"
+                              >
+                                <Check className="w-3 h-3" />
+                                <span>Approve</span>
+                              </button>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => openFileInNewTab(doc.fileUrl)}
+                              className="p-1 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded cursor-pointer"
+                              title="Open PDF"
+                            >
+                              <ExternalLink className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          </Drawer>
+        );
+      })()}
     </div>
   );
 };
