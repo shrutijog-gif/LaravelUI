@@ -2,7 +2,16 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Menu, Globe, Building2, ChevronDown, ShieldCheck, Layers, FileText, Wrench, FileSpreadsheet, LogOut, User, RotateCcw } from 'lucide-react';
 import { collegeTenantsList, getActiveTenant, setActiveTenantId, CollegeTenant } from '../../data/tenantData';
 import { logout, getStoredAuthUser } from '../../services/authService';
-import { resetNaacDemoData } from '../../data/naacDmsData';
+import { 
+  resetNaacDemoData,
+  HIERARCHY_CONFIGS,
+  type NaacHierarchyMode,
+  type NaacSimRole,
+  getTenantDefaultHierarchyMode,
+  setTenantHierarchyMode,
+  getActiveNaacRole,
+  setActiveNaacRole
+} from '../../data/naacDmsData';
 
 interface HeaderProps {
   toggleSidebar: () => void;
@@ -26,6 +35,10 @@ export const Header: React.FC<HeaderProps> = ({
   onLogout,
 }) => {
   const [currentTenant, setCurrentTenant] = useState<CollegeTenant>(getActiveTenant());
+  const [hierarchyMode, setHierarchyMode] = useState<NaacHierarchyMode>(() =>
+    getTenantDefaultHierarchyMode(getActiveTenant().id)
+  );
+  const [activeSimRole, setActiveSimRole] = useState<NaacSimRole>(() => getActiveNaacRole());
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const currentUser = getStoredAuthUser();
@@ -46,11 +59,20 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   useEffect(() => {
-    const handleTenantChange = () => {
-      setCurrentTenant(getActiveTenant());
+    const handleSync = () => {
+      const activeT = getActiveTenant();
+      setCurrentTenant(activeT);
+      setHierarchyMode(getTenantDefaultHierarchyMode(activeT.id));
+      setActiveSimRole(getActiveNaacRole());
     };
-    window.addEventListener('tenant-changed', handleTenantChange);
-    return () => window.removeEventListener('tenant-changed', handleTenantChange);
+    window.addEventListener('tenant-changed', handleSync);
+    window.addEventListener('naac-role-changed', handleSync);
+    window.addEventListener('naac-hierarchy-changed', handleSync);
+    return () => {
+      window.removeEventListener('tenant-changed', handleSync);
+      window.removeEventListener('naac-role-changed', handleSync);
+      window.removeEventListener('naac-hierarchy-changed', handleSync);
+    };
   }, []);
 
   useEffect(() => {
@@ -72,7 +94,7 @@ export const Header: React.FC<HeaderProps> = ({
   const isNaacProgram = portalType === 'naac-program';
   const isNaacSchool = portalType === 'naac-school';
   const isNaacUniversity = portalType === 'naac-university';
-  const isNaacPortal = isNaacFaculty || isNaacProgram || isNaacSchool || isNaacUniversity || Boolean(currentUser?.role?.includes('Coordinator')) || Boolean(currentUser?.role?.includes('Faculty'));
+  const isNaacPortal = isNaacFaculty || isNaacProgram || isNaacSchool || isNaacUniversity;
 
   return (
     <header className="h-16 bg-white border-b border-gray-200 px-3 sm:px-6 flex items-center justify-between sticky top-0 z-30 shadow-xs">
@@ -185,36 +207,50 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
       ) : (
-        <div className="hidden xl:flex items-center gap-1.5 bg-gray-100 p-1.5 rounded-xl border border-gray-200 shadow-2xs">
-          <button
-            onClick={() => {
-              if (onSwitchPortalRole) onSwitchPortalRole('superadmin');
-              if (onSelectModule) onSelectModule('module-studio', 'Module Studio');
-            }}
-            className={`px-3.5 py-1.5 text-xs font-black rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
-              isSuperadmin
-                ? 'bg-[#0f172a] text-amber-400 shadow-sm ring-2 ring-amber-400/30'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-white/60'
-            }`}
-          >
-            <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
-            👑 WhiteCode Master Console
-          </button>
+        <div className="hidden md:flex items-center gap-2">
+          {/* Institution Hierarchy Mode Selector */}
+          <div className="flex items-center gap-1.5 bg-blue-50/80 border border-blue-200/80 px-2.5 py-1 rounded-xl shadow-2xs">
+            <Building2 className="w-3.5 h-3.5 text-blue-700 shrink-0" />
+            <div className="flex flex-col text-left">
+              <span className="text-[9px] uppercase tracking-wider font-extrabold text-blue-600 leading-none">
+                Hierarchy
+              </span>
+              <select
+                value={hierarchyMode}
+                onChange={(e) =>
+                  setTenantHierarchyMode(currentTenant.id, e.target.value as NaacHierarchyMode)
+                }
+                className="bg-transparent text-xs font-bold text-gray-900 outline-none border-none cursor-pointer pr-1 leading-tight"
+                title="Change Institution Hierarchy Structure"
+              >
+                <option value="university_schools">University - College - Program</option>
+                <option value="college_departments">College - Program</option>
+                <option value="direct_iqac">College</option>
+              </select>
+            </div>
+          </div>
 
-          <button
-            onClick={() => {
-              if (onSwitchPortalRole) onSwitchPortalRole('collegeadmin');
-              if (onSelectModule) onSelectModule('dashboard', 'Dashboard');
-            }}
-            className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
-              !isSuperadmin
-                ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-500/30 font-black'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-white/60'
-            }`}
-          >
-            <Layers className="w-3.5 h-3.5 text-blue-300" />
-            🏛️ College Admin Panel
-          </button>
+          {/* View As Role Dropdown in Topbar */}
+          <div className="flex items-center gap-1.5 bg-gray-50 hover:bg-gray-100/90 border border-gray-200 px-2.5 py-1 rounded-xl shadow-2xs">
+            <User className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+            <div className="flex flex-col text-left">
+              <span className="text-[9px] uppercase tracking-wider font-extrabold text-gray-500 leading-none">
+                View As Role
+              </span>
+              <select
+                value={activeSimRole}
+                onChange={(e) => setActiveNaacRole(e.target.value as NaacSimRole)}
+                className="bg-transparent text-xs font-bold text-gray-900 outline-none border-none cursor-pointer pr-1 leading-tight"
+                title="Switch Simulated NAAC Role"
+              >
+                {HIERARCHY_CONFIGS[hierarchyMode].roles.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
         </div>
       )}
 

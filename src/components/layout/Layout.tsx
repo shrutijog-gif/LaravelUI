@@ -18,6 +18,9 @@ import { CommitteesAdmin } from '../modules/website/committees/CommitteesAdmin';
 import { DepartmentsAdmin } from '../modules/website/departments/DepartmentsAdmin'; // Clean departments module
 import { CareersAdmin } from '../modules/website/careers/CareersAdmin';
 import { NirfShowcaseAdmin } from '../modules/website/nirf/NirfShowcaseAdmin';
+import { NaacSsrCycleModule } from '../modules/naac/NaacSsrCycleModule';
+import { NaacCriteriaAllocation } from '../modules/naac/NaacCriteriaAllocation';
+import { NaacQuickUploadLanding } from '../modules/naac/NaacQuickUploadLanding';
 import { NaacDmsWorkspace } from '../modules/naac/NaacDmsWorkspace';
 import { ProgramCoordinatorDesk } from '../modules/naac/ProgramCoordinatorDesk';
 import { SchoolCoordinatorDesk } from '../modules/naac/SchoolCoordinatorDesk';
@@ -37,24 +40,22 @@ export const Layout: React.FC<LayoutProps> = ({
 }) => {
   const getInitialModule = (): string => {
     const portalType = typeof window !== 'undefined' ? localStorage.getItem('college_cms_portal_type') : null;
+    if (portalType === 'cms-naac') return 'naac-ssr-cycle';
     if (portalType === 'naac-faculty') return 'naac-faculty';
-    if (portalType === 'naac-program') return 'naac-aqar';
+    if (portalType === 'naac-program') return 'naac-aqar-standalone';
     if (portalType === 'naac-school') return 'naac-school';
     if (portalType === 'naac-university') return 'naac-university';
-    if (portalType && portalType.startsWith('naac-')) return 'naac-dashboard';
     return initialPortalRole === 'superadmin' ? 'module-studio' : 'dashboard';
   };
 
   const [activeModuleId, setActiveModuleId] = useState<string>(() => getInitialModule());
   const [activeModuleLabel, setActiveModuleLabel] = useState<string>(() => {
     const initMod = getInitialModule();
+    if (initMod === 'naac-ssr-cycle') return 'Cycle (SSR)';
     if (initMod === 'naac-faculty') return 'Faculty Desk';
-    if (initMod === 'naac-aqar') return 'AQAR';
+    if (initMod === 'naac-aqar-standalone') return 'AQAR';
     if (initMod === 'naac-school') return 'School Coordinator';
     if (initMod === 'naac-university') return 'University Coordinator';
-    if (initMod === 'school-queue') return 'School Review Queue';
-    if (initMod === 'univ-dashboard') return 'University IQAC';
-    if (initMod === 'naac-dashboard') return 'NAAC Accreditation DMS';
     return initialPortalRole === 'superadmin' ? 'Module Studio' : 'Dashboard';
   });
 
@@ -187,18 +188,39 @@ export const Layout: React.FC<LayoutProps> = ({
               <PageAdmin />
             ) : activeModuleId === 'nirf-showcase' ? (
               <NirfShowcaseAdmin />
+            ) : activeModuleId === 'naac-aqar-standalone' || (typeof window !== 'undefined' && localStorage.getItem('college_cms_portal_type') === 'naac-program' && (activeModuleId === 'naac-aqar' || activeModuleId === 'naac-ssr' || activeModuleId === 'naac-dvv')) ? (
+              <ProgramCoordinatorDesk activeSection={activeModuleId === 'naac-ssr' ? 'ssr' : activeModuleId === 'naac-dvv' ? 'dvv' : 'aqar'} />
+            ) : activeModuleId === 'naac-quick-drop' ? (
+              <NaacQuickUploadLanding
+                academicYear="2024-25"
+                onNavigateToDocumentList={() =>
+                  handleSelectMenuItem('naac-ssr-cycle', 'Cycle (SSR)')
+                }
+              />
+            ) : activeModuleId === 'naac-ssr-cycle' || activeModuleId === 'naac-dms' || activeModuleId === 'naac-ssr' || activeModuleId === 'naac-dvv' ? (
+              <NaacSsrCycleModule
+                mode="ssr"
+                onNavigateToAllocation={() =>
+                  handleSelectMenuItem('naac-criteria-allocation', 'Criteria Allocation')
+                }
+              />
+            ) : activeModuleId === 'naac-aqar' ? (
+              <NaacSsrCycleModule
+                mode="aqar"
+                onNavigateToAllocation={() =>
+                  handleSelectMenuItem('naac-criteria-allocation', 'Criteria Allocation')
+                }
+              />
+            ) : activeModuleId === 'naac-criteria-allocation' ? (
+              <NaacCriteriaAllocation
+                onBackToCycles={() => handleSelectMenuItem('naac-ssr-cycle', 'Cycle (SSR)')}
+              />
             ) : activeModuleId === 'naac-faculty' || activeModuleId.startsWith('faculty-') ? (
               <FacultyDesk initialTab={activeModuleId === 'faculty-evidence' ? 'my-evidence' : 'quick-upload'} />
             ) : activeModuleId === 'naac-school' || activeModuleId.startsWith('school-') ? (
               <SchoolCoordinatorDesk initialTab={activeModuleId === 'school-queue' ? 'review-queue' : 'ssr-matrix'} />
             ) : activeModuleId === 'naac-university' || activeModuleId.startsWith('univ-') ? (
               <UniversityCoordinatorDesk />
-            ) : activeModuleId === 'naac-aqar' || activeModuleId === 'naac-dms' || activeModuleId.startsWith('prog-') ? (
-              <ProgramCoordinatorDesk activeSection="aqar" />
-            ) : activeModuleId === 'naac-ssr' ? (
-              <ProgramCoordinatorDesk activeSection="ssr" />
-            ) : activeModuleId === 'naac-dvv' ? (
-              <ProgramCoordinatorDesk activeSection="dvv" />
             ) : activeModuleId.startsWith('naac-') ? (
               <NaacDmsWorkspace initialRole={getInitialNaacRole(activeModuleId)} />
             ) : (

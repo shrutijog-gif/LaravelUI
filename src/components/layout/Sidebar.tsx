@@ -127,14 +127,13 @@ export const superadminMenuItems: MenuItem[] = [
   },
   {
     id: 'naac-dms',
-    label: 'NAAC Accreditation',
+    label: 'NAAC',
     icon: 'circle',
     children: [
-      { id: 'naac-aqar', label: 'Program Coordinator (CSE)' },
-      { id: 'naac-school', label: 'School Coordinator (Tech)' },
-      { id: 'naac-university', label: 'University Coordinator (IQAC)' },
-      { id: 'naac-ssr', label: 'SSR Dossier' },
-      { id: 'naac-dvv', label: 'DVV Clarifications' },
+      { id: 'naac-quick-drop', label: 'Quick Evidence Drop' },
+      { id: 'naac-ssr-cycle', label: 'Cycle (SSR)' },
+      { id: 'naac-aqar', label: 'AQAR' },
+      { id: 'naac-criteria-allocation', label: 'Criteria Allocation' },
     ],
   },
   {
@@ -204,14 +203,13 @@ export const getCollegeAdminMenuItems = (): MenuItem[] => {
     },
     {
       id: 'naac-dms',
-      label: 'NAAC Accreditation',
+      label: 'NAAC',
       icon: 'circle',
       children: [
-        { id: 'naac-aqar', label: 'Program Coordinator (CSE)' },
-        { id: 'naac-school', label: 'School Coordinator (Tech)' },
-        { id: 'naac-university', label: 'University Coordinator (IQAC)' },
-        { id: 'naac-ssr', label: 'SSR Dossier' },
-        { id: 'naac-dvv', label: 'DVV Clarifications' },
+        { id: 'naac-quick-drop', label: 'Quick Evidence Drop' },
+        { id: 'naac-ssr-cycle', label: 'Cycle (SSR)' },
+        { id: 'naac-aqar', label: 'AQAR' },
+        { id: 'naac-criteria-allocation', label: 'Criteria Allocation' },
       ],
     },
     {
@@ -351,10 +349,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   });
 
   const portalType = typeof window !== 'undefined' ? localStorage.getItem('college_cms_portal_type') : null;
-  const isNaacFaculty = portalType === 'naac-faculty' || activeItem === 'naac-faculty';
-  const isNaacProgram = portalType === 'naac-program' || activeItem === 'naac-aqar' || activeItem === 'naac-ssr' || activeItem === 'naac-dvv';
-  const isNaacSchool = portalType === 'naac-school' || activeItem === 'naac-school' || activeItem.startsWith('school-');
-  const isNaacUniversity = portalType === 'naac-university' || activeItem === 'naac-university' || activeItem.startsWith('univ-');
+  const isNaacFaculty = portalType === 'naac-faculty';
+  const isNaacProgram = portalType === 'naac-program';
+  const isNaacSchool = portalType === 'naac-school';
+  const isNaacUniversity = portalType === 'naac-university';
 
   const isSuperAdmin = portalRole === 'superadmin';
   const menuList = isNaacFaculty

@@ -45,6 +45,16 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   const isSociety = portalType === 'society';
 
   const getPortalInfo = () => {
+    if (portalType === 'cms-naac') {
+      return {
+        parentTitle: 'WHITECODE HIGHER EDUCATION CMS',
+        parentClass: 'text-emerald-600',
+        title: 'College CMS — Integrated NAAC (SSR Cycles & AI)',
+        subtitle: 'Single CMS login with multi-tenant role hierarchy (Faculty ➔ Dept/Program ➔ School ➔ IQAC) and AI Quick Upload inside SSR Cycles.',
+        iconBg: 'bg-gradient-to-br from-emerald-600 to-blue-700 text-white',
+        renderIcon: () => <Sparkles className="w-9 h-9 text-white" />,
+      };
+    }
     if (portalType === 'naac-university') {
       return {
         parentTitle: 'ITM SKILLS UNIVERSITY',

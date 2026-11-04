@@ -15,6 +15,7 @@ export type PortalType =
   | 'society' 
   | 'college' 
   | 'superadmin' 
+  | 'cms-naac'
   | 'naac-university' 
   | 'naac-school' 
   | 'naac-program'
@@ -153,6 +154,39 @@ export const PortalLandingPage: React.FC<PortalLandingPageProps> = ({
             Select a specialized accreditation workflow, multi-campus governance trust, or autonomous college portal to explore.
           </p>
         </div>
+
+        {/* ✨ NEW POC BLOCK: CMS-Integrated NAAC (SSR Cycles + AI Quick Upload + Multi-Tenant Hierarchy) */}
+        <section className="bg-black/25 backdrop-blur-md rounded-3xl p-5 sm:p-7 shadow-2xl border-2 border-emerald-400/50 mb-8 sm:mb-10">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+            <div className="flex items-start sm:items-center gap-4">
+              <div className="w-13 h-13 rounded-2xl bg-gradient-to-br from-emerald-500 via-blue-600 to-indigo-800 text-white flex items-center justify-center font-black text-xl shadow-lg shrink-0 border border-white/25">
+                ✨
+              </div>
+              <div>
+                <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                  <h2 className="text-lg sm:text-xl font-black text-white tracking-tight drop-shadow-sm">
+                    CMS-Integrated NAAC — SSR Cycles, AI Quick Upload & Multi-Tenant Hierarchy
+                  </h2>
+                  <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-emerald-400/20 text-emerald-300 border border-emerald-400/40">
+                    New CMS POC
+                  </span>
+                </div>
+                <p className="text-xs text-gray-200 font-medium leading-relaxed max-w-3xl">
+                  Built directly inside the standard <strong className="text-white">College CMS Sidebar (Cycle SSR, AQAR, Criteria Allocation)</strong> with 1 single login, configurable <strong className="text-white">Multi-Tenant Hierarchy (4-Tier Univ/Schools, 3-Tier College/Depts, 2-Tier IQAC)</strong>, embedded <strong className="text-white">AI Quick Upload Bar</strong>, and live <strong className="text-white">Public Website NAAC Viewer</strong>.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => onSelectPortal('cms-naac')}
+              className="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-blue-600 hover:from-emerald-600 hover:to-blue-700 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all cursor-pointer shrink-0 border border-white/20"
+            >
+              <span>Launch CMS-Integrated NAAC</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        </section>
 
         {/* 🏆 FEATURED BIG HERO BOX: ITM Skills University NAAC DMS */}
         <section className="bg-black/20 backdrop-blur-sm rounded-3xl p-5 sm:p-7 shadow-2xl border border-white/40 mb-12 sm:mb-16">

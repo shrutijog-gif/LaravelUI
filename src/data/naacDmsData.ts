@@ -1408,3 +1408,159 @@ export const resetNaacDemoData = (): void => {
   window.dispatchEvent(new Event('storage'));
 };
 
+// ============================================================================
+// CMS NAAC SSR CYCLES, MULTI-TENANT HIERARCHY MODES & ROLE SIMULATION (v2)
+// ============================================================================
+
+export interface NaacSsrCycle {
+  id: string;
+  cycleNumber: string; // e.g. 'NAAC Cycle 1', 'NAAC Cycle 2'
+  yearFrom: string;    // e.g. '2024-25'
+  yearTo: string;      // e.g. '2028-29'
+  status: 'Active' | 'Submitted' | 'Completed';
+  ssrReportUrl?: string;
+  ssrReportFileName?: string;
+  createdAt: string;
+}
+
+const NAAC_CYCLES_STORAGE_KEY = 'cms_naac_ssr_cycles_v2';
+
+export const DEFAULT_NAAC_CYCLES: NaacSsrCycle[] = [
+  {
+    id: 'cycle-3',
+    cycleNumber: 'NAAC Cycle 3',
+    yearFrom: '2021-22',
+    yearTo: '2025-26',
+    status: 'Active',
+    createdAt: '2026-10-26',
+  },
+  {
+    id: 'cycle-2',
+    cycleNumber: 'NAAC Cycle 2',
+    yearFrom: '2016-17',
+    yearTo: '2020-21',
+    status: 'Completed',
+    createdAt: '2021-05-15',
+  },
+  {
+    id: 'cycle-1',
+    cycleNumber: 'NAAC Cycle 1',
+    yearFrom: '2011-12',
+    yearTo: '2015-16',
+    status: 'Completed',
+    createdAt: '2016-04-10',
+  },
+];
+
+export const getStoredNaacCycles = (): NaacSsrCycle[] => {
+  try {
+    const raw = localStorage.getItem(NAAC_CYCLES_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {
+    // ignore
+  }
+  return DEFAULT_NAAC_CYCLES;
+};
+
+export const saveNaacCycles = (cycles: NaacSsrCycle[]): void => {
+  try {
+    localStorage.setItem(NAAC_CYCLES_STORAGE_KEY, JSON.stringify(cycles));
+    window.dispatchEvent(new Event('naac-cycles-updated'));
+  } catch {
+    // ignore
+  }
+};
+
+export type NaacHierarchyMode = 'university_schools' | 'college_departments' | 'direct_iqac';
+
+export interface NaacHierarchyConfig {
+  mode: NaacHierarchyMode;
+  label: string;
+  shortLabel: string;
+  description: string;
+  roles: Array<{
+    id: 'faculty' | 'program' | 'school' | 'university';
+    title: string;
+    personName: string;
+    unitLabel: string;
+    badgeColor: string;
+  }>;
+}
+
+export const HIERARCHY_CONFIGS: Record<NaacHierarchyMode, NaacHierarchyConfig> = {
+  university_schools: {
+    mode: 'university_schools',
+    label: 'University - colleges - programs',
+    shortLabel: 'University - colleges - programs',
+    description: 'University hierarchy where Faculty submit to Program Coordinators, who compile for College/School Coordinators, before Central University IQAC publishes to the website.',
+    roles: [
+      { id: 'faculty', title: 'Faculty Member', personName: 'Dr. Ramesh Gupta', unitLabel: 'B.Tech CSE', badgeColor: 'amber' },
+      { id: 'program', title: 'Program Coordinator', personName: 'Prof. Anita Verma', unitLabel: 'B.Tech CSE (HOD)', badgeColor: 'emerald' },
+      { id: 'school', title: 'College / School Coordinator', personName: 'Dr. Rajesh Sharma', unitLabel: 'School of Technology', badgeColor: 'blue' },
+      { id: 'university', title: 'University IQAC', personName: 'Dr. Vikram Malhotra', unitLabel: 'Central IQAC Directorate', badgeColor: 'purple' },
+    ],
+  },
+  college_departments: {
+    mode: 'college_departments',
+    label: 'College - program',
+    shortLabel: 'College - program',
+    description: 'College hierarchy where Faculty upload proofs, Program Coordinators verify submissions, and College IQAC approves & publishes to the website.',
+    roles: [
+      { id: 'faculty', title: 'Faculty Member', personName: 'Dr. Ramesh Gupta', unitLabel: 'Dept. of Computer Science', badgeColor: 'amber' },
+      { id: 'program', title: 'Program Coordinator', personName: 'Prof. Anita Verma', unitLabel: 'Dept. of Computer Science', badgeColor: 'emerald' },
+      { id: 'university', title: 'College IQAC', personName: 'Dr. Vikram Malhotra', unitLabel: 'College IQAC Cell', badgeColor: 'purple' },
+    ],
+  },
+  direct_iqac: {
+    mode: 'direct_iqac',
+    label: 'College',
+    shortLabel: 'College',
+    description: 'Streamlined hierarchy for colleges where Criterion In-charges upload directly for College IQAC verification and website publication.',
+    roles: [
+      { id: 'program', title: 'Criterion Coordinator', personName: 'Prof. Anita Verma', unitLabel: 'Criterion Lead', badgeColor: 'emerald' },
+      { id: 'university', title: 'College IQAC', personName: 'Dr. Vikram Malhotra', unitLabel: 'College IQAC', badgeColor: 'purple' },
+    ],
+  },
+};
+
+export const getTenantDefaultHierarchyMode = (tenantId?: string): NaacHierarchyMode => {
+  const tid = tenantId || localStorage.getItem('active_college_tenant_id') || 'elite-autonomous';
+  const savedOverride = localStorage.getItem(`naac_hierarchy_mode_${tid}`) as NaacHierarchyMode | null;
+  if (savedOverride && HIERARCHY_CONFIGS[savedOverride]) {
+    return savedOverride;
+  }
+  if (tid === 'elite-tech') return 'university_schools';
+  if (tid === 'elite-agri') return 'direct_iqac';
+  return 'college_departments';
+};
+
+export const setTenantHierarchyMode = (tenantId: string, mode: NaacHierarchyMode): void => {
+  localStorage.setItem(`naac_hierarchy_mode_${tenantId}`, mode);
+  // Ensure active role is valid for this hierarchy mode
+  const currentRole = getActiveNaacRole();
+  const validRoles = HIERARCHY_CONFIGS[mode].roles.map(r => r.id);
+  if (!validRoles.includes(currentRole)) {
+    setActiveNaacRole(validRoles[validRoles.length - 1]);
+  }
+  window.dispatchEvent(new Event('naac-hierarchy-changed'));
+};
+
+export type NaacSimRole = 'faculty' | 'program' | 'school' | 'university';
+
+export const getActiveNaacRole = (): NaacSimRole => {
+  const saved = localStorage.getItem('cms_naac_active_sim_role') as NaacSimRole | null;
+  if (saved && ['faculty', 'program', 'school', 'university'].includes(saved)) {
+    return saved;
+  }
+  return 'university';
+};
+
+export const setActiveNaacRole = (role: NaacSimRole): void => {
+  localStorage.setItem('cms_naac_active_sim_role', role);
+  window.dispatchEvent(new Event('naac-role-changed'));
+};
+
+

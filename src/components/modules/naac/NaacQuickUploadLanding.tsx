@@ -36,12 +36,14 @@ import {
   NAAC_CRITERIA_SUMMARY, 
   NAAC_METRICS_LIST,
   KEY_INDICATORS,
-  NaacEvidenceDocument, 
-  NaacWorkflowStatus,
+  type NaacEvidenceDocument, 
+  type NaacWorkflowStatus,
+  type NaacSsrCycle,
   getStoredNaacDocuments, 
   addOrUpdateNaacDocument, 
   deleteNaacDocument,
-  submitBatchNaacDocuments
+  submitBatchNaacDocuments,
+  getStoredNaacCycles
 } from '../../../data/naacDmsData';
 import { openFileInNewTab } from '../../../utils/fileHelper';
 
@@ -94,6 +96,8 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
       : 'Program Coordinator');
 
   const [documents, setDocuments] = useState<NaacEvidenceDocument[]>(() => getStoredNaacDocuments());
+  const [cycles, setCycles] = useState<NaacSsrCycle[]>(() => getStoredNaacCycles());
+  const [selectedCycleId, setSelectedCycleId] = useState<string>(() => getStoredNaacCycles()[0]?.id || 'cycle-1');
   const [isDragging, setIsDragging] = useState(false);
   const [isBarDragging, setIsBarDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -103,6 +107,20 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
   const [documentTitle, setDocumentTitle] = useState<string>('');
   const [documentDescription, setDocumentDescription] = useState<string>('');
   const [uploadedFile, setUploadedFile] = useState<{ name: string; size: string; dataUrl: string } | null>(null);
+  const [uploadedFilesBatch, setUploadedFilesBatch] = useState<
+    Array<{
+      docId: string;
+      name: string;
+      size: string;
+      dataUrl: string;
+      crit: string;
+      keyIndicator: string;
+      metric: string;
+      reason?: string;
+      source?: 'openai' | 'rule-engine';
+      isManualEdit?: boolean;
+    }>
+  >([]);
   const [activeDocId, setActiveDocId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successToast, setSuccessToast] = useState<string | null>(null);
@@ -161,6 +179,7 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
     const handleSync = () => {
       const freshDocs = getStoredNaacDocuments();
       setDocuments(freshDocs);
+      setCycles(getStoredNaacCycles());
       // Clean up selectedDocIds to retain only still-unsubmitted selected documents instead of blindly wiping selection
       setSelectedDocIds((prev) => {
         if (prev.length === 0) return prev;
@@ -190,9 +209,11 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
       }
     };
     window.addEventListener('naac-dms-updated', handleSync);
+    window.addEventListener('naac-cycles-updated', handleSync);
     window.addEventListener('storage', handleSync);
     return () => {
       window.removeEventListener('naac-dms-updated', handleSync);
+      window.removeEventListener('naac-cycles-updated', handleSync);
       window.removeEventListener('storage', handleSync);
     };
   }, [myDocsStorageKey]);
@@ -350,20 +371,47 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
   );
   const currentMetric = NAAC_METRICS_LIST.find((m) => m.code === cleanMetricCode) || availableMetrics[0];
 
-  // Live sync active ingested document when user modifies destination selectors
+  // Live sync active ingested document (or all batch documents in Manual Mode) when user modifies destination selectors
   const syncActiveDocDestination = (crit: string, metric: string, title?: string) => {
     if (!activeDocId) return;
     const critObj = NAAC_CRITERIA_SUMMARY.find((c) => c.code.toLowerCase() === crit.toLowerCase());
     const metricObj = NAAC_METRICS_LIST.find((m) => m.code === metric);
-    addOrUpdateNaacDocument({
-      id: activeDocId,
-      ...(title ? { title } : {}),
-      criterionCode: crit,
-      criterionId: critObj?.id || 'crit-1',
-      metricCode: metric,
-      metricName: metricObj?.name || `${metric} Evidence Proof`,
-      metricType: metricObj?.metricType || 'QnM',
-    });
+    const parts = metric.split('.');
+    const kiCode = parts.length >= 2 ? `${parts[0]}.${parts[1]}` : '1.1';
+
+    if (!useAi && uploadedFilesBatch.length > 1) {
+      // In Manual Mode with multiple files, apply the shared Criterion/KI/Metric to ALL files in the batch
+      uploadedFilesBatch.forEach((item) => {
+        addOrUpdateNaacDocument({
+          id: item.docId,
+          criterionCode: crit,
+          criterionId: critObj?.id || 'crit-1',
+          metricCode: metric,
+          metricName: metricObj?.name || `${metric} Evidence Proof`,
+          metricType: metricObj?.metricType || 'QnM',
+        });
+      });
+      setUploadedFilesBatch((prev) =>
+        prev.map((item) => ({ ...item, crit, keyIndicator: kiCode, metric }))
+      );
+    } else {
+      addOrUpdateNaacDocument({
+        id: activeDocId,
+        ...(title ? { title } : {}),
+        criterionCode: crit,
+        criterionId: critObj?.id || 'crit-1',
+        metricCode: metric,
+        metricName: metricObj?.name || `${metric} Evidence Proof`,
+        metricType: metricObj?.metricType || 'QnM',
+      });
+      setUploadedFilesBatch((prev) =>
+        prev.map((item) =>
+          item.docId === activeDocId
+            ? { ...item, crit, keyIndicator: kiCode, metric }
+            : item
+        )
+      );
+    }
     refreshDocuments();
   };
 
@@ -409,6 +457,66 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
       setSelectedKeyIndicatorCode(parentKi);
     }
     syncActiveDocDestination(cleanCritCode, canonical);
+  };
+
+  // Per-file destination handlers when multiple files are uploaded
+  const updateBatchItemDestination = (docId: string, crit: string, ki: string, metric: string) => {
+    const critObj = NAAC_CRITERIA_SUMMARY.find((c) => c.code.toLowerCase() === crit.toLowerCase());
+    const metricObj = NAAC_METRICS_LIST.find((m) => m.code === metric);
+    addOrUpdateNaacDocument({
+      id: docId,
+      criterionCode: crit,
+      criterionId: critObj?.id || 'crit-1',
+      metricCode: metric,
+      metricName: metricObj?.name || `${metric} Evidence Proof`,
+      metricType: metricObj?.metricType || 'QnM',
+    });
+    setUploadedFilesBatch((prev) =>
+      prev.map((item) =>
+        item.docId === docId
+          ? { ...item, crit, keyIndicator: ki, metric }
+          : item
+      )
+    );
+    if (docId === activeDocId) {
+      setSelectedCriterionCode(crit);
+      setSelectedKeyIndicatorCode(ki);
+      setSelectedMetricCode(metric);
+    }
+    refreshDocuments();
+  };
+
+  const handleBatchItemCriterionChange = (docId: string, critCode: string) => {
+    const canonical = toCanonicalCrit(critCode);
+    const kis = KEY_INDICATORS.filter((ki) => ki.criterionCode.toLowerCase() === canonical.toLowerCase());
+    const newKiCode = kis[0]?.code || '1.1';
+    const metricsForCrit = NAAC_METRICS_LIST.filter((m) => m.criterionCode.toLowerCase() === canonical.toLowerCase());
+    const matchingMetric = metricsForCrit.find((m) => m.code.startsWith(newKiCode)) || metricsForCrit[0];
+    const newMetricCode = matchingMetric ? matchingMetric.code : '1.1.1';
+    updateBatchItemDestination(docId, canonical, newKiCode, newMetricCode);
+  };
+
+  const handleBatchItemKiChange = (docId: string, currentCrit: string, kiCode: string) => {
+    const canonical = toCanonicalKi(kiCode);
+    const metricsForCrit = NAAC_METRICS_LIST.filter((m) => m.criterionCode.toLowerCase() === currentCrit.toLowerCase());
+    const matchingMetrics = metricsForCrit.filter((m) => m.code.startsWith(canonical));
+    const newMetricCode = matchingMetrics[0]?.code || metricsForCrit[0]?.code || '1.1.1';
+    updateBatchItemDestination(docId, currentCrit, canonical, newMetricCode);
+  };
+
+  const handleBatchItemMetricChange = (docId: string, currentCrit: string, metricCode: string) => {
+    const canonical = toCanonicalMetric(metricCode);
+    const parts = canonical.split('.');
+    const parentKi = parts.length >= 2 ? `${parts[0]}.${parts[1]}` : '1.1';
+    updateBatchItemDestination(docId, currentCrit, parentKi, canonical);
+  };
+
+  const handleBatchItemToggleManual = (docId: string) => {
+    setUploadedFilesBatch((prev) =>
+      prev.map((item) =>
+        item.docId === docId ? { ...item, isManualEdit: !item.isManualEdit } : item
+      )
+    );
   };
 
   // Smart AI Metric Suggestion based on file name
@@ -602,11 +710,19 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
     source?: 'openai' | 'rule-engine';
   } | null>(null);
 
-  // Deep AI Classification via OpenAI with Multimodal Vision & NAAC Framework Knowledge
-  const classifyWithOpenAi = async (filename: string, key: string, fileDataUrl?: string) => {
+  // Deep AI Classification via OpenAI with Multimodal Vision & NAAC Framework Knowledge (Supports single or batch item)
+  const classifyWithOpenAi = async (
+    filename: string,
+    key: string,
+    fileDataUrl?: string,
+    targetDocId?: string,
+    updateActiveUi: boolean = true
+  ) => {
     try {
       setIsAiProcessing(true);
-      setAiSuggestion(null);
+      if (updateActiveUi) {
+        setAiSuggestion(null);
+      }
 
       const isImage = !!(fileDataUrl && (
         fileDataUrl.startsWith('data:image/jpeg') || 
@@ -726,32 +842,63 @@ Respond in JSON ONLY:
           const canonicalCrit = toCanonicalCrit(parsed.crit);
           const canonicalKi = toCanonicalKi(parsed.keyIndicator);
           const canonicalMetric = toCanonicalMetric(parsed.metric);
+          const aiReason = parsed.reason || 'OpenAI Vision & Natural Language analysis of evidence document content and metadata.';
 
-          setSelectedCriterionCode(canonicalCrit);
-          setSelectedKeyIndicatorCode(canonicalKi);
-          setSelectedMetricCode(canonicalMetric);
-          syncActiveDocDestination(canonicalCrit, canonicalMetric, parsed.suggestedTitle);
-
-          // If filename is generic and AI provides a title, auto-populate the document title
-          if (parsed.suggestedTitle) {
-            const rawName = filename.toLowerCase();
-            if (rawName.startsWith('download') || rawName.startsWith('image') || rawName.startsWith('img') || rawName.startsWith('photo') || rawName.startsWith('scan') || rawName.startsWith('file')) {
-              setDocumentTitle(parsed.suggestedTitle);
-            }
+          const docIdToUpdate = targetDocId || activeDocId;
+          if (docIdToUpdate) {
+            const critObj = NAAC_CRITERIA_SUMMARY.find((c) => c.code.toLowerCase() === canonicalCrit.toLowerCase());
+            const metricObj = NAAC_METRICS_LIST.find((m) => m.code === canonicalMetric);
+            addOrUpdateNaacDocument({
+              id: docIdToUpdate,
+              ...(parsed.suggestedTitle ? { title: parsed.suggestedTitle } : {}),
+              criterionCode: canonicalCrit,
+              criterionId: critObj?.id || 'crit-1',
+              metricCode: canonicalMetric,
+              metricName: metricObj?.name || `${canonicalMetric} Evidence Proof`,
+              metricType: metricObj?.metricType || 'QnM',
+            });
+            setUploadedFilesBatch((prev) =>
+              prev.map((item) =>
+                item.docId === docIdToUpdate
+                  ? {
+                      ...item,
+                      crit: canonicalCrit,
+                      keyIndicator: canonicalKi,
+                      metric: canonicalMetric,
+                      reason: aiReason,
+                      source: 'openai',
+                    }
+                  : item
+              )
+            );
+            refreshDocuments();
           }
 
-          setAiSuggestion({
-            crit: canonicalCrit,
-            keyIndicator: canonicalKi,
-            metric: canonicalMetric,
-            reason: parsed.reason || 'OpenAI Vision & Natural Language analysis of evidence document content and metadata.',
-            source: 'openai',
-          });
-          setIsAiBoxOpen(true);
-          setSuccessToast(`✨ OpenAI analyzed & classified into ${canonicalCrit} › KI ${canonicalKi} › Metric ${canonicalMetric}`);
-          setTimeout(() => setSuccessToast(null), 4000);
+          if (updateActiveUi) {
+            setSelectedCriterionCode(canonicalCrit);
+            setSelectedKeyIndicatorCode(canonicalKi);
+            setSelectedMetricCode(canonicalMetric);
+
+            if (parsed.suggestedTitle) {
+              const rawName = filename.toLowerCase();
+              if (rawName.startsWith('download') || rawName.startsWith('image') || rawName.startsWith('img') || rawName.startsWith('photo') || rawName.startsWith('scan') || rawName.startsWith('file')) {
+                setDocumentTitle(parsed.suggestedTitle);
+              }
+            }
+
+            setAiSuggestion({
+              crit: canonicalCrit,
+              keyIndicator: canonicalKi,
+              metric: canonicalMetric,
+              reason: aiReason,
+              source: 'openai',
+            });
+            setIsAiBoxOpen(true);
+            setSuccessToast(`✨ OpenAI analyzed & classified into ${canonicalCrit} › KI ${canonicalKi} › Metric ${canonicalMetric}`);
+            setTimeout(() => setSuccessToast(null), 4000);
+          }
         }
-      } else {
+      } else if (updateActiveUi) {
         const errJson = await res.json().catch(() => ({}));
         const errMsg = errJson?.error?.message || `HTTP ${res.status}: OpenAI classification request failed.`;
         setAiSuggestion({
@@ -766,130 +913,169 @@ Respond in JSON ONLY:
       }
     } catch (err: any) {
       console.warn('OpenAI classification error, fallback remains active:', err);
-      setAiSuggestion({
-        crit: selectedCriterionCode,
-        keyIndicator: selectedKeyIndicatorCode,
-        metric: selectedMetricCode,
-        reason: 'Unable to complete AI analysis due to a network or connection issue. You can select target destination manually.',
-        source: 'rule-engine',
-      });
+      if (updateActiveUi) {
+        setAiSuggestion({
+          crit: selectedCriterionCode,
+          keyIndicator: selectedKeyIndicatorCode,
+          metric: selectedMetricCode,
+          reason: 'Unable to complete AI analysis due to a network or connection issue. You can select target destination manually.',
+          source: 'rule-engine',
+        });
+      }
     } finally {
       setIsAiProcessing(false);
     }
   };
 
-  // File drop / select handler — Immediately auto-ingests document into repository as draft so it appears instantly in drawer
-  const processFile = (file: File) => {
-    const sizeStr = file.size > 1024 * 1024 
-      ? `${(file.size / (1024 * 1024)).toFixed(1)} MB` 
-      : `${Math.round(file.size / 1024)} KB`;
+  // File drop / select handler — Supports single OR multiple files, immediately auto-ingesting & classifying each document
+  const processFiles = (fileList: FileList | File[]) => {
+    const filesArray = Array.from(fileList);
+    if (filesArray.length === 0) return;
 
-    const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
-    setDocumentTitle(cleanName);
+    filesArray.forEach((file, index) => {
+      const sizeStr = file.size > 1024 * 1024 
+        ? `${(file.size / (1024 * 1024)).toFixed(1)} MB` 
+        : `${Math.round(file.size / 1024)} KB`;
 
-    // Initial destination: rule suggestion or current destination
-    let initialCrit = cleanCritCode || 'Criterion 1';
-    let initialKi = cleanKiCode || '1.1';
-    let initialMetric = cleanMetricCode || '1.1.1';
+      const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
 
-    const ruleSug = getAiSuggestion(file.name);
-    if (ruleSug) {
-      initialCrit = toCanonicalCrit(ruleSug.crit);
-      initialKi = toCanonicalKi(ruleSug.keyIndicator);
-      initialMetric = toCanonicalMetric(ruleSug.metric);
-      setSelectedCriterionCode(initialCrit);
-      setSelectedKeyIndicatorCode(initialKi);
-      setSelectedMetricCode(initialMetric);
-    }
+      let initialCrit = cleanCritCode || 'Criterion 1';
+      let initialKi = cleanKiCode || '1.1';
+      let initialMetric = cleanMetricCode || '1.1.1';
+      let initialReason = 'Analyzed document title & institutional context against NAAC Quality Indicator Framework.';
 
-    const activeCrit = NAAC_CRITERIA_SUMMARY.find((c) => c.code.toLowerCase() === initialCrit.toLowerCase()) || NAAC_CRITERIA_SUMMARY[0];
-    const metricsForCrit = NAAC_METRICS_LIST.filter((m) => m.criterionCode.toLowerCase() === initialCrit.toLowerCase());
-    const activeMetric = metricsForCrit.find((m) => m.code === initialMetric) || metricsForCrit[0] || NAAC_METRICS_LIST[0];
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const rawDataUrl = (e.target?.result as string) || '';
-      // Safe URL fallback to prevent localStorage quota overflow on large uploads
-      const safeDataUrl = (rawDataUrl && rawDataUrl.length < 75000)
-        ? rawDataUrl
-        : 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf';
-
-      setUploadedFile({
-        name: file.name,
-        size: sizeStr,
-        dataUrl: safeDataUrl,
-      });
-
-      // Instantly create and ingest document as Draft into the repository
-      const newDocId = `doc-${Date.now()}`;
-      const newDoc: NaacEvidenceDocument = {
-        id: newDocId,
-        title: cleanName || file.name,
-        description: `Ingested NAAC evidence for ${initialCrit} › Key Indicator ${initialKi} › Metric ${initialMetric}.`,
-        schoolId: schoolId || 'sch-tech',
-        schoolName: schoolName || 'School of Technology & Computer Engineering',
-        programId: programId || (role === 'school' ? 'school-common' : role === 'university' ? 'univ-master' : 'prog-cse'),
-        programName: programName || (role === 'school' ? 'School Level Evidence' : role === 'university' ? 'Central Institutional Evidence' : 'B.Tech Computer Science & Engineering'),
-        academicYear: academicYear || '2025-26',
-        criterionId: activeCrit?.id || 'crit-1',
-        criterionCode: initialCrit,
-        metricCode: initialMetric,
-        metricName: activeMetric?.name || `${initialMetric} Evidence Proof`,
-        metricType: activeMetric?.metricType || 'QnM',
-        fileUrl: safeDataUrl,
-        fileName: file.name,
-        fileSize: sizeStr,
-        uploadedBy: uploaderName || (role === 'school' ? 'Dean (School Coordinator)' : role === 'university' ? 'IQAC Central Committee' : 'Prof. Anita Verma'),
-        uploadedAt: new Date().toISOString().split('T')[0],
-        status: 'draft',
-        version: 'v1.0',
-      };
-
-      const created = addOrUpdateNaacDocument(newDoc);
-      const targetId = created?.id || newDoc.id;
-      setActiveDocId(targetId);
-
-      const updatedMyDocIds = Array.from(new Set([targetId, ...myDocIds]));
-      setMyDocIds(updatedMyDocIds);
-      setSelectedDocIds((prev) => [targetId, ...prev.filter(id => id !== targetId)]);
-      try {
-        localStorage.setItem(myDocsStorageKey, JSON.stringify(updatedMyDocIds));
-        localStorage.setItem('naac_my_uploaded_doc_ids_prog_cse', JSON.stringify(updatedMyDocIds));
-        localStorage.setItem('naac_my_uploaded_doc_ids_program', JSON.stringify(updatedMyDocIds));
-      } catch (err) {
-        console.warn('Could not store myDocIds in localStorage:', err);
+      const ruleSug = getAiSuggestion(file.name);
+      if (ruleSug) {
+        initialReason = ruleSug.reason;
+        // Only split files into different criteria automatically when AI Mode is active
+        if (useAi) {
+          initialCrit = toCanonicalCrit(ruleSug.crit);
+          initialKi = toCanonicalKi(ruleSug.keyIndicator);
+          initialMetric = toCanonicalMetric(ruleSug.metric);
+        }
       }
-      refreshDocuments();
 
-      setSuccessToast(`✨ Ingested "${file.name}" as Draft into ${initialCrit} › Metric ${initialMetric}! Visible in My Evidence.`);
-      setTimeout(() => setSuccessToast(null), 4500);
+      if (index === 0) {
+        setDocumentTitle(cleanName);
+        setSelectedCriterionCode(initialCrit);
+        setSelectedKeyIndicatorCode(initialKi);
+        setSelectedMetricCode(initialMetric);
+      }
 
-      if (useAi) {
-        if (openaiKey.trim()) {
-          classifyWithOpenAi(file.name, openaiKey.trim(), rawDataUrl);
-        } else {
-          setIsAiBoxOpen(true);
-          setAiSuggestion({
+      const activeCrit = NAAC_CRITERIA_SUMMARY.find((c) => c.code.toLowerCase() === initialCrit.toLowerCase()) || NAAC_CRITERIA_SUMMARY[0];
+      const metricsForCrit = NAAC_METRICS_LIST.filter((m) => m.criterionCode.toLowerCase() === initialCrit.toLowerCase());
+      const activeMetric = metricsForCrit.find((m) => m.code === initialMetric) || metricsForCrit[0] || NAAC_METRICS_LIST[0];
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const rawDataUrl = (e.target?.result as string) || '';
+        const safeDataUrl = (rawDataUrl && rawDataUrl.length < 75000)
+          ? rawDataUrl
+          : 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf';
+
+        const newDocId = `doc-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 6)}`;
+        const newDoc: NaacEvidenceDocument = {
+          id: newDocId,
+          title: cleanName || file.name,
+          description: `Ingested NAAC evidence for ${initialCrit} › Key Indicator ${initialKi} › Metric ${initialMetric}.`,
+          schoolId: schoolId || 'sch-tech',
+          schoolName: schoolName || 'School of Technology & Computer Engineering',
+          programId: programId || (role === 'school' ? 'school-common' : role === 'university' ? 'univ-master' : 'prog-cse'),
+          programName: programName || (role === 'school' ? 'School Level Evidence' : role === 'university' ? 'Central Institutional Evidence' : 'B.Tech Computer Science & Engineering'),
+          academicYear: academicYear || '2025-26',
+          criterionId: activeCrit?.id || 'crit-1',
+          criterionCode: initialCrit,
+          metricCode: initialMetric,
+          metricName: activeMetric?.name || `${initialMetric} Evidence Proof`,
+          metricType: activeMetric?.metricType || 'QnM',
+          fileUrl: safeDataUrl,
+          fileName: file.name,
+          fileSize: sizeStr,
+          uploadedBy: uploaderName || (role === 'school' ? 'Dean (School Coordinator)' : role === 'university' ? 'IQAC Central Committee' : 'Prof. Anita Verma'),
+          uploadedAt: new Date().toISOString().split('T')[0],
+          status: 'draft',
+          version: 'v1.0',
+        };
+
+        const created = addOrUpdateNaacDocument(newDoc);
+        const targetId = created?.id || newDoc.id;
+
+        if (index === 0) {
+          setUploadedFile({
+            name: file.name,
+            size: sizeStr,
+            dataUrl: safeDataUrl,
+          });
+          setActiveDocId(targetId);
+        }
+
+        setUploadedFilesBatch((prev) => [
+          ...prev,
+          {
+            docId: targetId,
+            name: file.name,
+            size: sizeStr,
+            dataUrl: safeDataUrl,
             crit: initialCrit,
             keyIndicator: initialKi,
             metric: initialMetric,
-            reason: 'AI Mode is active. Enter your OpenAI API Key to classify this evidence document, or use manual selection.',
-            source: 'openai',
-          });
+            reason: initialReason,
+            source: 'rule-engine',
+          },
+        ]);
+
+        setMyDocIds((prev) => {
+          const updatedMyDocIds = Array.from(new Set([targetId, ...prev]));
+          try {
+            localStorage.setItem(myDocsStorageKey, JSON.stringify(updatedMyDocIds));
+            localStorage.setItem('naac_my_uploaded_doc_ids_prog_cse', JSON.stringify(updatedMyDocIds));
+            localStorage.setItem('naac_my_uploaded_doc_ids_program', JSON.stringify(updatedMyDocIds));
+          } catch (err) {
+            console.warn('Could not store myDocIds in localStorage:', err);
+          }
+          return updatedMyDocIds;
+        });
+
+        setSelectedDocIds((prev) => Array.from(new Set([targetId, ...prev])));
+        refreshDocuments();
+
+        if (index === filesArray.length - 1) {
+          if (filesArray.length > 1) {
+            setSuccessToast(`✨ AI scanned & mapped ${filesArray.length} files across Criteria & Metrics! Click any file to inspect.`);
+          } else {
+            setSuccessToast(`✨ Ingested "${file.name}" as Draft into ${initialCrit} › Metric ${initialMetric}! Visible in My Evidence.`);
+          }
+          setTimeout(() => setSuccessToast(null), 4500);
         }
-      } else {
-        setIsAiBoxOpen(false);
-        setIsChangeOpen(true);
-      }
-    };
-    reader.readAsDataURL(file);
+
+        // If AI is enabled, classify EVERY uploaded file in the batch
+        if (useAi) {
+          if (openaiKey.trim()) {
+            classifyWithOpenAi(file.name, openaiKey.trim(), rawDataUrl, targetId, index === 0);
+          } else if (index === 0) {
+            setIsAiBoxOpen(true);
+            setAiSuggestion({
+              crit: initialCrit,
+              keyIndicator: initialKi,
+              metric: initialMetric,
+              reason: initialReason,
+              source: 'rule-engine',
+            });
+          }
+        } else if (index === 0) {
+          setIsAiBoxOpen(false);
+          setIsChangeOpen(true);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      processFile(e.dataTransfer.files[0]);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      processFiles(e.dataTransfer.files);
     }
   };
 
@@ -903,8 +1089,9 @@ Respond in JSON ONLY:
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      processFile(e.target.files[0]);
+    if (e.target.files && e.target.files.length > 0) {
+      processFiles(e.target.files);
+      e.target.value = '';
     }
   };
 
@@ -937,8 +1124,8 @@ Respond in JSON ONLY:
   const handleBarDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsBarDragging(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      processFile(e.dataTransfer.files[0]);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      processFiles(e.dataTransfer.files);
     }
   };
 
@@ -1030,11 +1217,16 @@ Respond in JSON ONLY:
     }
     refreshDocuments();
 
-    setSuccessToast(`Document "${fileName}" confirmed in ${cleanCritCode} › Metric ${cleanMetricCode}! Open My Evidence to submit.`);
+    if (uploadedFilesBatch.length > 1) {
+      setSuccessToast(`Confirmed ${uploadedFilesBatch.length} documents across Criteria & Metrics! Open My Evidence to submit.`);
+    } else {
+      setSuccessToast(`Document "${fileName}" confirmed in ${cleanCritCode} › Metric ${cleanMetricCode}! Open My Evidence to submit.`);
+    }
     setTimeout(() => setSuccessToast(null), 5000);
 
     // Reset Form for next upload
     setUploadedFile(null);
+    setUploadedFilesBatch([]);
     setActiveDocId(null);
     setDocumentTitle('');
     setDocumentDescription('');
@@ -1170,16 +1362,8 @@ Respond in JSON ONLY:
         ) : (
           /* Default Left Branding */
           <div className="flex items-center gap-2 text-xs flex-wrap">
-
-            
-            <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-mono text-[11px] font-semibold border border-blue-200">
-              AQAR {academicYear}
-            </span>
             {portalTitle && (
-              <>
-                <span className="text-gray-300">•</span>
-                <span className="text-gray-700 font-semibold">{portalTitle}</span>
-              </>
+              <span className="text-gray-700 font-semibold">{portalTitle}</span>
             )}
             {levelBadgeText && (
               <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
@@ -1240,7 +1424,7 @@ Respond in JSON ONLY:
       {/* Center Uncluttered Experience */}
       <div className="flex flex-col items-center justify-center min-h-[62vh] sm:min-h-[68vh] max-w-5xl w-full mx-auto px-4 text-center pt-8 sm:pt-14 pb-8">
         {/* Bold Heading */}
-        <div className="mb-5">
+        <div className="mb-4">
           <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-[#0f2748]">
             {headingTitle || 'Drop NAAC Evidence'}
           </h1>
@@ -1251,12 +1435,34 @@ Respond in JSON ONLY:
           )}
         </div>
 
+        {/* Select Cycle Dropdown Above Droppable Area */}
+        <div className="mb-4 flex items-center justify-center">
+          <div className="inline-flex items-center gap-2.5 bg-white border border-gray-200 rounded-xl px-3.5 py-2 shadow-2xs">
+            <Calendar className="w-4 h-4 text-blue-600 shrink-0" />
+            <span className="text-xs font-bold uppercase tracking-wider text-gray-500">
+              Cycle:
+            </span>
+            <select
+              value={selectedCycleId}
+              onChange={(e) => setSelectedCycleId(e.target.value)}
+              className="bg-transparent text-xs sm:text-sm font-bold text-gray-900 outline-none border-none cursor-pointer pr-1"
+            >
+              {cycles.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.cycleNumber} : {c.yearFrom} to {c.yearTo}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
         {/* Upload Form */}
         <form onSubmit={handleSubmit} className="w-full space-y-4">
-          {/* Hidden File Input */}
+          {/* Hidden File Input (Supports Multiple Files) */}
           <input
             ref={fileInputRef}
             type="file"
+            multiple
             accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.xlsx"
             onChange={handleFileChange}
             className="hidden"
@@ -1386,16 +1592,113 @@ Respond in JSON ONLY:
                         setUseAi(checked);
                         if (checked) {
                           setIsChangeOpen(false);
-                          if (uploadedFile && openaiKey.trim()) {
+                          if (uploadedFilesBatch.length > 0) {
+                            const activeItem =
+                              uploadedFilesBatch.find((f) => f.docId === activeDocId) ||
+                              uploadedFilesBatch[0];
+
+                            // Apply AI rule engine mapping to each file in the batch immediately
+                            const aiMappedBatch = uploadedFilesBatch.map((item) => {
+                              const sug = getAiSuggestion(item.name);
+                              const c = toCanonicalCrit(sug.crit);
+                              const k = toCanonicalKi(sug.keyIndicator);
+                              const m = toCanonicalMetric(sug.metric);
+                              const critObj = NAAC_CRITERIA_SUMMARY.find(
+                                (cr) => cr.code.toLowerCase() === c.toLowerCase()
+                              );
+                              const metricObj = NAAC_METRICS_LIST.find((mt) => mt.code === m);
+                              addOrUpdateNaacDocument({
+                                id: item.docId,
+                                criterionCode: c,
+                                criterionId: critObj?.id || 'crit-1',
+                                metricCode: m,
+                                metricName: metricObj?.name || `${m} Evidence Proof`,
+                                metricType: metricObj?.metricType || 'QnM',
+                              });
+                              return {
+                                ...item,
+                                crit: c,
+                                keyIndicator: k,
+                                metric: m,
+                                reason: sug.reason,
+                                source: 'rule-engine' as const,
+                                isManualEdit: false,
+                              };
+                            });
+                            setUploadedFilesBatch(aiMappedBatch);
+                            refreshDocuments();
+
+                            if (openaiKey.trim()) {
+                              aiMappedBatch.forEach((item) => {
+                                classifyWithOpenAi(
+                                  item.name,
+                                  openaiKey.trim(),
+                                  item.dataUrl,
+                                  item.docId,
+                                  item.docId === activeItem.docId
+                                );
+                              });
+                            } else if (activeItem) {
+                              const mappedActive =
+                                aiMappedBatch.find((f) => f.docId === activeItem.docId) ||
+                                aiMappedBatch[0];
+                              setSelectedCriterionCode(mappedActive.crit);
+                              setSelectedKeyIndicatorCode(mappedActive.keyIndicator);
+                              setSelectedMetricCode(mappedActive.metric);
+                              setAiSuggestion({
+                                crit: mappedActive.crit,
+                                keyIndicator: mappedActive.keyIndicator,
+                                metric: mappedActive.metric,
+                                reason: mappedActive.reason,
+                                source: 'rule-engine',
+                              });
+                            }
+                          } else if (uploadedFile && openaiKey.trim()) {
                             classifyWithOpenAi(uploadedFile.name, openaiKey.trim(), uploadedFile.dataUrl);
                           }
                         } else {
-                          // Carry over AI suggestion destination into manual dropdowns if available
-                          if (aiSuggestion) {
-                            setSelectedCriterionCode(toCanonicalCrit(aiSuggestion.crit));
-                            setSelectedKeyIndicatorCode(toCanonicalKi(aiSuggestion.keyIndicator));
-                            setSelectedMetricCode(toCanonicalMetric(aiSuggestion.metric));
+                          // Switching to Manual Mode: carry over active selection & apply shared destination to batch
+                          const sharedCrit = aiSuggestion
+                            ? toCanonicalCrit(aiSuggestion.crit)
+                            : cleanCritCode;
+                          const sharedKi = aiSuggestion
+                            ? toCanonicalKi(aiSuggestion.keyIndicator)
+                            : cleanKiCode;
+                          const sharedMetric = aiSuggestion
+                            ? toCanonicalMetric(aiSuggestion.metric)
+                            : cleanMetricCode;
+
+                          setSelectedCriterionCode(sharedCrit);
+                          setSelectedKeyIndicatorCode(sharedKi);
+                          setSelectedMetricCode(sharedMetric);
+
+                          if (uploadedFilesBatch.length > 1) {
+                            const critObj = NAAC_CRITERIA_SUMMARY.find(
+                              (c) => c.code.toLowerCase() === sharedCrit.toLowerCase()
+                            );
+                            const metricObj = NAAC_METRICS_LIST.find((m) => m.code === sharedMetric);
+                            uploadedFilesBatch.forEach((item) => {
+                              addOrUpdateNaacDocument({
+                                id: item.docId,
+                                criterionCode: sharedCrit,
+                                criterionId: critObj?.id || 'crit-1',
+                                metricCode: sharedMetric,
+                                metricName: metricObj?.name || `${sharedMetric} Evidence Proof`,
+                                metricType: metricObj?.metricType || 'QnM',
+                              });
+                            });
+                            setUploadedFilesBatch((prev) =>
+                              prev.map((item) => ({
+                                ...item,
+                                crit: sharedCrit,
+                                keyIndicator: sharedKi,
+                                metric: sharedMetric,
+                                isManualEdit: false,
+                              }))
+                            );
+                            refreshDocuments();
                           }
+
                           setAiSuggestion(null);
                           setIsChangeOpen(true);
                         }
@@ -1408,53 +1711,104 @@ Respond in JSON ONLY:
 
                   <div className="h-4 w-px bg-gray-200 hidden sm:block shrink-0" />
 
-                  {/* Attached Document File Chip (Subtle Rounded-Full Pill) */}
-                  <div
-                    onClick={() => fileInputRef.current?.click()}
-                    className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50/90 border border-blue-200 text-blue-900 rounded-full text-xs font-semibold cursor-pointer hover:bg-blue-100 transition-colors shadow-2xs min-w-0"
-                    title="Click to replace attached file"
-                  >
-                    <FileCheck2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                    <span className="truncate max-w-[200px] font-medium">{uploadedFile.name}</span>
-                    <span className="text-[10px] text-blue-500 font-normal shrink-0">({uploadedFile.size})</span>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (activeDocId) {
-                          deleteNaacDocument(activeDocId);
-                          const updated = myDocIds.filter(id => id !== activeDocId);
-                          setMyDocIds(updated);
-                          setSelectedDocIds(prev => prev.filter(id => id !== activeDocId));
-                          try {
-                            localStorage.setItem(myDocsStorageKey, JSON.stringify(updated));
-                            localStorage.setItem('naac_my_uploaded_doc_ids_prog_cse', JSON.stringify(updated));
-                            localStorage.setItem('naac_my_uploaded_doc_ids_program', JSON.stringify(updated));
-                          } catch (err) {
-                            // ignore
-                          }
-                          refreshDocuments();
-                        }
-                        setUploadedFile(null);
-                        setActiveDocId(null);
-                        setSelectedCriterionCode('Criterion 1');
-                        setSelectedKeyIndicatorCode('1.1');
-                        setSelectedMetricCode('1.1.1');
-                        setAiSuggestion(null);
-                        setIsChangeOpen(false);
-                        setIsAiBoxOpen(false);
-                      }}
-                      className="text-blue-400 hover:text-red-600 ml-1 cursor-pointer p-0.5 rounded hover:bg-blue-200/50"
-                      title="Remove file"
+                  {uploadedFilesBatch.length <= 1 ? (
+                    /* Single File Chip on Top Bar */
+                    <div
+                      onClick={() => fileInputRef.current?.click()}
+                      className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50/90 border border-blue-200 text-blue-900 rounded-full text-xs font-semibold cursor-pointer hover:bg-blue-100 transition-colors shadow-2xs min-w-0"
+                      title="Click to replace or add files"
                     >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
+                      <FileCheck2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                      <span className="truncate max-w-[200px] font-medium">
+                        {uploadedFile.name}
+                      </span>
+                      <span className="text-[10px] text-blue-500 font-normal shrink-0">
+                        ({uploadedFile.size})
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (activeDocId) {
+                            deleteNaacDocument(activeDocId);
+                            const updated = myDocIds.filter((id) => id !== activeDocId);
+                            setMyDocIds(updated);
+                            setSelectedDocIds((prev) =>
+                              prev.filter((id) => id !== activeDocId)
+                            );
+                            try {
+                              localStorage.setItem(myDocsStorageKey, JSON.stringify(updated));
+                              localStorage.setItem(
+                                'naac_my_uploaded_doc_ids_prog_cse',
+                                JSON.stringify(updated)
+                              );
+                              localStorage.setItem(
+                                'naac_my_uploaded_doc_ids_program',
+                                JSON.stringify(updated)
+                              );
+                            } catch (err) {
+                              // ignore
+                            }
+                            refreshDocuments();
+                          }
+                          setUploadedFile(null);
+                          setUploadedFilesBatch([]);
+                          setActiveDocId(null);
+                          setSelectedCriterionCode('Criterion 1');
+                          setSelectedKeyIndicatorCode('1.1');
+                          setSelectedMetricCode('1.1.1');
+                          setAiSuggestion(null);
+                          setIsChangeOpen(false);
+                          setIsAiBoxOpen(false);
+                        }}
+                        className="text-blue-400 hover:text-red-600 ml-1 cursor-pointer p-0.5 rounded hover:bg-blue-200/50"
+                        title="Remove file"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    /* Multiple Files Summary Badge on Top Bar */
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 border border-blue-200 text-blue-900 rounded-full text-xs font-bold">
+                      <FileCheck2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                      <span>{uploadedFilesBatch.length} Files Attached</span>
+                    </span>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300 cursor-pointer transition-colors"
+                    title="Add more files to this upload batch"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>Add Files</span>
+                  </button>
                 </div>
 
                 {/* Right: Actions */}
                 <div className="flex items-center gap-2 shrink-0 justify-end">
-                  {useAi && (
+                  {uploadedFilesBatch.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        uploadedFilesBatch.forEach((f) => deleteNaacDocument(f.docId));
+                        const removedSet = new Set(uploadedFilesBatch.map((f) => f.docId));
+                        const updated = myDocIds.filter((id) => !removedSet.has(id));
+                        setMyDocIds(updated);
+                        setSelectedDocIds((prev) => prev.filter((id) => !removedSet.has(id)));
+                        refreshDocuments();
+                        setUploadedFilesBatch([]);
+                        setUploadedFile(null);
+                        setActiveDocId(null);
+                      }}
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-gray-600 hover:text-rose-600 bg-gray-100 hover:bg-rose-50 border border-gray-300 transition-colors cursor-pointer"
+                    >
+                      <span>Clear All</span>
+                    </button>
+                  )}
+
+                  {useAi && uploadedFilesBatch.length <= 1 && (
                     <button
                       type="button"
                       onClick={() => {
@@ -1501,15 +1855,384 @@ Respond in JSON ONLY:
                     ) : (
                       <>
                         <Check className="w-3.5 h-3.5 text-emerald-400 stroke-[2.5]" />
-                        <span>Confirm</span>
+                        <span>
+                          Confirm{uploadedFilesBatch.length > 1 ? ` (${uploadedFilesBatch.length})` : ''}
+                        </span>
                       </>
                     )}
                   </button>
                 </div>
               </div>
 
-              {/* Box Body: EITHER AI Reasoning OR Manual Selectors in the exact same box */}
-              {isChangeOpen || !useAi ? (
+              {/* MANUAL MODE + MULTIPLE FILES: Neat 2-Column File List + Shared Criteria Below */}
+              {uploadedFilesBatch.length > 1 && !useAi && (
+                <div className="py-3 border-b border-gray-100">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">
+                      Attached Batch ({uploadedFilesBatch.length} files — shared destination selected below)
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-44 overflow-y-auto pr-1">
+                    {uploadedFilesBatch.map((batchItem, idx) => (
+                      <div
+                        key={batchItem.docId}
+                        className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl border border-gray-200 bg-gray-50/70 text-xs"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="w-5 h-5 rounded-md bg-white border border-gray-200 text-[10px] font-bold text-gray-600 flex items-center justify-center shrink-0">
+                            {idx + 1}
+                          </span>
+                          <FileText className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                          <span className="truncate font-semibold text-gray-800">
+                            {batchItem.name}
+                          </span>
+                          <span className="text-[10px] text-gray-400 shrink-0">
+                            ({batchItem.size})
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className="px-2 py-0.5 rounded-md bg-white border border-blue-200 text-[10px] font-bold text-blue-700">
+                            {cleanMetricCode}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteNaacDocument(batchItem.docId);
+                              const updated = myDocIds.filter((id) => id !== batchItem.docId);
+                              setMyDocIds(updated);
+                              setSelectedDocIds((prev) =>
+                                prev.filter((id) => id !== batchItem.docId)
+                              );
+                              try {
+                                localStorage.setItem(myDocsStorageKey, JSON.stringify(updated));
+                                localStorage.setItem(
+                                  'naac_my_uploaded_doc_ids_prog_cse',
+                                  JSON.stringify(updated)
+                                );
+                                localStorage.setItem(
+                                  'naac_my_uploaded_doc_ids_program',
+                                  JSON.stringify(updated)
+                                );
+                              } catch (err) {
+                                // ignore
+                              }
+                              refreshDocuments();
+
+                              const remaining = uploadedFilesBatch.filter(
+                                (f) => f.docId !== batchItem.docId
+                              );
+                              setUploadedFilesBatch(remaining);
+                              if (remaining.length > 0) {
+                                const next = remaining[0];
+                                setActiveDocId(next.docId);
+                                setUploadedFile({
+                                  name: next.name,
+                                  size: next.size,
+                                  dataUrl: next.dataUrl,
+                                });
+                              } else {
+                                setUploadedFile(null);
+                                setActiveDocId(null);
+                                setSelectedCriterionCode('Criterion 1');
+                                setSelectedKeyIndicatorCode('1.1');
+                                setSelectedMetricCode('1.1.1');
+                                setAiSuggestion(null);
+                                setIsChangeOpen(false);
+                                setIsAiBoxOpen(false);
+                              }
+                            }}
+                            className="p-1 rounded-md text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                            title="Remove file"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {uploadedFilesBatch.length > 1 && useAi ? (
+                /* AI MODE + MULTIPLE FILES: Sequential File -> Criterion / Key Indicator / Metric Stack */
+                <div className="pt-4 space-y-4">
+                  {uploadedFilesBatch.map((batchItem, idx) => {
+                    const itemCritCode = toCanonicalCrit(batchItem.crit);
+                    const itemKiCode = toCanonicalKi(batchItem.keyIndicator);
+                    const itemMetricCode = toCanonicalMetric(batchItem.metric);
+
+                    const itemCriterionObj =
+                      NAAC_CRITERIA_SUMMARY.find(
+                        (c) => c.code.toLowerCase() === itemCritCode.toLowerCase()
+                      ) || NAAC_CRITERIA_SUMMARY[0];
+                    const itemAvailableKis = KEY_INDICATORS.filter(
+                      (ki) => ki.criterionCode.toLowerCase() === itemCritCode.toLowerCase()
+                    );
+                    const itemKiObj =
+                      KEY_INDICATORS.find((ki) => ki.code === itemKiCode) ||
+                      itemAvailableKis[0];
+                    const itemAvailableMetrics = NAAC_METRICS_LIST.filter(
+                      (m) => m.criterionCode.toLowerCase() === itemCritCode.toLowerCase()
+                    );
+                    const itemMetricObj =
+                      NAAC_METRICS_LIST.find((m) => m.code === itemMetricCode) ||
+                      itemAvailableMetrics[0];
+
+                    const showItemManualSelectors = !useAi || Boolean(batchItem.isManualEdit);
+                    const itemReason =
+                      batchItem.reason || getAiSuggestion(batchItem.name).reason;
+
+                    return (
+                      <div
+                        key={batchItem.docId}
+                        className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 space-y-3 shadow-2xs"
+                      >
+                        {/* File Row Header */}
+                        <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-slate-200/80">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span className="w-6 h-6 rounded-lg bg-[#0f2748] text-white text-xs font-bold flex items-center justify-center shrink-0">
+                              {idx + 1}
+                            </span>
+                            <FileCheck2 className="w-4 h-4 text-blue-600 shrink-0" />
+                            <span className="font-bold text-xs sm:text-sm text-gray-900 truncate max-w-[260px] sm:max-w-[420px]">
+                              {batchItem.name}
+                            </span>
+                            <span className="text-[11px] text-gray-500 shrink-0">
+                              ({batchItem.size})
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="px-2.5 py-0.5 rounded-md bg-blue-50 border border-blue-200 text-xs font-extrabold text-blue-700 font-mono">
+                              {itemCritCode} &bull; {itemMetricCode}
+                            </span>
+
+                            {useAi && (
+                              <button
+                                type="button"
+                                onClick={() => handleBatchItemToggleManual(batchItem.docId)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-gray-700 bg-white hover:bg-gray-100 border border-gray-300 transition-colors cursor-pointer"
+                              >
+                                {batchItem.isManualEdit ? (
+                                  <>
+                                    <Sparkles className="w-3 h-3 text-amber-500" />
+                                    <span>Back to AI</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <SlidersHorizontal className="w-3 h-3 text-gray-600" />
+                                    <span>Change</span>
+                                  </>
+                                )}
+                              </button>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteNaacDocument(batchItem.docId);
+                                const updated = myDocIds.filter((id) => id !== batchItem.docId);
+                                setMyDocIds(updated);
+                                setSelectedDocIds((prev) =>
+                                  prev.filter((id) => id !== batchItem.docId)
+                                );
+                                try {
+                                  localStorage.setItem(myDocsStorageKey, JSON.stringify(updated));
+                                  localStorage.setItem(
+                                    'naac_my_uploaded_doc_ids_prog_cse',
+                                    JSON.stringify(updated)
+                                  );
+                                  localStorage.setItem(
+                                    'naac_my_uploaded_doc_ids_program',
+                                    JSON.stringify(updated)
+                                  );
+                                } catch (err) {
+                                  // ignore
+                                }
+                                refreshDocuments();
+
+                                const remaining = uploadedFilesBatch.filter(
+                                  (f) => f.docId !== batchItem.docId
+                                );
+                                setUploadedFilesBatch(remaining);
+                                if (remaining.length > 0) {
+                                  const next = remaining[0];
+                                  setActiveDocId(next.docId);
+                                  setUploadedFile({
+                                    name: next.name,
+                                    size: next.size,
+                                    dataUrl: next.dataUrl,
+                                  });
+                                  setSelectedCriterionCode(next.crit);
+                                  setSelectedKeyIndicatorCode(next.keyIndicator);
+                                  setSelectedMetricCode(next.metric);
+                                } else {
+                                  setUploadedFile(null);
+                                  setActiveDocId(null);
+                                  setSelectedCriterionCode('Criterion 1');
+                                  setSelectedKeyIndicatorCode('1.1');
+                                  setSelectedMetricCode('1.1.1');
+                                  setAiSuggestion(null);
+                                  setIsChangeOpen(false);
+                                  setIsAiBoxOpen(false);
+                                }
+                              }}
+                              className="p-1 rounded-lg text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                              title="Remove file"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Directly Below File: Its Criterion, Key Indicator, and Metric */}
+                        {showItemManualSelectors ? (
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            {/* 1. Criterion */}
+                            <div>
+                              <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                                1. Criterion
+                              </label>
+                              <select
+                                value={itemCritCode}
+                                onChange={(e) =>
+                                  handleBatchItemCriterionChange(batchItem.docId, e.target.value)
+                                }
+                                className="w-full text-xs font-semibold px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-hidden bg-white text-gray-800 shadow-2xs hover:border-blue-400 transition-colors cursor-pointer"
+                              >
+                                {NAAC_CRITERIA_SUMMARY.map((c) => (
+                                  <option key={c.code} value={c.code}>
+                                    {c.code}: {c.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            {/* 2. Key Indicator */}
+                            <div>
+                              <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                                2. Key Indicator
+                              </label>
+                              <select
+                                value={itemKiCode}
+                                onChange={(e) =>
+                                  handleBatchItemKiChange(
+                                    batchItem.docId,
+                                    itemCritCode,
+                                    e.target.value
+                                  )
+                                }
+                                className="w-full text-xs font-semibold px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-hidden bg-white text-gray-800 shadow-2xs hover:border-blue-400 transition-colors cursor-pointer"
+                              >
+                                {itemAvailableKis.map((ki) => (
+                                  <option key={ki.code} value={ki.code}>
+                                    KI {ki.code}: {ki.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            {/* 3. Metric */}
+                            <div>
+                              <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                                3. Metric
+                              </label>
+                              <select
+                                value={itemMetricCode}
+                                onChange={(e) =>
+                                  handleBatchItemMetricChange(
+                                    batchItem.docId,
+                                    itemCritCode,
+                                    e.target.value
+                                  )
+                                }
+                                className="w-full text-xs font-semibold px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-hidden bg-white text-gray-800 shadow-2xs hover:border-blue-400 transition-colors cursor-pointer"
+                              >
+                                {itemAvailableKis.map((ki) => {
+                                  const metricsInKi = itemAvailableMetrics.filter((m) =>
+                                    m.code.startsWith(ki.code)
+                                  );
+                                  if (metricsInKi.length === 0) return null;
+                                  return (
+                                    <optgroup key={ki.code} label={`KI ${ki.code}: ${ki.name}`}>
+                                      {metricsInKi.map((m) => (
+                                        <option key={m.code} value={m.code}>
+                                          {m.code} ({m.metricType}) — {m.name}
+                                        </option>
+                                      ))}
+                                    </optgroup>
+                                  );
+                                })}
+                              </select>
+                            </div>
+                          </div>
+                        ) : (
+                          /* AI Mode Cards + Reasoning Directly Under This File */
+                          <div className="space-y-2.5">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                              <div className="bg-white border border-slate-200/90 rounded-xl p-3 flex flex-col justify-between min-w-0 shadow-2xs">
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                    Criterion
+                                  </span>
+                                  <span className="text-xs font-extrabold text-[#0f2748] font-mono bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">
+                                    {itemCritCode}
+                                  </span>
+                                </div>
+                                <p className="text-xs sm:text-sm font-bold text-gray-900 line-clamp-2 leading-snug">
+                                  {itemCriterionObj.name}
+                                </p>
+                              </div>
+
+                              <div className="bg-white border border-slate-200/90 rounded-xl p-3 flex flex-col justify-between min-w-0 shadow-2xs">
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                    Key Indicator
+                                  </span>
+                                  <span className="text-xs font-extrabold text-slate-800 font-mono bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">
+                                    KI {itemKiCode}
+                                  </span>
+                                </div>
+                                <p className="text-xs sm:text-sm font-bold text-gray-900 line-clamp-2 leading-snug">
+                                  {itemKiObj?.name || `KI ${itemKiCode}`}
+                                </p>
+                              </div>
+
+                              <div className="bg-white border border-slate-200/90 rounded-xl p-3 flex flex-col justify-between min-w-0 shadow-2xs">
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                    Target Metric
+                                  </span>
+                                  <span className="text-xs font-extrabold text-blue-700 font-mono bg-blue-50 border border-blue-200 px-2 py-0.5 rounded">
+                                    Metric {itemMetricCode}
+                                  </span>
+                                </div>
+                                <p className="text-xs sm:text-sm font-bold text-gray-900 line-clamp-2 leading-snug">
+                                  {itemMetricObj?.name || `Metric ${itemMetricCode}`}
+                                </p>
+                              </div>
+                            </div>
+
+                            {itemReason && (
+                              <div className="bg-blue-50/80 border border-blue-100/90 rounded-xl px-3 py-2 flex items-start gap-2">
+                                <Sparkles className="w-3.5 h-3.5 text-blue-600 shrink-0 mt-0.5" />
+                                <p className="text-xs text-blue-950 leading-relaxed">
+                                  <span className="font-bold text-blue-900">AI Reasoning: </span>
+                                  {itemReason}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : isChangeOpen || !useAi ? (
                 /* VIEW A: Manual Destination Selectors */
                 <div className="pt-3 animate-in fade-in">
                   <div className="flex items-center justify-between mb-2">
