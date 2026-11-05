@@ -352,7 +352,15 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
     crit: string;
     ki: string;
     metric: string;
+    aiReason?: string;
   } | null>(null);
+  const [openAiReasonDocId, setOpenAiReasonDocId] = useState<string | null>(null);
+  const [expandedDirectoryCrits, setExpandedDirectoryCrits] = useState<Record<string, boolean>>({
+    'Criterion 1': true,
+  });
+  const [expandedDirectoryMetrics, setExpandedDirectoryMetrics] = useState<Record<string, boolean>>({
+    '1.1': true,
+  });
   const [openaiKey, setOpenaiKey] = useState<string>(() => localStorage.getItem('openai_api_key') || '');
   const [showOpenaiKey, setShowOpenaiKey] = useState<boolean>(false);
   const [isAiProcessing, setIsAiProcessing] = useState<boolean>(false);
@@ -1377,14 +1385,14 @@ Respond in JSON ONLY:
   const filteredDocuments = (Array.isArray(documents) ? documents : []).filter((doc, idx) => {
     if (!doc) return false;
 
-    // Resolve cycle for document (explicit cycleId for uploaded docs, or deterministic cycle assignment for seed docs)
+    // Resolve cycle for document (explicit cycleId for uploaded docs, or deterministic cycle assignment for seed docs with NAAC Cycle 3 as primary active cycle)
     const effectiveCycleId = doc.cycleId
       ? doc.cycleId
-      : idx % 5 === 1
+      : idx % 6 === 4
       ? 'cycle-2'
-      : idx % 7 === 2
-      ? 'cycle-3'
-      : 'cycle-1';
+      : idx % 8 === 5
+      ? 'cycle-1'
+      : 'cycle-3';
 
     const matchesCycle = !selectedCycleId || effectiveCycleId === selectedCycleId;
     if (!matchesCycle) return false;
@@ -1551,10 +1559,10 @@ Respond in JSON ONLY:
             </div>
           </div>
 
-          {/* Filter & Table Card matching CMS NAAC tables */}
+          {/* Filter & Collapsible Hierarchy Card matching CMS NAAC tables */}
           <div className="bg-white border border-gray-200/90 rounded-xl overflow-hidden shadow-2xs">
-            {/* Search & Criterion Filter Bar inside Top of Table Card */}
-            <div className="p-4 border-b border-gray-200/80 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white">
+            {/* Search, Expand/Collapse & Criterion Filter Bar inside Top of Card */}
+            <div className="p-3.5 border-b border-gray-200/80 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white">
               <div className="relative flex-1 max-w-md">
                 <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
@@ -1566,7 +1574,40 @@ Respond in JSON ONLY:
                 />
               </div>
 
-              <div className="flex flex-wrap items-center gap-3">
+              <div className="flex flex-wrap items-center gap-2.5">
+                {/* Expand All / Collapse All */}
+                <div className="inline-flex items-center rounded-lg border border-gray-200 bg-gray-50 p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const allCrits: Record<string, boolean> = {};
+                      const allKis: Record<string, boolean> = {};
+                      NAAC_CRITERIA_SUMMARY.forEach((c) => {
+                        allCrits[c.code] = true;
+                      });
+                      KEY_INDICATORS.forEach((k) => {
+                        allKis[k.code] = true;
+                      });
+                      setExpandedDirectoryCrits(allCrits);
+                      setExpandedDirectoryMetrics(allKis);
+                    }}
+                    className="px-2.5 py-1 text-[11px] font-semibold text-gray-700 hover:text-blue-700 hover:bg-white rounded-md transition-colors cursor-pointer"
+                  >
+                    Expand All
+                  </button>
+                  <span className="text-gray-300">|</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setExpandedDirectoryCrits({});
+                      setExpandedDirectoryMetrics({});
+                    }}
+                    className="px-2.5 py-1 text-[11px] font-semibold text-gray-700 hover:text-blue-700 hover:bg-white rounded-md transition-colors cursor-pointer"
+                  >
+                    Collapse All
+                  </button>
+                </div>
+
                 {/* Criterion Filter Dropdown */}
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-semibold text-gray-600 whitespace-nowrap">
@@ -1574,7 +1615,13 @@ Respond in JSON ONLY:
                   </span>
                   <select
                     value={criterionFilter}
-                    onChange={(e) => setCriterionFilter(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setCriterionFilter(val);
+                      if (val !== 'ALL') {
+                        setExpandedDirectoryCrits((prev) => ({ ...prev, [val]: true }));
+                      }
+                    }}
                     className="px-3 py-1.5 text-xs font-semibold bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-blue-500 cursor-pointer text-gray-900"
                   >
                     <option value="ALL">All Criteria (1–7)</option>
@@ -1588,129 +1635,330 @@ Respond in JSON ONLY:
               </div>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead className="bg-slate-50 border-b border-gray-200">
-                  <tr className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
-                    <th className="py-3 px-4 w-56">Filed Under (Criterion &amp; Metric)</th>
-                    <th className="py-3 px-4 w-64">Document Name</th>
-                    <th className="py-3 px-4">AI Reasoning</th>
-                    <th className="py-3 px-4 text-right w-32">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {filteredDocuments.map((doc) => {
-                    const isJustFiled = Boolean(autoFiledNotice?.docIds.includes(doc.id));
-                    const docCritCode = toCanonicalCrit(doc.criterionCode || 'Criterion 1');
-                    const docMetricCode = toCanonicalMetric(doc.metricCode || '1.1.1');
-                    const metricParts = docMetricCode.split('.');
-                    const docKiCode =
-                      doc.keyIndicatorCode ||
-                      (metricParts.length >= 2 ? `${metricParts[0]}.${metricParts[1]}` : '1.1');
-                    const isAiUploaded = Boolean(doc.aiAutoFiled || doc.aiReason);
+            {/* 3-Level Collapsible Folder Accordion: Criterion -> Key Indicator & Metric -> Documents */}
+            <div className="divide-y divide-gray-200">
+              {NAAC_CRITERIA_SUMMARY.filter(
+                (crit) => criterionFilter === 'ALL' || crit.code === criterionFilter
+              ).map((crit) => {
+                const docsInCrit = filteredDocuments.filter(
+                  (d) => toCanonicalCrit(d.criterionCode || 'Criterion 1') === crit.code
+                );
 
-                    return (
-                      <tr
-                        key={doc.id}
-                        className={`hover:bg-blue-50/30 transition-colors ${
-                          isJustFiled ? 'bg-emerald-50/40' : ''
-                        }`}
-                      >
-                        {/* Column 1: Clean Read-Only Criterion & Metric Badges */}
-                        <td className="py-3 px-4 align-top">
-                          <div className="flex flex-col gap-1.5">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="font-mono text-[11px] font-bold text-[#0f2748] bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">
-                                {docCritCode}
-                              </span>
-                              <span className="font-mono text-[11px] font-bold text-slate-700 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded">
-                                KI {docKiCode}
-                              </span>
-                              <span className="font-mono text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded">
-                                Metric {docMetricCode}
-                              </span>
-                            </div>
-                            {isJustFiled && (
-                              <span className="inline-flex items-center gap-1 w-fit px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 text-[10px] font-bold">
-                                <Sparkles className="w-2.5 h-2.5 text-emerald-600" />
-                                <span>Auto-Filed by AI</span>
-                              </span>
-                            )}
-                          </div>
-                        </td>
+                // If searching and this criterion has 0 matches, hide empty criterion row
+                if (searchQuery.trim() && docsInCrit.length === 0) {
+                  return null;
+                }
 
-                        {/* Column 2: Document Name */}
-                        <td className="py-3 px-4 align-top">
-                          <div
-                            onClick={() => openFileInNewTab(doc.fileUrl)}
-                            className="font-bold text-gray-900 hover:text-blue-700 cursor-pointer flex items-center gap-1.5"
-                          >
-                            <FileText className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                            <span className="truncate max-w-[220px]" title={doc.fileName || doc.title}>
-                              {doc.fileName || doc.title}
-                            </span>
-                          </div>
-                          <div className="text-[11px] text-gray-400 mt-0.5">
-                            {doc.fileSize || 'PDF'} &bull; {doc.uploadedAt}
-                          </div>
-                        </td>
+                const hasAutoFiledInCrit = docsInCrit.some((d) =>
+                  Boolean(autoFiledNotice?.docIds.includes(d.id))
+                );
+                const isCritExpanded =
+                  Boolean(searchQuery.trim()) ||
+                  hasAutoFiledInCrit ||
+                  Boolean(expandedDirectoryCrits[crit.code]);
 
-                        {/* Column 3: AI Reasoning (ONLY if uploaded via AI) */}
-                        <td className="py-3 px-4 align-top">
-                          {isAiUploaded && doc.aiReason ? (
-                            <div className="flex items-start gap-2 text-gray-700 leading-relaxed">
-                              <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
-                              <span>{doc.aiReason}</span>
-                            </div>
-                          ) : (
-                            <span className="text-gray-400 italic text-xs">
-                              &mdash; Manually filed
-                            </span>
-                          )}
-                        </td>
+                // Group docsInCrit by Key Indicator Code (sorted by KI Code)
+                const kiGroupsMap = new Map<string, NaacEvidenceDocument[]>();
+                docsInCrit.forEach((d) => {
+                  const mCode = toCanonicalMetric(d.metricCode || '1.1.1');
+                  const parts = mCode.split('.');
+                  const kCode =
+                    d.keyIndicatorCode ||
+                    (parts.length >= 2 ? `${parts[0]}.${parts[1]}` : '1.1');
+                  const existing = kiGroupsMap.get(kCode) || [];
+                  existing.push(d);
+                  kiGroupsMap.set(kCode, existing);
+                });
+                const sortedKiEntries = Array.from(kiGroupsMap.entries()).sort((a, b) =>
+                  a[0].localeCompare(b[0], undefined, { numeric: true })
+                );
 
-                        {/* Column 4: Action (Edit Destination Popup, View, Delete) */}
-                        <td className="py-3 px-4 align-top text-right whitespace-nowrap">
-                          <div className="inline-flex items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setEditingDocModal({
-                                  docId: doc.id,
-                                  fileName: doc.fileName || doc.title,
-                                  crit: docCritCode,
-                                  ki: docKiCode,
-                                  metric: docMetricCode,
-                                })
-                              }
-                              className="p-1.5 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg cursor-pointer transition-colors"
-                              title="Edit Criterion, Key Indicator & Metric"
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => openFileInNewTab(doc.fileUrl)}
-                              className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg cursor-pointer transition-colors"
-                              title="Open Document"
-                            >
-                              <ExternalLink className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDelete(doc.id, doc.fileName || doc.title)}
-                              className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer transition-colors"
-                              title="Delete Document"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                return (
+                  <div key={crit.code} className="bg-white">
+                    {/* LEVEL 1: Fast Criterion Folder Row */}
+                    <div
+                      onClick={() =>
+                        setExpandedDirectoryCrits((prev) => ({
+                          ...prev,
+                          [crit.code]: !isCritExpanded,
+                        }))
+                      }
+                      className={`px-4 py-2.5 flex items-center justify-between gap-3 cursor-pointer select-none transition-colors ${
+                        isCritExpanded
+                          ? 'bg-slate-100/90 hover:bg-slate-200/60'
+                          : 'bg-white hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        {isCritExpanded ? (
+                          <ChevronDown className="w-4 h-4 text-slate-600 shrink-0" />
+                        ) : (
+                          <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
+                        )}
+                        <FolderOpen className="w-4 h-4 text-blue-600 shrink-0" />
+                        <span className="font-mono text-xs font-bold text-[#0f2748] bg-white border border-slate-300 px-2 py-0.5 rounded shadow-2xs shrink-0">
+                          {crit.code}
+                        </span>
+                        <span className="text-xs sm:text-sm font-bold text-gray-900 truncate">
+                          {crit.name}
+                        </span>
+                        {hasAutoFiledInCrit && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 text-[10px] font-bold shrink-0">
+                            <Sparkles className="w-2.5 h-2.5 text-emerald-600" />
+                            <span>Newly Filed</span>
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="hidden sm:inline-block text-[11px] font-medium text-gray-500">
+                          {sortedKiEntries.length}{' '}
+                          {sortedKiEntries.length === 1 ? 'Key Indicator' : 'Key Indicators'}
+                        </span>
+                        <span
+                          className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${
+                            docsInCrit.length > 0
+                              ? 'bg-blue-50 text-blue-700 border-blue-200'
+                              : 'bg-gray-50 text-gray-400 border-gray-200'
+                          }`}
+                        >
+                          {docsInCrit.length} {docsInCrit.length === 1 ? 'Doc' : 'Docs'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* LEVEL 2: Key Indicator Expandable Rows inside Criterion */}
+                    {isCritExpanded && (
+                      <div className="divide-y divide-gray-100 border-t border-gray-200/80">
+                        {sortedKiEntries.length === 0 ? (
+                          <div className="py-4 px-10 text-xs text-gray-400 italic bg-gray-50/40">
+                            No documents filed under {crit.code} in this cycle yet.
                           </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                        ) : (
+                          sortedKiEntries.map(([kiCode, kiDocs]) => {
+                            const kiInfo = KEY_INDICATORS.find((k) => k.code === kiCode);
+                            const hasAutoFiledInKi = kiDocs.some((d) =>
+                              Boolean(autoFiledNotice?.docIds.includes(d.id))
+                            );
+                            const isKiExpanded =
+                              Boolean(searchQuery.trim()) ||
+                              hasAutoFiledInKi ||
+                              Boolean(expandedDirectoryMetrics[kiCode]);
+
+                            // Sort documents inside Key Indicator by Metric Code
+                            const sortedKiDocs = [...kiDocs].sort((a, b) =>
+                              toCanonicalMetric(a.metricCode || '1.1.1').localeCompare(
+                                toCanonicalMetric(b.metricCode || '1.1.1'),
+                                undefined,
+                                { numeric: true }
+                              )
+                            );
+
+                            return (
+                              <div key={kiCode} className="bg-white">
+                                {/* Fast Key Indicator Expandable Sub-Row */}
+                                <div
+                                  onClick={() =>
+                                    setExpandedDirectoryMetrics((prev) => ({
+                                      ...prev,
+                                      [kiCode]: !isKiExpanded,
+                                    }))
+                                  }
+                                  className={`pl-8 pr-4 py-2 flex items-center justify-between gap-3 cursor-pointer select-none transition-colors ${
+                                    isKiExpanded
+                                      ? 'bg-blue-50/40 hover:bg-blue-50/70'
+                                      : 'bg-slate-50/50 hover:bg-slate-100/70'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2.5 min-w-0">
+                                    {isKiExpanded ? (
+                                      <ChevronDown className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                                    ) : (
+                                      <ChevronRight className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                                    )}
+                                    <span className="font-mono text-[11px] font-bold text-slate-800 bg-white border border-slate-200 px-2 py-0.5 rounded shrink-0">
+                                      KI {kiCode}
+                                    </span>
+                                    <span className="text-xs font-semibold text-gray-800 truncate">
+                                      {kiInfo?.name || `Key Indicator ${kiCode}`}
+                                    </span>
+                                  </div>
+
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    <span className="px-2 py-0.5 rounded-md bg-white border border-gray-200 text-[11px] font-bold text-gray-700">
+                                      {sortedKiDocs.length}{' '}
+                                      {sortedKiDocs.length === 1 ? 'Document' : 'Documents'}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* LEVEL 3: Document Rows inside Key Indicator (each with its Metric Pill) */}
+                                {isKiExpanded && (
+                                  <div className="border-t border-gray-100 divide-y divide-gray-100 bg-white">
+                                    {sortedKiDocs.map((doc) => {
+                                      const docMetricCode = toCanonicalMetric(
+                                        doc.metricCode || '1.1.1'
+                                      );
+                                      const metricInfo = NAAC_METRICS_LIST.find(
+                                        (m) => m.code === docMetricCode
+                                      );
+                                      const isJustFiled = Boolean(
+                                        autoFiledNotice?.docIds.includes(doc.id)
+                                      );
+                                      const isAiUploaded = Boolean(
+                                        doc.aiAutoFiled || doc.aiReason
+                                      );
+                                      const isPopoverOpen = openAiReasonDocId === doc.id;
+
+                                      return (
+                                        <div
+                                          key={doc.id}
+                                          className={`pl-14 pr-4 py-2 flex items-center justify-between gap-3 hover:bg-blue-50/30 transition-colors text-xs ${
+                                            isJustFiled ? 'bg-emerald-50/50' : ''
+                                          }`}
+                                        >
+                                          {/* Metric Pill + Document Title + Size + Subtle AI Badge */}
+                                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                            <span
+                                              className="font-mono text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded shrink-0"
+                                              title={
+                                                metricInfo?.name
+                                                  ? `Metric ${docMetricCode}: ${metricInfo.name}`
+                                                  : `Metric ${docMetricCode}`
+                                              }
+                                            >
+                                              Metric {docMetricCode}
+                                            </span>
+                                            <FileText className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                                            <span
+                                              onClick={() => openFileInNewTab(doc.fileUrl)}
+                                              className="font-semibold text-gray-900 hover:text-blue-700 cursor-pointer truncate max-w-md"
+                                              title={doc.fileName || doc.title}
+                                            >
+                                              {doc.fileName || doc.title}
+                                            </span>
+                                            <span className="text-[11px] text-gray-400 shrink-0">
+                                              ({doc.fileSize || 'PDF'})
+                                            </span>
+
+                                            {/* Interactive AI Filed Badge (Hover or Click for AI Reasoning Popover) */}
+                                            {isAiUploaded && doc.aiReason && (
+                                              <div className="relative group inline-block shrink-0">
+                                                <button
+                                                  type="button"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setOpenAiReasonDocId(
+                                                      isPopoverOpen ? null : doc.id
+                                                    );
+                                                  }}
+                                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-[10px] font-bold cursor-pointer transition-colors"
+                                                  title="Hover or click to view AI filing reasoning"
+                                                >
+                                                  <Sparkles className="w-2.5 h-2.5 text-amber-500" />
+                                                  <span>AI Filed</span>
+                                                </button>
+
+                                                <div
+                                                  className={`absolute left-0 bottom-full mb-2 w-72 sm:w-80 p-3 rounded-xl bg-slate-900 text-white text-[11px] leading-relaxed shadow-xl border border-slate-700 z-30 transition-all ${
+                                                    isPopoverOpen
+                                                      ? 'opacity-100 visible translate-y-0'
+                                                      : 'opacity-0 invisible translate-y-1 group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 pointer-events-none'
+                                                  }`}
+                                                >
+                                                  <div className="flex items-center justify-between gap-2 mb-1 pb-1 border-b border-slate-700/80">
+                                                    <span className="font-bold text-amber-300 flex items-center gap-1 text-[10px] uppercase tracking-wider">
+                                                      <Sparkles className="w-3 h-3 text-amber-400" />
+                                                      AI Classification Reasoning
+                                                    </span>
+                                                    {isPopoverOpen && (
+                                                      <button
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                          e.stopPropagation();
+                                                          setOpenAiReasonDocId(null);
+                                                        }}
+                                                        className="text-slate-400 hover:text-white cursor-pointer"
+                                                      >
+                                                        <X className="w-3 h-3" />
+                                                      </button>
+                                                    )}
+                                                  </div>
+                                                  <p className="text-slate-200 font-normal">
+                                                    {doc.aiReason}
+                                                  </p>
+                                                </div>
+                                              </div>
+                                            )}
+                                          </div>
+
+                                          {/* Right Side: Uploader, Date & Actions */}
+                                          <div className="flex items-center gap-4 shrink-0">
+                                            <div className="hidden md:flex items-center gap-2 text-[11px] text-gray-500">
+                                              <span className="truncate max-w-[140px]">
+                                                {doc.uploadedBy || 'Faculty / IQAC'}
+                                              </span>
+                                              <span>&bull;</span>
+                                              <span>{doc.uploadedAt}</span>
+                                            </div>
+
+                                            <div className="inline-flex items-center gap-1">
+                                              <button
+                                                type="button"
+                                                onClick={() =>
+                                                  setEditingDocModal({
+                                                    docId: doc.id,
+                                                    fileName: doc.fileName || doc.title,
+                                                    crit: crit.code,
+                                                    ki: kiCode,
+                                                    metric: docMetricCode,
+                                                    aiReason: isAiUploaded
+                                                      ? doc.aiReason
+                                                      : undefined,
+                                                  })
+                                                }
+                                                className="p-1.5 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg cursor-pointer transition-colors"
+                                                title="Edit Criterion, Key Indicator & Metric"
+                                              >
+                                                <Pencil className="w-3.5 h-3.5" />
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() => openFileInNewTab(doc.fileUrl)}
+                                                className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg cursor-pointer transition-colors"
+                                                title="Open Document"
+                                              >
+                                                <ExternalLink className="w-3.5 h-3.5" />
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() =>
+                                                  handleDelete(
+                                                    doc.id,
+                                                    doc.fileName || doc.title
+                                                  )
+                                                }
+                                                className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer transition-colors"
+                                                title="Delete Document"
+                                              >
+                                                <Trash2 className="w-3.5 h-3.5" />
+                                              </button>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
 
@@ -1737,6 +1985,19 @@ Respond in JSON ONLY:
                 </div>
 
                 <div className="p-5 space-y-4">
+                  {/* Show AI Reasoning inside Edit Popup if document was AI-filed */}
+                  {editingDocModal.aiReason && (
+                    <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-200/80 text-xs text-amber-950 leading-relaxed flex items-start gap-2">
+                      <Sparkles className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                      <div>
+                        <div className="font-bold text-[11px] uppercase tracking-wider text-amber-800 mb-0.5">
+                          Why AI Filed It Here
+                        </div>
+                        <p className="text-gray-700">{editingDocModal.aiReason}</p>
+                      </div>
+                    </div>
+                  )}
+
                   {/* 1. Criterion */}
                   <div>
                     <label className="block text-xs font-bold text-gray-700 mb-1">
