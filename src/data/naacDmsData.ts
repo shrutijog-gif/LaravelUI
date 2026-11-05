@@ -90,6 +90,10 @@ export interface NaacEvidenceDocument {
   aiReason?: string;
   aiAutoFiled?: boolean;
   cycleId?: string;
+  // Compiled Single PDF Metadata for NAAC Portal Submission
+  isCompiledPdf?: boolean;
+  compiledSourceFiles?: string[];
+  naacPortalUrl?: string;
 }
 
 export interface DepartmentFaculty {
@@ -1602,6 +1606,13 @@ export const addOrUpdateNaacDocument = (doc: Partial<NaacEvidenceDocument>): Naa
       coordinatorReviewStatus: doc.coordinatorReviewStatus || 'pending_review',
       coordinatorFeedback: doc.coordinatorFeedback,
       compiledAt: doc.compiledAt,
+      keyIndicatorCode: doc.keyIndicatorCode,
+      aiReason: doc.aiReason,
+      aiAutoFiled: doc.aiAutoFiled,
+      cycleId: doc.cycleId,
+      isCompiledPdf: doc.isCompiledPdf,
+      compiledSourceFiles: doc.compiledSourceFiles,
+      naacPortalUrl: doc.naacPortalUrl,
     };
     current.unshift(updatedDoc);
   }

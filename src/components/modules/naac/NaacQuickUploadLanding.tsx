@@ -32,7 +32,8 @@ import {
   Loader2,
   Send,
   Home,
-  Pencil
+  Pencil,
+  Copy
 } from 'lucide-react';
 import { 
   NAAC_CRITERIA_SUMMARY, 
@@ -361,6 +362,15 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
   const [expandedDirectoryMetrics, setExpandedDirectoryMetrics] = useState<Record<string, boolean>>({
     '1.1': true,
   });
+  const [selectedDirectoryDocIds, setSelectedDirectoryDocIds] = useState<string[]>([]);
+  const [compilePdfModal, setCompilePdfModal] = useState<{
+    crit: string;
+    ki: string;
+    metric: string;
+    fileName: string;
+    sourceDocs: NaacEvidenceDocument[];
+  } | null>(null);
+  const [openCompiledFilesDocId, setOpenCompiledFilesDocId] = useState<string | null>(null);
   const [openaiKey, setOpenaiKey] = useState<string>(() => localStorage.getItem('openai_api_key') || '');
   const [showOpenaiKey, setShowOpenaiKey] = useState<boolean>(false);
   const [isAiProcessing, setIsAiProcessing] = useState<boolean>(false);
@@ -1635,7 +1645,58 @@ Respond in JSON ONLY:
               </div>
             </div>
 
-            {/* 3-Level Collapsible Folder Accordion: Criterion -> Key Indicator & Metric -> Documents */}
+            {/* Selection Action Bar for "Compile as One PDF" */}
+            {selectedDirectoryDocIds.length > 0 && (
+              <div className="px-4 py-2.5 bg-indigo-50/90 border-b border-indigo-200 flex flex-wrap items-center justify-between gap-3 animate-in fade-in">
+                <div className="flex items-center gap-2.5">
+                  <span className="px-2.5 py-0.5 rounded-full bg-indigo-600 text-white text-xs font-bold">
+                    {selectedDirectoryDocIds.length} Selected
+                  </span>
+                  <span className="text-xs font-medium text-indigo-950">
+                    Select multiple evidence files to merge into a single PDF with a shareable NAAC SSR Portal link.
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedDirectoryDocIds([])}
+                    className="px-2.5 py-1.5 text-xs font-semibold text-gray-600 hover:text-gray-900 bg-white border border-gray-300 rounded-lg cursor-pointer transition-colors"
+                  >
+                    Clear
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const selectedDocs = filteredDocuments.filter((d) =>
+                        selectedDirectoryDocIds.includes(d.id)
+                      );
+                      if (selectedDocs.length === 0) return;
+                      const firstDoc = selectedDocs[0];
+                      const defCrit = toCanonicalCrit(firstDoc.criterionCode || 'Criterion 1');
+                      const defMetric = toCanonicalMetric(firstDoc.metricCode || '1.1.1');
+                      const parts = defMetric.split('.');
+                      const defKi =
+                        firstDoc.keyIndicatorCode ||
+                        (parts.length >= 2 ? `${parts[0]}.${parts[1]}` : '1.1');
+                      setCompilePdfModal({
+                        crit: defCrit,
+                        ki: defKi,
+                        metric: defMetric,
+                        fileName: `Metric_${defMetric.replace(/\./g, '_')}_Compiled_SSR_Evidence_${selectedDocs.length}Files.pdf`,
+                        sourceDocs: selectedDocs,
+                      });
+                    }}
+                    className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow-xs cursor-pointer inline-flex items-center gap-1.5 transition-colors"
+                  >
+                    <Layers className="w-3.5 h-3.5" />
+                    <span>Compile as One PDF ({selectedDirectoryDocIds.length})</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* 3-Level Collapsible Folder Accordion: Criterion -> Key Indicator -> Documents */}
             <div className="divide-y divide-gray-200">
               {NAAC_CRITERIA_SUMMARY.filter(
                 (crit) => criterionFilter === 'ALL' || crit.code === criterionFilter
@@ -1745,14 +1806,23 @@ Respond in JSON ONLY:
                               hasAutoFiledInKi ||
                               Boolean(expandedDirectoryMetrics[kiCode]);
 
-                            // Sort documents inside Key Indicator by Metric Code
-                            const sortedKiDocs = [...kiDocs].sort((a, b) =>
-                              toCanonicalMetric(a.metricCode || '1.1.1').localeCompare(
+                            // Sort documents inside Key Indicator: Compiled PDFs pinned first, then by Metric Code
+                            const sortedKiDocs = [...kiDocs].sort((a, b) => {
+                              if (a.isCompiledPdf && !b.isCompiledPdf) return -1;
+                              if (!a.isCompiledPdf && b.isCompiledPdf) return 1;
+                              return toCanonicalMetric(a.metricCode || '1.1.1').localeCompare(
                                 toCanonicalMetric(b.metricCode || '1.1.1'),
                                 undefined,
                                 { numeric: true }
-                              )
-                            );
+                              );
+                            });
+
+                            const kiDocIds = sortedKiDocs.map((d) => d.id);
+                            const selectedCountInKi = kiDocIds.filter((id) =>
+                              selectedDirectoryDocIds.includes(id)
+                            ).length;
+                            const isAllKiSelected =
+                              kiDocIds.length > 0 && selectedCountInKi === kiDocIds.length;
 
                             return (
                               <div key={kiCode} className="bg-white">
@@ -1771,6 +1841,30 @@ Respond in JSON ONLY:
                                   }`}
                                 >
                                   <div className="flex items-center gap-2.5 min-w-0">
+                                    {/* Select All in Key Indicator Checkbox */}
+                                    <input
+                                      type="checkbox"
+                                      checked={isAllKiSelected}
+                                      onClick={(e) => e.stopPropagation()}
+                                      onChange={(e) => {
+                                        e.stopPropagation();
+                                        if (isAllKiSelected) {
+                                          setSelectedDirectoryDocIds((prev) =>
+                                            prev.filter((id) => !kiDocIds.includes(id))
+                                          );
+                                        } else {
+                                          setSelectedDirectoryDocIds((prev) =>
+                                            Array.from(new Set([...prev, ...kiDocIds]))
+                                          );
+                                          setExpandedDirectoryMetrics((prev) => ({
+                                            ...prev,
+                                            [kiCode]: true,
+                                          }));
+                                        }
+                                      }}
+                                      className="w-3.5 h-3.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer shrink-0"
+                                      title={`Select all ${kiDocIds.length} documents in KI ${kiCode}`}
+                                    />
                                     {isKiExpanded ? (
                                       <ChevronDown className="w-3.5 h-3.5 text-blue-600 shrink-0" />
                                     ) : (
@@ -1785,6 +1879,33 @@ Respond in JSON ONLY:
                                   </div>
 
                                   <div className="flex items-center gap-2 shrink-0">
+                                    {selectedCountInKi > 0 && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          const selectedInKiDocs = sortedKiDocs.filter((d) =>
+                                            selectedDirectoryDocIds.includes(d.id)
+                                          );
+                                          if (selectedInKiDocs.length === 0) return;
+                                          const firstDoc = selectedInKiDocs[0];
+                                          const defMetric = toCanonicalMetric(
+                                            firstDoc.metricCode || '1.1.1'
+                                          );
+                                          setCompilePdfModal({
+                                            crit: crit.code,
+                                            ki: kiCode,
+                                            metric: defMetric,
+                                            fileName: `Metric_${defMetric.replace(/\./g, '_')}_Compiled_SSR_Evidence_${selectedInKiDocs.length}Files.pdf`,
+                                            sourceDocs: selectedInKiDocs,
+                                          });
+                                        }}
+                                        className="px-2.5 py-0.5 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold inline-flex items-center gap-1 shadow-2xs cursor-pointer transition-colors"
+                                      >
+                                        <Layers className="w-3 h-3" />
+                                        <span>Compile as One PDF ({selectedCountInKi})</span>
+                                      </button>
+                                    )}
                                     <span className="px-2 py-0.5 rounded-md bg-white border border-gray-200 text-[11px] font-bold text-gray-700">
                                       {sortedKiDocs.length}{' '}
                                       {sortedKiDocs.length === 1 ? 'Document' : 'Documents'}
@@ -1792,7 +1913,7 @@ Respond in JSON ONLY:
                                   </div>
                                 </div>
 
-                                {/* LEVEL 3: Document Rows inside Key Indicator (each with its Metric Pill) */}
+                                {/* LEVEL 3: Document Rows inside Key Indicator (each with Checkbox + Metric Pill) */}
                                 {isKiExpanded && (
                                   <div className="border-t border-gray-100 divide-y divide-gray-100 bg-white">
                                     {sortedKiDocs.map((doc) => {
@@ -1809,16 +1930,39 @@ Respond in JSON ONLY:
                                         doc.aiAutoFiled || doc.aiReason
                                       );
                                       const isPopoverOpen = openAiReasonDocId === doc.id;
+                                      const isCompiledPopoverOpen =
+                                        openCompiledFilesDocId === doc.id;
+                                      const isDocChecked = selectedDirectoryDocIds.includes(
+                                        doc.id
+                                      );
 
                                       return (
                                         <div
                                           key={doc.id}
-                                          className={`pl-14 pr-4 py-2 flex items-center justify-between gap-3 hover:bg-blue-50/30 transition-colors text-xs ${
-                                            isJustFiled ? 'bg-emerald-50/50' : ''
+                                          className={`pl-12 pr-4 py-2 flex items-center justify-between gap-3 hover:bg-blue-50/30 transition-colors text-xs ${
+                                            doc.isCompiledPdf
+                                              ? 'bg-indigo-50/40'
+                                              : isJustFiled
+                                              ? 'bg-emerald-50/50'
+                                              : isDocChecked
+                                              ? 'bg-indigo-50/25'
+                                              : ''
                                           }`}
                                         >
-                                          {/* Metric Pill + Document Title + Size + Subtle AI Badge */}
-                                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                          {/* Checkbox + Metric Pill + Document Title + Size + Compiled/AI Badges */}
+                                          <div className="flex items-center gap-2.5 min-w-0 flex-1 flex-wrap sm:flex-nowrap">
+                                            <input
+                                              type="checkbox"
+                                              checked={isDocChecked}
+                                              onChange={() => {
+                                                setSelectedDirectoryDocIds((prev) =>
+                                                  prev.includes(doc.id)
+                                                    ? prev.filter((id) => id !== doc.id)
+                                                    : [...prev, doc.id]
+                                                );
+                                              }}
+                                              className="w-3.5 h-3.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer shrink-0"
+                                            />
                                             <span
                                               className="font-mono text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded shrink-0"
                                               title={
@@ -1829,10 +1973,20 @@ Respond in JSON ONLY:
                                             >
                                               Metric {docMetricCode}
                                             </span>
-                                            <FileText className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                                            <FileText
+                                              className={`w-3.5 h-3.5 shrink-0 ${
+                                                doc.isCompiledPdf
+                                                  ? 'text-indigo-600'
+                                                  : 'text-blue-600'
+                                              }`}
+                                            />
                                             <span
                                               onClick={() => openFileInNewTab(doc.fileUrl)}
-                                              className="font-semibold text-gray-900 hover:text-blue-700 cursor-pointer truncate max-w-md"
+                                              className={`font-semibold hover:text-blue-700 cursor-pointer truncate max-w-md ${
+                                                doc.isCompiledPdf
+                                                  ? 'text-indigo-950 font-bold'
+                                                  : 'text-gray-900'
+                                              }`}
                                               title={doc.fileName || doc.title}
                                             >
                                               {doc.fileName || doc.title}
@@ -1840,6 +1994,82 @@ Respond in JSON ONLY:
                                             <span className="text-[11px] text-gray-400 shrink-0">
                                               ({doc.fileSize || 'PDF'})
                                             </span>
+
+                                            {/* Compiled PDF Badge + Included Files Popover */}
+                                            {doc.isCompiledPdf && (
+                                              <div className="relative group inline-block shrink-0">
+                                                <button
+                                                  type="button"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setOpenCompiledFilesDocId(
+                                                      isCompiledPopoverOpen ? null : doc.id
+                                                    );
+                                                  }}
+                                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-100 hover:bg-indigo-200 text-indigo-800 border border-indigo-300 text-[10px] font-bold cursor-pointer transition-colors"
+                                                  title="Hover or click to view merged files in this compiled PDF"
+                                                >
+                                                  <Layers className="w-2.5 h-2.5 text-indigo-600" />
+                                                  <span>
+                                                    Compiled PDF (
+                                                    {doc.compiledSourceFiles?.length || 1} files)
+                                                  </span>
+                                                </button>
+
+                                                {doc.compiledSourceFiles &&
+                                                  doc.compiledSourceFiles.length > 0 && (
+                                                    <div
+                                                      className={`absolute left-0 bottom-full mb-2 w-72 sm:w-80 p-3 rounded-xl bg-slate-900 text-white text-[11px] leading-relaxed shadow-xl border border-slate-700 z-30 transition-all ${
+                                                        isCompiledPopoverOpen
+                                                          ? 'opacity-100 visible translate-y-0'
+                                                          : 'opacity-0 invisible translate-y-1 group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 pointer-events-none'
+                                                      }`}
+                                                    >
+                                                      <div className="font-bold text-indigo-300 text-[10px] uppercase tracking-wider mb-1.5 pb-1 border-b border-slate-700/80 flex items-center justify-between">
+                                                        <span>Merged Source Documents</span>
+                                                        <span>
+                                                          {doc.compiledSourceFiles.length} Files
+                                                        </span>
+                                                      </div>
+                                                      <ol className="list-decimal list-inside space-y-1 text-slate-200">
+                                                        {doc.compiledSourceFiles.map(
+                                                          (srcName, sIdx) => (
+                                                            <li
+                                                              key={sIdx}
+                                                              className="truncate"
+                                                              title={srcName}
+                                                            >
+                                                              {srcName}
+                                                            </li>
+                                                          )
+                                                        )}
+                                                      </ol>
+                                                    </div>
+                                                  )}
+                                              </div>
+                                            )}
+
+                                            {/* Copy NAAC Portal Link Button on Compiled PDFs */}
+                                            {doc.isCompiledPdf && doc.naacPortalUrl && (
+                                              <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  navigator.clipboard?.writeText(
+                                                    doc.naacPortalUrl || ''
+                                                  );
+                                                  setSuccessToast(
+                                                    `Copied NAAC Portal URL: ${doc.naacPortalUrl}`
+                                                  );
+                                                  setTimeout(() => setSuccessToast(null), 4000);
+                                                }}
+                                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-[10px] font-bold cursor-pointer transition-colors shrink-0"
+                                                title={`Copy NAAC SSR Portal Link: ${doc.naacPortalUrl}`}
+                                              >
+                                                <Copy className="w-2.5 h-2.5" />
+                                                <span>Copy NAAC Link</span>
+                                              </button>
+                                            )}
 
                                             {/* Interactive AI Filed Badge (Hover or Click for AI Reasoning Popover) */}
                                             {isAiUploaded && doc.aiReason && (
@@ -2143,6 +2373,294 @@ Respond in JSON ONLY:
                     className="px-4 py-1.5 rounded-lg text-xs font-bold text-white bg-[#1d4ed8] hover:bg-blue-800 shadow-2xs cursor-pointer"
                   >
                     Save Changes
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Compile as One PDF Popup Modal */}
+          {compilePdfModal && (
+            <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
+              <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 max-w-xl w-full overflow-hidden animate-in zoom-in-95">
+                <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-indigo-50/70">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0">
+                      <Layers className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-gray-900">
+                        Compile as One PDF for NAAC SSR Portal
+                      </h3>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        Merging {compilePdfModal.sourceDocs.length} selected documents into a single compiled PDF &amp; portal link
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setCompilePdfModal(null)}
+                    className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="p-5 space-y-4 max-h-[75vh] overflow-y-auto">
+                  {/* Included Files List */}
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                      Included Documents ({compilePdfModal.sourceDocs.length} Files in Compilation Order)
+                    </label>
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 max-h-36 overflow-y-auto space-y-1.5">
+                      {compilePdfModal.sourceDocs.map((sDoc, idx) => (
+                        <div
+                          key={sDoc.id}
+                          className="flex items-center justify-between gap-2 text-xs bg-white px-2.5 py-1.5 rounded-lg border border-gray-200/80"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="w-4 h-4 rounded-full bg-indigo-100 text-indigo-700 font-bold text-[10px] flex items-center justify-center shrink-0">
+                              {idx + 1}
+                            </span>
+                            <span className="font-medium text-gray-800 truncate">
+                              {sDoc.fileName || sDoc.title}
+                            </span>
+                          </div>
+                          <span className="text-[11px] text-gray-400 shrink-0">
+                            {sDoc.fileSize || 'PDF'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Compiled File Name */}
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">
+                      Compiled PDF File Name
+                    </label>
+                    <input
+                      type="text"
+                      value={compilePdfModal.fileName}
+                      onChange={(e) =>
+                        setCompilePdfModal({
+                          ...compilePdfModal,
+                          fileName: e.target.value,
+                        })
+                      }
+                      className="w-full text-xs font-semibold px-3 py-2 border border-gray-300 rounded-xl bg-white text-gray-900 outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  {/* Destination Criterion, Key Indicator & Metric */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    <div>
+                      <label className="block text-[11px] font-bold text-gray-600 mb-1">
+                        1. Criterion
+                      </label>
+                      <select
+                        value={compilePdfModal.crit}
+                        onChange={(e) => {
+                          const nextCrit = toCanonicalCrit(e.target.value);
+                          const kis = KEY_INDICATORS.filter(
+                            (k) => k.criterionCode.toLowerCase() === nextCrit.toLowerCase()
+                          );
+                          const nextKi = kis[0]?.code || '1.1';
+                          const metrics = NAAC_METRICS_LIST.filter(
+                            (m) => m.criterionCode.toLowerCase() === nextCrit.toLowerCase()
+                          );
+                          const nextMetric =
+                            metrics.find((m) => m.code.startsWith(nextKi))?.code ||
+                            metrics[0]?.code ||
+                            '1.1.1';
+                          setCompilePdfModal({
+                            ...compilePdfModal,
+                            crit: nextCrit,
+                            ki: nextKi,
+                            metric: nextMetric,
+                            fileName: `Metric_${nextMetric.replace(/\./g, '_')}_Compiled_SSR_Evidence_${compilePdfModal.sourceDocs.length}Files.pdf`,
+                          });
+                        }}
+                        className="w-full text-xs font-semibold px-2.5 py-2 border border-gray-300 rounded-xl bg-white text-gray-800 outline-none focus:border-indigo-500 cursor-pointer"
+                      >
+                        {NAAC_CRITERIA_SUMMARY.map((c) => (
+                          <option key={c.code} value={c.code}>
+                            {c.code}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-gray-600 mb-1">
+                        2. Key Indicator
+                      </label>
+                      <select
+                        value={compilePdfModal.ki}
+                        onChange={(e) => {
+                          const nextKi = toCanonicalKi(e.target.value);
+                          const metrics = NAAC_METRICS_LIST.filter(
+                            (m) =>
+                              m.criterionCode.toLowerCase() ===
+                              compilePdfModal.crit.toLowerCase()
+                          );
+                          const nextMetric =
+                            metrics.find((m) => m.code.startsWith(nextKi))?.code ||
+                            metrics[0]?.code ||
+                            '1.1.1';
+                          setCompilePdfModal({
+                            ...compilePdfModal,
+                            ki: nextKi,
+                            metric: nextMetric,
+                            fileName: `Metric_${nextMetric.replace(/\./g, '_')}_Compiled_SSR_Evidence_${compilePdfModal.sourceDocs.length}Files.pdf`,
+                          });
+                        }}
+                        className="w-full text-xs font-semibold px-2.5 py-2 border border-gray-300 rounded-xl bg-white text-gray-800 outline-none focus:border-indigo-500 cursor-pointer"
+                      >
+                        {KEY_INDICATORS.filter(
+                          (k) =>
+                            k.criterionCode.toLowerCase() ===
+                            compilePdfModal.crit.toLowerCase()
+                        ).map((ki) => (
+                          <option key={ki.code} value={ki.code}>
+                            KI {ki.code}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-gray-600 mb-1">
+                        3. Metric
+                      </label>
+                      <select
+                        value={compilePdfModal.metric}
+                        onChange={(e) => {
+                          const nextMetric = toCanonicalMetric(e.target.value);
+                          const parts = nextMetric.split('.');
+                          const parentKi =
+                            parts.length >= 2
+                              ? `${parts[0]}.${parts[1]}`
+                              : compilePdfModal.ki;
+                          setCompilePdfModal({
+                            ...compilePdfModal,
+                            ki: parentKi,
+                            metric: nextMetric,
+                            fileName: `Metric_${nextMetric.replace(/\./g, '_')}_Compiled_SSR_Evidence_${compilePdfModal.sourceDocs.length}Files.pdf`,
+                          });
+                        }}
+                        className="w-full text-xs font-semibold px-2.5 py-2 border border-gray-300 rounded-xl bg-white text-gray-800 outline-none focus:border-indigo-500 cursor-pointer"
+                      >
+                        {NAAC_METRICS_LIST.filter(
+                          (m) =>
+                            m.criterionCode.toLowerCase() ===
+                            compilePdfModal.crit.toLowerCase()
+                        ).map((m) => (
+                          <option key={m.code} value={m.code}>
+                            Metric {m.code}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Preview of Shareable NAAC Portal URL */}
+                  <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-200 text-xs">
+                    <div className="font-bold text-emerald-900 mb-1 flex items-center justify-between">
+                      <span>Shareable NAAC SSR Portal Evidence Link</span>
+                      <span className="text-[10px] font-semibold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
+                        Auto-Generated
+                      </span>
+                    </div>
+                    <div className="font-mono text-[11px] text-emerald-800 truncate bg-white px-2.5 py-1.5 rounded-lg border border-emerald-200">
+                      {`https://portal.college.edu.in/naac/${selectedCycleId || 'cycle-3'}/${encodeURIComponent(
+                        compilePdfModal.fileName || 'Compiled_Evidence.pdf'
+                      )}`}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="px-5 py-3.5 bg-gray-50 border-t border-gray-100 flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCompilePdfModal(null)}
+                    className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-gray-600 hover:bg-gray-200 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const critObj = NAAC_CRITERIA_SUMMARY.find(
+                        (c) =>
+                          c.code.toLowerCase() === compilePdfModal.crit.toLowerCase()
+                      );
+                      const metricObj = NAAC_METRICS_LIST.find(
+                        (m) => m.code === compilePdfModal.metric
+                      );
+                      const finalFileName =
+                        compilePdfModal.fileName.trim() ||
+                        `Metric_${compilePdfModal.metric}_Compiled_Evidence.pdf`;
+                      const portalUrl = `https://portal.college.edu.in/naac/${
+                        selectedCycleId || 'cycle-3'
+                      }/${encodeURIComponent(finalFileName)}`;
+
+                      const totalMb = compilePdfModal.sourceDocs
+                        .reduce((acc, d) => {
+                          const num = parseFloat(d.fileSize || '1.8');
+                          return acc + (isNaN(num) ? 1.8 : num);
+                        }, 0)
+                        .toFixed(1);
+
+                      const compiledDocId = `compiled-${Date.now()}`;
+                      addOrUpdateNaacDocument({
+                        id: compiledDocId,
+                        title: finalFileName.replace(/\.pdf$/i, ''),
+                        fileName: finalFileName,
+                        fileSize: `${totalMb} MB`,
+                        fileUrl:
+                          compilePdfModal.sourceDocs[0]?.fileUrl ||
+                          'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+                        criterionCode: compilePdfModal.crit,
+                        criterionId: critObj?.id || 'crit-1',
+                        keyIndicatorCode: compilePdfModal.ki,
+                        metricCode: compilePdfModal.metric,
+                        metricName:
+                          metricObj?.name ||
+                          `Metric ${compilePdfModal.metric} Compiled Evidence`,
+                        metricType: metricObj?.metricType || 'QnM',
+                        uploadedBy: uploaderName || 'IQAC Coordinator',
+                        uploadedAt: new Date().toISOString().split('T')[0],
+                        status: 'university_verified',
+                        cycleId: selectedCycleId,
+                        isCompiledPdf: true,
+                        compiledSourceFiles: compilePdfModal.sourceDocs.map(
+                          (d) => d.fileName || d.title
+                        ),
+                        naacPortalUrl: portalUrl,
+                      });
+
+                      navigator.clipboard?.writeText(portalUrl);
+                      refreshDocuments();
+                      setExpandedDirectoryCrits((prev) => ({
+                        ...prev,
+                        [compilePdfModal.crit]: true,
+                      }));
+                      setExpandedDirectoryMetrics((prev) => ({
+                        ...prev,
+                        [compilePdfModal.ki]: true,
+                      }));
+                      setSelectedDirectoryDocIds([]);
+                      setCompilePdfModal(null);
+                      setSuccessToast(
+                        `Compiled ${compilePdfModal.sourceDocs.length} files into "${finalFileName}" under ${compilePdfModal.crit} › KI ${compilePdfModal.ki} & copied NAAC link!`
+                      );
+                      setTimeout(() => setSuccessToast(null), 5000);
+                    }}
+                    className="px-4 py-1.5 rounded-lg text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-2xs cursor-pointer inline-flex items-center gap-1.5"
+                  >
+                    <Layers className="w-3.5 h-3.5" />
+                    <span>Compile PDF &amp; Copy NAAC Link</span>
                   </button>
                 </div>
               </div>
