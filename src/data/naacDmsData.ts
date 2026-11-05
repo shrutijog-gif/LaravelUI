@@ -86,6 +86,10 @@ export interface NaacEvidenceDocument {
   universityReviewNote?: string;
   universityVerifiedBy?: string;
   universityVerifiedAt?: string;
+  // AI Auto-Filing Metadata
+  aiReason?: string;
+  aiAutoFiled?: boolean;
+  cycleId?: string;
 }
 
 export interface DepartmentFaculty {

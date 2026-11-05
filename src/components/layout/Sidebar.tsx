@@ -207,6 +207,7 @@ export const getCollegeAdminMenuItems = (): MenuItem[] => {
       icon: 'circle',
       children: [
         { id: 'naac-quick-drop', label: 'Quick Evidence Drop' },
+        { id: 'naac-evidence-directory', label: 'Evidence Directory' },
         { id: 'naac-ssr-cycle', label: 'Cycle (SSR)' },
         { id: 'naac-aqar', label: 'AQAR' },
         { id: 'naac-criteria-allocation', label: 'Criteria Allocation' },

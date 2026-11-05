@@ -30,7 +30,9 @@ import {
   Lightbulb,
   Info,
   Loader2,
-  Send
+  Send,
+  Home,
+  Pencil
 } from 'lucide-react';
 import { 
   NAAC_CRITERIA_SUMMARY, 
@@ -66,6 +68,7 @@ export interface NaacQuickUploadLandingProps {
   storageKeySuffix?: string;
   topBarLeftSlot?: React.ReactNode;
   hideTopUploadButton?: boolean;
+  initialDirectoryOpen?: boolean;
 }
 
 export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
@@ -86,6 +89,7 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
   storageKeySuffix,
   topBarLeftSlot,
   hideTopUploadButton = false,
+  initialDirectoryOpen = false,
 }) => {
   const submitTargetLabel =
     submitTargetName ||
@@ -332,6 +336,23 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
 
   // OpenAI Integration State (Default OFF per user requirement)
   const [useAi, setUseAi] = useState<boolean>(false);
+  const [autoCompleteFiling, setAutoCompleteFiling] = useState<boolean>(false);
+  const [autoFiledNotice, setAutoFiledNotice] = useState<{
+    count: number;
+    criteriaSummary: string;
+    docIds: string[];
+  } | null>(null);
+  const [isDirectoryViewOpen, setIsDirectoryViewOpen] = useState<boolean>(initialDirectoryOpen);
+  useEffect(() => {
+    setIsDirectoryViewOpen(initialDirectoryOpen);
+  }, [initialDirectoryOpen]);
+  const [editingDocModal, setEditingDocModal] = useState<{
+    docId: string;
+    fileName: string;
+    crit: string;
+    ki: string;
+    metric: string;
+  } | null>(null);
   const [openaiKey, setOpenaiKey] = useState<string>(() => localStorage.getItem('openai_api_key') || '');
   const [showOpenaiKey, setShowOpenaiKey] = useState<boolean>(false);
   const [isAiProcessing, setIsAiProcessing] = useState<boolean>(false);
@@ -856,6 +877,8 @@ Respond in JSON ONLY:
               metricCode: canonicalMetric,
               metricName: metricObj?.name || `${canonicalMetric} Evidence Proof`,
               metricType: metricObj?.metricType || 'QnM',
+              aiReason: aiReason,
+              aiAutoFiled: true,
             });
             setUploadedFilesBatch((prev) =>
               prev.map((item) =>
@@ -932,6 +955,10 @@ Respond in JSON ONLY:
     const filesArray = Array.from(fileList);
     if (filesArray.length === 0) return;
 
+    const isZeroClickAutoFile = Boolean(useAi && autoCompleteFiling);
+    const autoFiledCrits: string[] = [];
+    const autoFiledDocIds: string[] = [];
+
     filesArray.forEach((file, index) => {
       const sizeStr = file.size > 1024 * 1024 
         ? `${(file.size / (1024 * 1024)).toFixed(1)} MB` 
@@ -955,7 +982,7 @@ Respond in JSON ONLY:
         }
       }
 
-      if (index === 0) {
+      if (index === 0 && !isZeroClickAutoFile) {
         setDocumentTitle(cleanName);
         setSelectedCriterionCode(initialCrit);
         setSelectedKeyIndicatorCode(initialKi);
@@ -995,10 +1022,49 @@ Respond in JSON ONLY:
           uploadedAt: new Date().toISOString().split('T')[0],
           status: 'draft',
           version: 'v1.0',
+          aiReason: useAi ? initialReason : undefined,
+          aiAutoFiled: Boolean(useAi),
+          cycleId: selectedCycleId,
         };
 
         const created = addOrUpdateNaacDocument(newDoc);
         const targetId = created?.id || newDoc.id;
+
+        autoFiledCrits.push(`${initialCrit} (${initialMetric})`);
+        autoFiledDocIds.push(targetId);
+
+        setMyDocIds((prev) => {
+          const updatedMyDocIds = Array.from(new Set([targetId, ...prev]));
+          try {
+            localStorage.setItem(myDocsStorageKey, JSON.stringify(updatedMyDocIds));
+            localStorage.setItem('naac_my_uploaded_doc_ids_prog_cse', JSON.stringify(updatedMyDocIds));
+            localStorage.setItem('naac_my_uploaded_doc_ids_program', JSON.stringify(updatedMyDocIds));
+          } catch (err) {
+            console.warn('Could not store myDocIds in localStorage:', err);
+          }
+          return updatedMyDocIds;
+        });
+
+        setSelectedDocIds((prev) => Array.from(new Set([targetId, ...prev])));
+        refreshDocuments();
+
+        if (isZeroClickAutoFile) {
+          // Zero-click AI complete filing: keep dropzone open, do NOT show confirm staging card
+          if (openaiKey.trim()) {
+            classifyWithOpenAi(file.name, openaiKey.trim(), rawDataUrl, targetId, false);
+          }
+          if (index === filesArray.length - 1) {
+            const uniqueCrits = Array.from(new Set(autoFiledCrits)).join(', ');
+            setAutoFiledNotice({
+              count: filesArray.length,
+              criteriaSummary: uniqueCrits,
+              docIds: [...autoFiledDocIds],
+            });
+          }
+          return;
+        }
+
+        setAutoFiledNotice(null);
 
         if (index === 0) {
           setUploadedFile({
@@ -1023,21 +1089,6 @@ Respond in JSON ONLY:
             source: 'rule-engine',
           },
         ]);
-
-        setMyDocIds((prev) => {
-          const updatedMyDocIds = Array.from(new Set([targetId, ...prev]));
-          try {
-            localStorage.setItem(myDocsStorageKey, JSON.stringify(updatedMyDocIds));
-            localStorage.setItem('naac_my_uploaded_doc_ids_prog_cse', JSON.stringify(updatedMyDocIds));
-            localStorage.setItem('naac_my_uploaded_doc_ids_program', JSON.stringify(updatedMyDocIds));
-          } catch (err) {
-            console.warn('Could not store myDocIds in localStorage:', err);
-          }
-          return updatedMyDocIds;
-        });
-
-        setSelectedDocIds((prev) => Array.from(new Set([targetId, ...prev])));
-        refreshDocuments();
 
         if (index === filesArray.length - 1) {
           if (filesArray.length > 1) {
@@ -1202,6 +1253,7 @@ Respond in JSON ONLY:
       schoolId: schoolId || 'sch-tech',
       programId: programId || (role === 'school' ? 'school-common' : role === 'university' ? 'univ-master' : 'prog-cse'),
       uploadedBy: uploaderName || (role === 'school' ? 'Dean (School Coordinator)' : role === 'university' ? 'IQAC Central Committee' : 'Prof. Anita Verma'),
+      cycleId: selectedCycleId,
     });
 
     const finalId = updated?.id || targetId;
@@ -1321,9 +1373,22 @@ Respond in JSON ONLY:
     }
   };
 
-  // Filtered documents
-  const filteredDocuments = (Array.isArray(documents) ? documents : []).filter((doc) => {
+  // Filtered documents (filtered by selected Cycle, Search query, and Criterion)
+  const filteredDocuments = (Array.isArray(documents) ? documents : []).filter((doc, idx) => {
     if (!doc) return false;
+
+    // Resolve cycle for document (explicit cycleId for uploaded docs, or deterministic cycle assignment for seed docs)
+    const effectiveCycleId = doc.cycleId
+      ? doc.cycleId
+      : idx % 5 === 1
+      ? 'cycle-2'
+      : idx % 7 === 2
+      ? 'cycle-3'
+      : 'cycle-1';
+
+    const matchesCycle = !selectedCycleId || effectiveCycleId === selectedCycleId;
+    if (!matchesCycle) return false;
+
     const title = (doc.title || doc.fileName || '').toLowerCase();
     const metric = (doc.metricCode || '').toLowerCase();
     const crit = (doc.criterionCode || '').toLowerCase();
@@ -1400,19 +1465,15 @@ Respond in JSON ONLY:
             </span>
           )}
 
-          {!topBarLeftSlot && role !== 'faculty' && (
+          {!topBarLeftSlot && role !== 'faculty' && !isDirectoryViewOpen && (
             <button
               type="button"
-              onClick={() => {
-                if (typeof onNavigateToDocumentList === 'function') {
-                  onNavigateToDocumentList();
-                }
-              }}
+              onClick={() => setIsDirectoryViewOpen(true)}
               className="text-xs font-semibold text-[#0f2748] hover:text-blue-700 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors flex items-center gap-1.5 cursor-pointer"
-              title="Open Master Repository Document List"
+              title="Open Filed NAAC Evidence Directory"
             >
               <FolderOpen className="w-4 h-4 text-blue-600" />
-              <span>Master Repository</span>
+              <span>Filed Evidence Directory</span>
               <span className="px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold">
                 {documents.length}
               </span>
@@ -1421,7 +1482,414 @@ Respond in JSON ONLY:
         </div>
       </div>
 
-      {/* Center Uncluttered Experience */}
+      {isDirectoryViewOpen ? (
+        /* FILED EVIDENCE DIRECTORY VIEW — MATCHING OVERALL CMS PAGE DESIGN */
+        <div className="w-full space-y-5 animate-in fade-in">
+          {/* Breadcrumb matching overall CMS NAAC pages */}
+          <div className="flex items-center gap-2 text-xs font-semibold text-gray-600">
+            <Home className="w-3.5 h-3.5 text-gray-500" />
+            <span>/</span>
+            <span
+              onClick={() => setIsDirectoryViewOpen(false)}
+              className="hover:text-blue-600 cursor-pointer"
+            >
+              NAAC
+            </span>
+            <span>/</span>
+            <span className="text-gray-900 font-bold">Filed NAAC Evidence Directory</span>
+          </div>
+
+          {/* Standard CMS Page Heading Bar (outside card) with Cycle Selection & Dynamic Count */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="text-lg sm:text-xl font-bold text-gray-900 whitespace-nowrap">
+                Filed NAAC Evidence Directory
+              </h1>
+
+              {/* Cycle Selection Dropdown above table */}
+              <div className="flex items-center gap-2 bg-white border border-gray-300 rounded-lg px-2.5 py-1 shadow-2xs">
+                <span className="text-xs font-semibold text-gray-500 whitespace-nowrap">
+                  Cycle:
+                </span>
+                <select
+                  value={selectedCycleId}
+                  onChange={(e) => setSelectedCycleId(e.target.value)}
+                  className="text-xs font-bold text-blue-700 bg-transparent outline-none cursor-pointer pr-1"
+                >
+                  {cycles.map((c) => (
+                    <option key={c.id} value={c.id} className="text-gray-900 font-semibold">
+                      {c.cycleNumber} : {c.yearFrom} to {c.yearTo}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <span className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-xs font-bold whitespace-nowrap shrink-0">
+                {filteredDocuments.length} Documents
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsDirectoryViewOpen(false)}
+                className="px-3.5 py-2 bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 text-xs sm:text-sm font-semibold rounded-lg shadow-2xs transition-colors cursor-pointer whitespace-nowrap"
+              >
+                &larr; Back to Quick Drop
+              </button>
+
+              {typeof onNavigateToDocumentList === 'function' && (
+                <button
+                  type="button"
+                  onClick={() => onNavigateToDocumentList()}
+                  className="px-4 py-2 bg-[#1d4ed8] hover:bg-blue-800 text-white text-xs sm:text-sm font-semibold rounded-lg shadow-xs transition-colors cursor-pointer inline-flex items-center gap-1.5 whitespace-nowrap"
+                >
+                  <span>Open Cycle (SSR)</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Filter & Table Card matching CMS NAAC tables */}
+          <div className="bg-white border border-gray-200/90 rounded-xl overflow-hidden shadow-2xs">
+            {/* Search & Criterion Filter Bar inside Top of Table Card */}
+            <div className="p-4 border-b border-gray-200/80 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white">
+              <div className="relative flex-1 max-w-md">
+                <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search by file name, criterion, or metric code..."
+                  className="w-full pl-8 pr-3 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg outline-none focus:bg-white focus:border-blue-500"
+                />
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                {/* Criterion Filter Dropdown */}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-gray-600 whitespace-nowrap">
+                    Filter Criterion:
+                  </span>
+                  <select
+                    value={criterionFilter}
+                    onChange={(e) => setCriterionFilter(e.target.value)}
+                    className="px-3 py-1.5 text-xs font-semibold bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-blue-500 cursor-pointer text-gray-900"
+                  >
+                    <option value="ALL">All Criteria (1–7)</option>
+                    {NAAC_CRITERIA_SUMMARY.map((c) => (
+                      <option key={c.code} value={c.code}>
+                        {c.code}: {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="bg-slate-50 border-b border-gray-200">
+                  <tr className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                    <th className="py-3 px-4 w-56">Filed Under (Criterion &amp; Metric)</th>
+                    <th className="py-3 px-4 w-64">Document Name</th>
+                    <th className="py-3 px-4">AI Reasoning</th>
+                    <th className="py-3 px-4 text-right w-32">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {filteredDocuments.map((doc) => {
+                    const isJustFiled = Boolean(autoFiledNotice?.docIds.includes(doc.id));
+                    const docCritCode = toCanonicalCrit(doc.criterionCode || 'Criterion 1');
+                    const docMetricCode = toCanonicalMetric(doc.metricCode || '1.1.1');
+                    const metricParts = docMetricCode.split('.');
+                    const docKiCode =
+                      doc.keyIndicatorCode ||
+                      (metricParts.length >= 2 ? `${metricParts[0]}.${metricParts[1]}` : '1.1');
+                    const isAiUploaded = Boolean(doc.aiAutoFiled || doc.aiReason);
+
+                    return (
+                      <tr
+                        key={doc.id}
+                        className={`hover:bg-blue-50/30 transition-colors ${
+                          isJustFiled ? 'bg-emerald-50/40' : ''
+                        }`}
+                      >
+                        {/* Column 1: Clean Read-Only Criterion & Metric Badges */}
+                        <td className="py-3 px-4 align-top">
+                          <div className="flex flex-col gap-1.5">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-mono text-[11px] font-bold text-[#0f2748] bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">
+                                {docCritCode}
+                              </span>
+                              <span className="font-mono text-[11px] font-bold text-slate-700 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded">
+                                KI {docKiCode}
+                              </span>
+                              <span className="font-mono text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded">
+                                Metric {docMetricCode}
+                              </span>
+                            </div>
+                            {isJustFiled && (
+                              <span className="inline-flex items-center gap-1 w-fit px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 text-[10px] font-bold">
+                                <Sparkles className="w-2.5 h-2.5 text-emerald-600" />
+                                <span>Auto-Filed by AI</span>
+                              </span>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Column 2: Document Name */}
+                        <td className="py-3 px-4 align-top">
+                          <div
+                            onClick={() => openFileInNewTab(doc.fileUrl)}
+                            className="font-bold text-gray-900 hover:text-blue-700 cursor-pointer flex items-center gap-1.5"
+                          >
+                            <FileText className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                            <span className="truncate max-w-[220px]" title={doc.fileName || doc.title}>
+                              {doc.fileName || doc.title}
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-gray-400 mt-0.5">
+                            {doc.fileSize || 'PDF'} &bull; {doc.uploadedAt}
+                          </div>
+                        </td>
+
+                        {/* Column 3: AI Reasoning (ONLY if uploaded via AI) */}
+                        <td className="py-3 px-4 align-top">
+                          {isAiUploaded && doc.aiReason ? (
+                            <div className="flex items-start gap-2 text-gray-700 leading-relaxed">
+                              <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
+                              <span>{doc.aiReason}</span>
+                            </div>
+                          ) : (
+                            <span className="text-gray-400 italic text-xs">
+                              &mdash; Manually filed
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Column 4: Action (Edit Destination Popup, View, Delete) */}
+                        <td className="py-3 px-4 align-top text-right whitespace-nowrap">
+                          <div className="inline-flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setEditingDocModal({
+                                  docId: doc.id,
+                                  fileName: doc.fileName || doc.title,
+                                  crit: docCritCode,
+                                  ki: docKiCode,
+                                  metric: docMetricCode,
+                                })
+                              }
+                              className="p-1.5 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg cursor-pointer transition-colors"
+                              title="Edit Criterion, Key Indicator & Metric"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => openFileInNewTab(doc.fileUrl)}
+                              className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg cursor-pointer transition-colors"
+                              title="Open Document"
+                            >
+                              <ExternalLink className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(doc.id, doc.fileName || doc.title)}
+                              className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer transition-colors"
+                              title="Delete Document"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Edit Filing Destination Popup Modal */}
+          {editingDocModal && (
+            <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
+              <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 max-w-lg w-full overflow-hidden animate-in zoom-in-95">
+                <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-slate-50">
+                  <div>
+                    <h3 className="text-sm font-bold text-gray-900">
+                      Edit Filing Destination
+                    </h3>
+                    <p className="text-xs text-gray-500 truncate max-w-sm mt-0.5">
+                      {editingDocModal.fileName}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEditingDocModal(null)}
+                    className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="p-5 space-y-4">
+                  {/* 1. Criterion */}
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">
+                      1. Criterion
+                    </label>
+                    <select
+                      value={editingDocModal.crit}
+                      onChange={(e) => {
+                        const nextCrit = toCanonicalCrit(e.target.value);
+                        const kis = KEY_INDICATORS.filter(
+                          (k) => k.criterionCode.toLowerCase() === nextCrit.toLowerCase()
+                        );
+                        const nextKi = kis[0]?.code || '1.1';
+                        const metrics = NAAC_METRICS_LIST.filter(
+                          (m) => m.criterionCode.toLowerCase() === nextCrit.toLowerCase()
+                        );
+                        const nextMetric =
+                          metrics.find((m) => m.code.startsWith(nextKi))?.code ||
+                          metrics[0]?.code ||
+                          '1.1.1';
+                        setEditingDocModal({
+                          ...editingDocModal,
+                          crit: nextCrit,
+                          ki: nextKi,
+                          metric: nextMetric,
+                        });
+                      }}
+                      className="w-full text-xs font-semibold px-3 py-2 border border-gray-300 rounded-xl bg-white text-gray-800 outline-none focus:border-blue-500 cursor-pointer"
+                    >
+                      {NAAC_CRITERIA_SUMMARY.map((c) => (
+                        <option key={c.code} value={c.code}>
+                          {c.code}: {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* 2. Key Indicator */}
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">
+                      2. Key Indicator
+                    </label>
+                    <select
+                      value={editingDocModal.ki}
+                      onChange={(e) => {
+                        const nextKi = toCanonicalKi(e.target.value);
+                        const metrics = NAAC_METRICS_LIST.filter(
+                          (m) =>
+                            m.criterionCode.toLowerCase() ===
+                            editingDocModal.crit.toLowerCase()
+                        );
+                        const nextMetric =
+                          metrics.find((m) => m.code.startsWith(nextKi))?.code ||
+                          metrics[0]?.code ||
+                          '1.1.1';
+                        setEditingDocModal({
+                          ...editingDocModal,
+                          ki: nextKi,
+                          metric: nextMetric,
+                        });
+                      }}
+                      className="w-full text-xs font-semibold px-3 py-2 border border-gray-300 rounded-xl bg-white text-gray-800 outline-none focus:border-blue-500 cursor-pointer"
+                    >
+                      {KEY_INDICATORS.filter(
+                        (k) =>
+                          k.criterionCode.toLowerCase() ===
+                          editingDocModal.crit.toLowerCase()
+                      ).map((ki) => (
+                        <option key={ki.code} value={ki.code}>
+                          KI {ki.code}: {ki.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* 3. Metric */}
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">
+                      3. Metric
+                    </label>
+                    <select
+                      value={editingDocModal.metric}
+                      onChange={(e) => {
+                        const nextMetric = toCanonicalMetric(e.target.value);
+                        const parts = nextMetric.split('.');
+                        const parentKi =
+                          parts.length >= 2 ? `${parts[0]}.${parts[1]}` : editingDocModal.ki;
+                        setEditingDocModal({
+                          ...editingDocModal,
+                          ki: parentKi,
+                          metric: nextMetric,
+                        });
+                      }}
+                      className="w-full text-xs font-semibold px-3 py-2 border border-gray-300 rounded-xl bg-white text-gray-800 outline-none focus:border-blue-500 cursor-pointer"
+                    >
+                      {NAAC_METRICS_LIST.filter(
+                        (m) =>
+                          m.criterionCode.toLowerCase() ===
+                          editingDocModal.crit.toLowerCase()
+                      ).map((m) => (
+                        <option key={m.code} value={m.code}>
+                          {m.code} ({m.metricType}) — {m.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="px-5 py-3.5 bg-gray-50 border-t border-gray-100 flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingDocModal(null)}
+                    className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-gray-600 hover:bg-gray-200 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const critObj = NAAC_CRITERIA_SUMMARY.find(
+                        (c) =>
+                          c.code.toLowerCase() === editingDocModal.crit.toLowerCase()
+                      );
+                      const metricObj = NAAC_METRICS_LIST.find(
+                        (m) => m.code === editingDocModal.metric
+                      );
+                      addOrUpdateNaacDocument({
+                        id: editingDocModal.docId,
+                        criterionCode: editingDocModal.crit,
+                        criterionId: critObj?.id || 'crit-1',
+                        keyIndicatorCode: editingDocModal.ki,
+                        metricCode: editingDocModal.metric,
+                        metricName:
+                          metricObj?.name || `${editingDocModal.metric} Evidence Proof`,
+                      });
+                      refreshDocuments();
+                      setSuccessToast(
+                        `Updated "${editingDocModal.fileName}" to ${editingDocModal.crit} › KI ${editingDocModal.ki} › Metric ${editingDocModal.metric}`
+                      );
+                      setTimeout(() => setSuccessToast(null), 3500);
+                      setEditingDocModal(null);
+                    }}
+                    className="px-4 py-1.5 rounded-lg text-xs font-bold text-white bg-[#1d4ed8] hover:bg-blue-800 shadow-2xs cursor-pointer"
+                  >
+                    Save Changes
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+      /* Center Uncluttered Experience */
       <div className="flex flex-col items-center justify-center min-h-[62vh] sm:min-h-[68vh] max-w-5xl w-full mx-auto px-4 text-center pt-8 sm:pt-14 pb-8">
         {/* Bold Heading */}
         <div className="mb-4">
@@ -1524,13 +1992,28 @@ Respond in JSON ONLY:
                   </div>
                 </div>
 
-                {/* Right: Mode Status Pill */}
+                {/* Right: Mode Status / Complete Filing Checkbox */}
                 <div className="flex items-center gap-2 shrink-0">
                   {useAi ? (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200/90 shadow-2xs">
+                    <label
+                      htmlFor="auto-complete-filing-dropzone"
+                      className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold cursor-pointer select-none transition-all border shadow-2xs ${
+                        autoCompleteFiling
+                          ? 'bg-emerald-50 text-emerald-900 border-emerald-300 ring-1 ring-emerald-200'
+                          : 'bg-amber-50/90 hover:bg-amber-100/80 text-amber-900 border-amber-200'
+                      }`}
+                      title="Automatically file uploaded documents into their respective Criteria & Metrics without a confirmation step"
+                    >
+                      <input
+                        id="auto-complete-filing-dropzone"
+                        type="checkbox"
+                        checked={autoCompleteFiling}
+                        onChange={(e) => setAutoCompleteFiling(e.target.checked)}
+                        className="w-3.5 h-3.5 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer accent-emerald-700"
+                      />
                       <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />
-                      <span>AI Reads &amp; Auto-Maps Criterion</span>
-                    </span>
+                      <span>Let AI do complete filing</span>
+                    </label>
                   ) : (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
                       <span>Manual Mode: Coordinator assigns destination</span>
@@ -1614,6 +2097,8 @@ Respond in JSON ONLY:
                                 metricCode: m,
                                 metricName: metricObj?.name || `${m} Evidence Proof`,
                                 metricType: metricObj?.metricType || 'QnM',
+                                aiReason: sug.reason,
+                                aiAutoFiled: true,
                               });
                               return {
                                 ...item,
@@ -1708,6 +2193,50 @@ Respond in JSON ONLY:
                     <Sparkles className={`w-3.5 h-3.5 ${useAi ? 'text-amber-600 fill-amber-500' : 'text-gray-400'}`} />
                     <span>Enable AI</span>
                   </label>
+
+                  {useAi && (
+                    <label
+                      htmlFor="auto-complete-filing-card"
+                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold select-none cursor-pointer transition-all shrink-0 border ${
+                        autoCompleteFiling
+                          ? 'bg-emerald-100 text-emerald-900 border-emerald-300 shadow-2xs'
+                          : 'bg-white hover:bg-emerald-50/70 text-gray-700 border-gray-300'
+                      }`}
+                      title="Automatically file attached documents under AI-detected Criteria"
+                    >
+                      <input
+                        id="auto-complete-filing-card"
+                        type="checkbox"
+                        checked={autoCompleteFiling}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setAutoCompleteFiling(checked);
+                          if (checked && uploadedFilesBatch.length > 0) {
+                            const crits = Array.from(
+                              new Set(
+                                uploadedFilesBatch.map(
+                                  (f) => `${toCanonicalCrit(f.crit)} (${toCanonicalMetric(f.metric)})`
+                                )
+                              )
+                            ).join(', ');
+                            const ids = uploadedFilesBatch.map((f) => f.docId);
+                            setAutoFiledNotice({
+                              count: uploadedFilesBatch.length,
+                              criteriaSummary: crits,
+                              docIds: ids,
+                            });
+                            setUploadedFile(null);
+                            setUploadedFilesBatch([]);
+                            setActiveDocId(null);
+                            setAiSuggestion(null);
+                            setIsChangeOpen(false);
+                          }
+                        }}
+                        className="w-3.5 h-3.5 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer accent-emerald-700"
+                      />
+                      <span>Let AI do complete filing</span>
+                    </label>
+                  )}
 
                   <div className="h-4 w-px bg-gray-200 hidden sm:block shrink-0" />
 
@@ -2465,6 +2994,47 @@ Respond in JSON ONLY:
             </div>
           )}
 
+          {/* Zero-Click AI Auto-Filed Status Banner & Link to Directory */}
+          {autoFiledNotice && !uploadedFile && (
+            <div className="max-w-4xl mx-auto bg-emerald-50 border border-emerald-200 rounded-2xl px-4 py-3.5 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3 text-left animate-in fade-in slide-in-from-top-1">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+                  <CheckCircle2 className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs sm:text-sm font-bold text-emerald-950">
+                    {autoFiledNotice.count}{' '}
+                    {autoFiledNotice.count === 1 ? 'document has been' : 'documents have been'}{' '}
+                    automatically filed by AI under Criteria
+                  </p>
+                  <p className="text-[11px] text-emerald-800 truncate mt-0.5">
+                    Filed into: <span className="font-semibold">{autoFiledNotice.criteriaSummary}</span>
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setIsDirectoryViewOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-800 shadow-2xs transition-colors cursor-pointer"
+                >
+                  <FolderOpen className="w-3.5 h-3.5" />
+                  <span>View Filed Directory</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAutoFiledNotice(null)}
+                  className="p-1.5 rounded-lg text-emerald-700 hover:bg-emerald-100 cursor-pointer"
+                  title="Dismiss"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* OpenAI Pass Key Below Drop Area */}
           {useAi && (
             <div className="flex items-center justify-center pt-3 animate-in fade-in slide-in-from-top-1">
@@ -2506,9 +3076,8 @@ Respond in JSON ONLY:
             </div>
           )}
         </form>
-
-        
       </div>
+      )}
 
       {/* Criteria Guidelines Modal */}
       {isGuidelinesOpen && (

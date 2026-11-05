@@ -190,9 +190,10 @@ export const Layout: React.FC<LayoutProps> = ({
               <NirfShowcaseAdmin />
             ) : activeModuleId === 'naac-aqar-standalone' || (typeof window !== 'undefined' && localStorage.getItem('college_cms_portal_type') === 'naac-program' && (activeModuleId === 'naac-aqar' || activeModuleId === 'naac-ssr' || activeModuleId === 'naac-dvv')) ? (
               <ProgramCoordinatorDesk activeSection={activeModuleId === 'naac-ssr' ? 'ssr' : activeModuleId === 'naac-dvv' ? 'dvv' : 'aqar'} />
-            ) : activeModuleId === 'naac-quick-drop' ? (
+            ) : activeModuleId === 'naac-quick-drop' || activeModuleId === 'naac-evidence-directory' ? (
               <NaacQuickUploadLanding
                 academicYear="2024-25"
+                initialDirectoryOpen={activeModuleId === 'naac-evidence-directory'}
                 onNavigateToDocumentList={() =>
                   handleSelectMenuItem('naac-ssr-cycle', 'Cycle (SSR)')
                 }
