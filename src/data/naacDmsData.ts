@@ -1493,23 +1493,41 @@ const INITIAL_NAAC_DOCUMENTS: NaacEvidenceDocument[] = [
 ];
 
 const NAAC_STORAGE_KEY = 'itm_naac_dms_documents';
+const NAAC_DELETED_IDS_KEY = 'itm_naac_deleted_doc_ids';
+
+const getDeletedDocIds = (): Set<string> => {
+  try {
+    const raw = localStorage.getItem(NAAC_DELETED_IDS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return new Set(parsed);
+    }
+  } catch {
+    // ignore
+  }
+  return new Set();
+};
 
 export const getStoredNaacDocuments = (): NaacEvidenceDocument[] => {
   try {
+    const deletedIds = getDeletedDocIds();
     const raw = localStorage.getItem(NAAC_STORAGE_KEY);
     if (!raw) {
-      localStorage.setItem(NAAC_STORAGE_KEY, JSON.stringify(INITIAL_NAAC_DOCUMENTS));
-      return INITIAL_NAAC_DOCUMENTS;
+      const initialFiltered = INITIAL_NAAC_DOCUMENTS.filter(d => !deletedIds.has(d.id));
+      localStorage.setItem(NAAC_STORAGE_KEY, JSON.stringify(initialFiltered));
+      return initialFiltered;
     }
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed)) {
-      // Ensure all standard initial documents are present so newly added samples show up
+      // Ensure all standard initial documents (except deleted ones) are present so newly added samples show up
       let updated = false;
-      const validParsed = parsed.filter((d): d is NaacEvidenceDocument => Boolean(d && typeof d === 'object'));
+      const validParsed = parsed.filter(
+        (d): d is NaacEvidenceDocument => Boolean(d && typeof d === 'object' && !deletedIds.has(d.id))
+      );
       const parsedIds = new Set(validParsed.map(d => d?.id).filter(Boolean));
       const merged = [...validParsed];
       INITIAL_NAAC_DOCUMENTS.forEach(initDoc => {
-        if (initDoc?.id && !parsedIds.has(initDoc.id)) {
+        if (initDoc?.id && !parsedIds.has(initDoc.id) && !deletedIds.has(initDoc.id)) {
           merged.push(initDoc);
           updated = true;
         }
@@ -1882,12 +1900,14 @@ export const verifyUniversityDocument = (docId: string, verified: boolean, note:
 
 export const deleteNaacDocument = (docId: string): boolean => {
   const current = getStoredNaacDocuments();
-  const target = current.find(d => d.id === docId);
-  // Protect submitted documents from deletion (only drafts can be deleted)
-  if (target && target.status && target.status !== 'draft') {
-    return false;
-  }
   const filtered = current.filter(d => d.id !== docId);
+  try {
+    const deletedIds = getDeletedDocIds();
+    deletedIds.add(docId);
+    localStorage.setItem(NAAC_DELETED_IDS_KEY, JSON.stringify(Array.from(deletedIds)));
+  } catch {
+    // ignore
+  }
   saveAllNaacDocuments(filtered);
   return true;
 };

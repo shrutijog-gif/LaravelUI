@@ -48,7 +48,7 @@ import {
   submitBatchNaacDocuments,
   getStoredNaacCycles
 } from '../../../data/naacDmsData';
-import { openFileInNewTab } from '../../../utils/fileHelper';
+import { openFileInNewTab, generateCompiledNaacIndexPdfDataUrl } from '../../../utils/fileHelper';
 
 export interface NaacQuickUploadLandingProps {
   academicYear: string;
@@ -1387,7 +1387,10 @@ Respond in JSON ONLY:
   const handleDelete = (docId: string, title: string) => {
     if (window.confirm(`Delete evidence file "${title}"?`)) {
       deleteNaacDocument(docId);
+      setSelectedDirectoryDocIds((prev) => prev.filter((id) => id !== docId));
       refreshDocuments();
+      setSuccessToast(`Deleted "${title}" from Evidence Directory.`);
+      setTimeout(() => setSuccessToast(null), 3000);
     }
   };
 
@@ -1991,9 +1994,6 @@ Respond in JSON ONLY:
                                             >
                                               {doc.fileName || doc.title}
                                             </span>
-                                            <span className="text-[11px] text-gray-400 shrink-0">
-                                              ({doc.fileSize || 'PDF'})
-                                            </span>
 
                                             {/* Compiled PDF Badge + Included Files Popover */}
                                             {doc.isCompiledPdf && (
@@ -2047,28 +2047,6 @@ Respond in JSON ONLY:
                                                     </div>
                                                   )}
                                               </div>
-                                            )}
-
-                                            {/* Copy NAAC Portal Link Button on Compiled PDFs */}
-                                            {doc.isCompiledPdf && doc.naacPortalUrl && (
-                                              <button
-                                                type="button"
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  navigator.clipboard?.writeText(
-                                                    doc.naacPortalUrl || ''
-                                                  );
-                                                  setSuccessToast(
-                                                    `Copied NAAC Portal URL: ${doc.naacPortalUrl}`
-                                                  );
-                                                  setTimeout(() => setSuccessToast(null), 4000);
-                                                }}
-                                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-[10px] font-bold cursor-pointer transition-colors shrink-0"
-                                                title={`Copy NAAC SSR Portal Link: ${doc.naacPortalUrl}`}
-                                              >
-                                                <Copy className="w-2.5 h-2.5" />
-                                                <span>Copy NAAC Link</span>
-                                              </button>
                                             )}
 
                                             {/* Interactive AI Filed Badge (Hover or Click for AI Reasoning Popover) */}
@@ -2133,6 +2111,31 @@ Respond in JSON ONLY:
                                             </div>
 
                                             <div className="inline-flex items-center gap-1">
+                                              <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  const docShareUrl =
+                                                    doc.naacPortalUrl ||
+                                                    `${window.location.origin}/?naacDoc=${encodeURIComponent(
+                                                      doc.id
+                                                    )}&file=${encodeURIComponent(
+                                                      (doc.fileName || doc.title || 'document.pdf').replace(
+                                                        /\s+/g,
+                                                        '_'
+                                                      )
+                                                    )}`;
+                                                  navigator.clipboard?.writeText(docShareUrl);
+                                                  setSuccessToast(
+                                                    `Copied document link: ${docShareUrl}`
+                                                  );
+                                                  setTimeout(() => setSuccessToast(null), 3500);
+                                                }}
+                                                className="p-1.5 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg cursor-pointer transition-colors"
+                                                title="Copy Document Link for NAAC Portal"
+                                              >
+                                                <Copy className="w-3.5 h-3.5" />
+                                              </button>
                                               <button
                                                 type="button"
                                                 onClick={() =>
@@ -2426,9 +2429,6 @@ Respond in JSON ONLY:
                               {sDoc.fileName || sDoc.title}
                             </span>
                           </div>
-                          <span className="text-[11px] text-gray-400 shrink-0">
-                            {sDoc.fileSize || 'PDF'}
-                          </span>
                         </div>
                       ))}
                     </div>
@@ -2573,7 +2573,10 @@ Respond in JSON ONLY:
                       </span>
                     </div>
                     <div className="font-mono text-[11px] text-emerald-800 truncate bg-white px-2.5 py-1.5 rounded-lg border border-emerald-200">
-                      {`https://portal.college.edu.in/naac/${selectedCycleId || 'cycle-3'}/${encodeURIComponent(
+                      {`${window.location.origin}/?naacDoc=compiled-${compilePdfModal.metric.replace(
+                        /\./g,
+                        '-'
+                      )}&file=${encodeURIComponent(
                         compilePdfModal.fileName || 'Compiled_Evidence.pdf'
                       )}`}
                     </div>
@@ -2601,26 +2604,49 @@ Respond in JSON ONLY:
                       const finalFileName =
                         compilePdfModal.fileName.trim() ||
                         `Metric_${compilePdfModal.metric}_Compiled_Evidence.pdf`;
-                      const portalUrl = `https://portal.college.edu.in/naac/${
-                        selectedCycleId || 'cycle-3'
-                      }/${encodeURIComponent(finalFileName)}`;
-
-                      const totalMb = compilePdfModal.sourceDocs
-                        .reduce((acc, d) => {
-                          const num = parseFloat(d.fileSize || '1.8');
-                          return acc + (isNaN(num) ? 1.8 : num);
-                        }, 0)
-                        .toFixed(1);
-
                       const compiledDocId = `compiled-${Date.now()}`;
+                      const portalUrl = `${window.location.origin}/?naacDoc=${compiledDocId}&file=${encodeURIComponent(
+                        finalFileName
+                      )}`;
+
+                      const activeCycleObj = cycles.find(
+                        (c) => c.id === selectedCycleId
+                      );
+                      const cycleLabel = activeCycleObj
+                        ? `${activeCycleObj.cycleNumber} (${activeCycleObj.yearFrom} to ${activeCycleObj.yearTo})`
+                        : 'NAAC Cycle 3 (2021-22 to 2025-26)';
+
+                      const generatedPdfDataUrl = generateCompiledNaacIndexPdfDataUrl({
+                        cycleTitle: cycleLabel,
+                        criterionCode: compilePdfModal.crit,
+                        keyIndicatorCode: compilePdfModal.ki,
+                        metricCode: compilePdfModal.metric,
+                        metricName:
+                          metricObj?.name ||
+                          `Metric ${compilePdfModal.metric} Compiled Evidence`,
+                        compiledFileName: finalFileName,
+                        documents: compilePdfModal.sourceDocs.map((d) => ({
+                          id: d.id,
+                          title: d.title,
+                          fileName: d.fileName || d.title,
+                          fileSize: d.fileSize || '1.8 MB',
+                          uploadedBy: d.uploadedBy || 'IQAC / Faculty',
+                          uploadedAt: d.uploadedAt,
+                          fileUrl: d.fileUrl,
+                        })),
+                      });
+
+                      const kbSize = Math.max(
+                        28,
+                        Math.round((generatedPdfDataUrl.length * 0.75) / 1024) + 24
+                      );
+
                       addOrUpdateNaacDocument({
                         id: compiledDocId,
                         title: finalFileName.replace(/\.pdf$/i, ''),
                         fileName: finalFileName,
-                        fileSize: `${totalMb} MB`,
-                        fileUrl:
-                          compilePdfModal.sourceDocs[0]?.fileUrl ||
-                          'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+                        fileSize: `${kbSize} KB (Index PDF)`,
+                        fileUrl: generatedPdfDataUrl,
                         criterionCode: compilePdfModal.crit,
                         criterionId: critObj?.id || 'crit-1',
                         keyIndicatorCode: compilePdfModal.ki,
@@ -2652,8 +2678,9 @@ Respond in JSON ONLY:
                       }));
                       setSelectedDirectoryDocIds([]);
                       setCompilePdfModal(null);
+                      openFileInNewTab(generatedPdfDataUrl, finalFileName);
                       setSuccessToast(
-                        `Compiled ${compilePdfModal.sourceDocs.length} files into "${finalFileName}" under ${compilePdfModal.crit} › KI ${compilePdfModal.ki} & copied NAAC link!`
+                        `Generated lightweight Index PDF (${kbSize} KB) with ${compilePdfModal.sourceDocs.length} document links & copied NAAC link!`
                       );
                       setTimeout(() => setSuccessToast(null), 5000);
                     }}

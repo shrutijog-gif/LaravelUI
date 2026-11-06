@@ -5,6 +5,8 @@ import PublicStoreApp from './components/storefront/PublicStoreApp';
 import { PortalLandingPage, PortalType } from './components/auth/PortalLandingPage';
 import { LoginPage } from './components/auth/LoginPage';
 import { isAuthenticated, logout } from './services/authService';
+import { getStoredNaacDocuments } from './data/naacDmsData';
+import { dataUrlToBlob } from './utils/fileHelper';
 
 export function App() {
   const isDirectPagePath = () => {
@@ -88,6 +90,33 @@ export function App() {
     setIsLoggedIn(false);
     setSelectedPortal(null);
   };
+
+  // Direct NAAC Document / Compiled Index PDF Link Viewer (?naacDoc=...)
+  const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+  const naacDocParam = searchParams?.get('naacDoc');
+  if (naacDocParam) {
+    const allDocs = getStoredNaacDocuments();
+    const matchedDoc = allDocs.find((d) => d.id === naacDocParam);
+    const rawUrl = matchedDoc?.fileUrl || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf';
+    let viewerSrc = rawUrl;
+    if (rawUrl.startsWith('data:')) {
+      try {
+        const blob = dataUrlToBlob(rawUrl);
+        viewerSrc = URL.createObjectURL(blob);
+      } catch {
+        viewerSrc = 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf';
+      }
+    }
+    return (
+      <div className="w-screen h-screen bg-slate-900 flex flex-col">
+        <iframe
+          src={viewerSrc}
+          title={matchedDoc?.fileName || 'NAAC Evidence PDF'}
+          className="w-full h-full border-0 flex-1"
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col">
