@@ -33,7 +33,8 @@ import {
   Send,
   Home,
   Pencil,
-  Copy
+  Copy,
+  Settings
 } from 'lucide-react';
 import { 
   NAAC_CRITERIA_SUMMARY, 
@@ -46,7 +47,8 @@ import {
   addOrUpdateNaacDocument, 
   deleteNaacDocument,
   submitBatchNaacDocuments,
-  getStoredNaacCycles
+  getStoredNaacCycles,
+  saveNaacCycles
 } from '../../../data/naacDmsData';
 import { openFileInNewTab, generateCompiledNaacIndexPdfDataUrl } from '../../../utils/fileHelper';
 
@@ -371,6 +373,44 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
     sourceDocs: NaacEvidenceDocument[];
   } | null>(null);
   const [openCompiledFilesDocId, setOpenCompiledFilesDocId] = useState<string | null>(null);
+  const [isManageCyclesModalOpen, setIsManageCyclesModalOpen] = useState<boolean>(false);
+  const [draftCycles, setDraftCycles] = useState<NaacSsrCycle[]>([]);
+  const [editingCycleRowId, setEditingCycleRowId] = useState<string | null>(null);
+  const ACADEMIC_YEAR_OPTIONS = Array.from({ length: 26 }, (_, i) => {
+    const startYear = 2010 + i;
+    const endShort = String((startYear + 1) % 100).padStart(2, '0');
+    return `${startYear}-${endShort}`;
+  });
+  const getFiveYearEndAcademicYear = (fromYr: string): string => {
+    const startYear = parseInt(fromYr.split('-')[0], 10);
+    if (isNaN(startYear)) return fromYr;
+    const targetStart = startYear + 4;
+    const targetEndShort = String((targetStart + 1) % 100).padStart(2, '0');
+    return `${targetStart}-${targetEndShort}`;
+  };
+  const [newCycleDraft, setNewCycleDraft] = useState<{
+    cycleNumber: string;
+    yearFrom: string;
+    yearTo: string;
+    status: 'Active' | 'Submitted' | 'Completed';
+  }>({
+    cycleNumber: '',
+    yearFrom: '',
+    yearTo: '',
+    status: 'Active',
+  });
+
+  const openManageCyclesModal = () => {
+    setDraftCycles(cycles.map((c) => ({ ...c })));
+    setEditingCycleRowId(null);
+    setNewCycleDraft({
+      cycleNumber: `NAAC Cycle ${cycles.length + 1}`,
+      yearFrom: '2026-27',
+      yearTo: '2030-31',
+      status: 'Active',
+    });
+    setIsManageCyclesModalOpen(true);
+  };
   const [openaiKey, setOpenaiKey] = useState<string>(() => localStorage.getItem('openai_api_key') || '');
   const [showOpenaiKey, setShowOpenaiKey] = useState<boolean>(false);
   const [isAiProcessing, setIsAiProcessing] = useState<boolean>(false);
@@ -1438,6 +1478,298 @@ Respond in JSON ONLY:
         </div>
       )}
 
+      {/* Manage / Edit / Add NAAC Cycles Popup Modal */}
+      {isManageCyclesModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 max-w-xl w-full overflow-hidden animate-in zoom-in-95">
+            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-slate-50">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0">
+                  <Calendar className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900">
+                    Manage NAAC Accreditation Cycles
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Edit existing cycle years or add a new NAAC SSR cycle
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsManageCyclesModalOpen(false)}
+                className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-5 max-h-[75vh] overflow-y-auto">
+              {/* 1. First Row: + Add New Cycle */}
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-2">
+                  + Add New Cycle
+                </label>
+                <div className="grid grid-cols-12 gap-2 items-end bg-blue-50/40 p-3 rounded-xl border border-blue-200/80">
+                  <div className="col-span-4">
+                    <label className="block text-[10px] font-bold text-gray-600 uppercase mb-0.5">
+                      Cycle Title
+                    </label>
+                    <input
+                      type="text"
+                      value={newCycleDraft.cycleNumber}
+                      onChange={(e) =>
+                        setNewCycleDraft({ ...newCycleDraft, cycleNumber: e.target.value })
+                      }
+                      placeholder="NAAC Cycle 4"
+                      className="w-full text-xs font-semibold px-2.5 py-1.5 bg-white border border-gray-300 rounded-lg outline-none focus:border-blue-500 text-gray-900"
+                    />
+                  </div>
+                  <div className="col-span-3">
+                    <label className="block text-[10px] font-bold text-gray-600 uppercase mb-0.5">
+                      From Year
+                    </label>
+                    <select
+                      value={newCycleDraft.yearFrom}
+                      onChange={(e) => {
+                        const fromYr = e.target.value;
+                        setNewCycleDraft({
+                          ...newCycleDraft,
+                          yearFrom: fromYr,
+                          yearTo: getFiveYearEndAcademicYear(fromYr),
+                        });
+                      }}
+                      className="w-full text-xs font-semibold px-2 py-1.5 bg-white border border-gray-300 rounded-lg outline-none focus:border-blue-500 text-gray-900 cursor-pointer"
+                    >
+                      {ACADEMIC_YEAR_OPTIONS.map((yr) => (
+                        <option key={yr} value={yr}>
+                          {yr}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="col-span-3">
+                    <label className="block text-[10px] font-bold text-gray-600 uppercase mb-0.5">
+                      To Year
+                    </label>
+                    <select
+                      value={newCycleDraft.yearTo}
+                      onChange={(e) =>
+                        setNewCycleDraft({ ...newCycleDraft, yearTo: e.target.value })
+                      }
+                      className="w-full text-xs font-semibold px-2 py-1.5 bg-white border border-gray-300 rounded-lg outline-none focus:border-blue-500 text-gray-900 cursor-pointer"
+                    >
+                      {ACADEMIC_YEAR_OPTIONS.map((yr) => (
+                        <option key={yr} value={yr}>
+                          {yr}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="col-span-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!newCycleDraft.cycleNumber.trim()) return;
+                        const newId = `cycle-${Date.now()}`;
+                        const added: NaacSsrCycle = {
+                          id: newId,
+                          cycleNumber: newCycleDraft.cycleNumber.trim(),
+                          yearFrom: newCycleDraft.yearFrom.trim() || '2026-27',
+                          yearTo: newCycleDraft.yearTo.trim() || '2030-31',
+                          status: 'Active',
+                          createdAt: new Date().toISOString().split('T')[0],
+                        };
+                        const updatedList = [added, ...draftCycles];
+                        setDraftCycles(updatedList);
+                        saveNaacCycles(updatedList);
+                        setCycles(updatedList);
+                        setNewCycleDraft({
+                          cycleNumber: `NAAC Cycle ${updatedList.length + 1}`,
+                          yearFrom: '2031-32',
+                          yearTo: '2035-36',
+                          status: 'Active',
+                        });
+                        setSuccessToast(`Added "${added.cycleNumber}"!`);
+                        setTimeout(() => setSuccessToast(null), 3000);
+                      }}
+                      className="w-full py-1.5 px-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg cursor-pointer inline-flex items-center justify-center gap-1 transition-colors"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. Existing Cycles List (Read-only by default, editable on clicking Edit icon) */}
+              <div className="pt-3 border-t border-gray-200">
+                <label className="block text-xs font-bold text-gray-700 mb-2">
+                  Existing NAAC Cycles
+                </label>
+                <div className="space-y-2">
+                  {draftCycles.map((cyc, idx) => {
+                    const isRowEditing = editingCycleRowId === cyc.id;
+
+                    return (
+                      <div
+                        key={cyc.id}
+                        className={`rounded-xl border transition-colors ${
+                          isRowEditing
+                            ? 'bg-blue-50/30 border-blue-300 p-2.5'
+                            : 'bg-slate-50 border-slate-200 px-3.5 py-2.5 flex items-center justify-between gap-3'
+                        }`}
+                      >
+                        {isRowEditing ? (
+                          <div className="grid grid-cols-12 gap-2 items-center">
+                            <div className="col-span-4">
+                              <label className="block text-[10px] font-bold text-gray-500 uppercase mb-0.5">
+                                Cycle Title
+                              </label>
+                              <input
+                                type="text"
+                                value={cyc.cycleNumber}
+                                onChange={(e) => {
+                                  const next = [...draftCycles];
+                                  next[idx] = { ...cyc, cycleNumber: e.target.value };
+                                  setDraftCycles(next);
+                                }}
+                                className="w-full text-xs font-bold px-2.5 py-1.5 bg-white border border-blue-400 rounded-lg outline-none focus:border-blue-600 text-gray-900"
+                              />
+                            </div>
+
+                            <div className="col-span-3">
+                              <label className="block text-[10px] font-bold text-gray-500 uppercase mb-0.5">
+                                From Year
+                              </label>
+                              <select
+                                value={cyc.yearFrom}
+                                onChange={(e) => {
+                                  const fromYr = e.target.value;
+                                  const next = [...draftCycles];
+                                  next[idx] = {
+                                    ...cyc,
+                                    yearFrom: fromYr,
+                                    yearTo: getFiveYearEndAcademicYear(fromYr),
+                                  };
+                                  setDraftCycles(next);
+                                }}
+                                className="w-full text-xs font-semibold px-2 py-1.5 bg-white border border-blue-400 rounded-lg outline-none focus:border-blue-600 text-gray-800 cursor-pointer"
+                              >
+                                {ACADEMIC_YEAR_OPTIONS.map((yr) => (
+                                  <option key={yr} value={yr}>
+                                    {yr}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div className="col-span-3">
+                              <label className="block text-[10px] font-bold text-gray-500 uppercase mb-0.5">
+                                To Year
+                              </label>
+                              <select
+                                value={cyc.yearTo}
+                                onChange={(e) => {
+                                  const next = [...draftCycles];
+                                  next[idx] = { ...cyc, yearTo: e.target.value };
+                                  setDraftCycles(next);
+                                }}
+                                className="w-full text-xs font-semibold px-2 py-1.5 bg-white border border-blue-400 rounded-lg outline-none focus:border-blue-600 text-gray-800 cursor-pointer"
+                              >
+                                {ACADEMIC_YEAR_OPTIONS.map((yr) => (
+                                  <option key={yr} value={yr}>
+                                    {yr}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div className="col-span-2 flex items-center justify-end gap-1 pt-3.5">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  saveNaacCycles(draftCycles);
+                                  setCycles(draftCycles);
+                                  setEditingCycleRowId(null);
+                                  setSuccessToast(`Saved "${cyc.cycleNumber}"!`);
+                                  setTimeout(() => setSuccessToast(null), 2500);
+                                }}
+                                className="p-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg cursor-pointer transition-colors"
+                                title="Save Changes"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setDraftCycles(cycles.map((c) => ({ ...c })));
+                                  setEditingCycleRowId(null);
+                                }}
+                                className="p-1.5 bg-white hover:bg-gray-100 text-gray-500 border border-gray-200 rounded-lg cursor-pointer transition-colors"
+                                title="Cancel Edit"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <span className="text-xs font-bold text-gray-900">
+                                {cyc.cycleNumber}
+                              </span>
+                              <span className="text-gray-300">&bull;</span>
+                              <span className="text-xs font-semibold text-blue-700 bg-white border border-slate-200 px-2.5 py-0.5 rounded-md">
+                                {cyc.yearFrom} to {cyc.yearTo}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => setEditingCycleRowId(cyc.id)}
+                                className="p-1.5 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg cursor-pointer transition-colors"
+                                title="Edit Cycle"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              {draftCycles.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updatedList = draftCycles.filter(
+                                      (c) => c.id !== cyc.id
+                                    );
+                                    setDraftCycles(updatedList);
+                                    saveNaacCycles(updatedList);
+                                    setCycles(updatedList);
+                                    if (!updatedList.some((c) => c.id === selectedCycleId)) {
+                                      setSelectedCycleId(updatedList[0].id);
+                                    }
+                                    setSuccessToast(`Deleted "${cyc.cycleNumber}".`);
+                                    setTimeout(() => setSuccessToast(null), 2500);
+                                  }}
+                                  className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer transition-colors"
+                                  title="Delete Cycle"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Top Navigation Bar: Single Unified Line */}
       <div className="flex items-center justify-between py-1">
         {topBarLeftSlot ? (
@@ -1543,6 +1875,14 @@ Respond in JSON ONLY:
                     </option>
                   ))}
                 </select>
+                <button
+                  type="button"
+                  onClick={openManageCyclesModal}
+                  className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors cursor-pointer border-l border-gray-200 pl-2"
+                  title="Edit or Add NAAC Cycles"
+                >
+                  <Settings className="w-3.5 h-3.5" />
+                </button>
               </div>
 
               <span className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-xs font-bold whitespace-nowrap shrink-0">
@@ -2727,6 +3067,14 @@ Respond in JSON ONLY:
                 </option>
               ))}
             </select>
+            <button
+              type="button"
+              onClick={openManageCyclesModal}
+              className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer border-l border-gray-200 pl-2.5"
+              title="Edit or Add NAAC Cycles"
+            >
+              <Settings className="w-4 h-4" />
+            </button>
           </div>
         </div>
 
