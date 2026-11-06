@@ -1844,20 +1844,7 @@ Respond in JSON ONLY:
             </span>
           )}
 
-          {!topBarLeftSlot && role !== 'faculty' && !isDirectoryViewOpen && (
-            <button
-              type="button"
-              onClick={() => setIsDirectoryViewOpen(true)}
-              className="text-xs font-semibold text-[#0f2748] hover:text-blue-700 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors flex items-center gap-1.5 cursor-pointer"
-              title="Open Filed NAAC Evidence Directory"
-            >
-              <FolderOpen className="w-4 h-4 text-blue-600" />
-              <span>Filed Evidence Directory</span>
-              <span className="px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold">
-                {documents.length}
-              </span>
-            </button>
-          )}
+
         </div>
       </div>
 
