@@ -40,23 +40,24 @@ export const Layout: React.FC<LayoutProps> = ({
 }) => {
   const getInitialModule = (): string => {
     const portalType = typeof window !== 'undefined' ? localStorage.getItem('college_cms_portal_type') : null;
-    if (portalType === 'cms-naac') return 'naac-ssr-cycle';
+    if (portalType === 'cms-naac') return 'naac-quick-drop';
     if (portalType === 'naac-faculty') return 'naac-faculty';
     if (portalType === 'naac-program') return 'naac-aqar-standalone';
     if (portalType === 'naac-school') return 'naac-school';
     if (portalType === 'naac-university') return 'naac-university';
-    return initialPortalRole === 'superadmin' ? 'module-studio' : 'dashboard';
+    return initialPortalRole === 'superadmin' ? 'module-studio' : 'naac-quick-drop';
   };
 
   const [activeModuleId, setActiveModuleId] = useState<string>(() => getInitialModule());
   const [activeModuleLabel, setActiveModuleLabel] = useState<string>(() => {
     const initMod = getInitialModule();
+    if (initMod === 'naac-quick-drop') return 'Quick Evidence Drop';
     if (initMod === 'naac-ssr-cycle') return 'Cycle (SSR)';
     if (initMod === 'naac-faculty') return 'Faculty Desk';
     if (initMod === 'naac-aqar-standalone') return 'AQAR';
     if (initMod === 'naac-school') return 'School Coordinator';
     if (initMod === 'naac-university') return 'University Coordinator';
-    return initialPortalRole === 'superadmin' ? 'Module Studio' : 'Dashboard';
+    return initialPortalRole === 'superadmin' ? 'Module Studio' : 'Quick Evidence Drop';
   });
 
   const getInitialNaacRole = (moduleId?: string): 'dashboard' | 'program' | 'school' | 'university' | 'criteria' | 'schools' => {

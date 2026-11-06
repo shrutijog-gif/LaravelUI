@@ -272,15 +272,18 @@ export const UniversityCoordinatorDesk: React.FC<UniversityCoordinatorDeskProps>
     <div className="min-h-screen bg-slate-50/50 pb-16 font-sans">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed top-5 right-5 z-50 bg-[#0f2748] text-white px-5 py-3 rounded-xl shadow-xl flex items-center gap-3 border border-purple-400/30 animate-in slide-in-from-top-2">
-          <CheckCircle2 className="w-5 h-5 text-purple-400 shrink-0" />
-          <span className="text-xs font-medium">{toastMessage}</span>
+        <div className="fixed top-20 right-6 z-50 bg-emerald-50 border border-emerald-300 text-emerald-950 px-4 py-3 rounded-xl shadow-xl flex items-center justify-between text-xs font-semibold gap-3 animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+            <span>{toastMessage}</span>
+          </div>
           <button 
             type="button" 
-            onClick={() => setToastMessage(null)}
-            className="text-white/60 hover:text-white ml-2 cursor-pointer"
+            onClick={() => setToastMessage(null)} 
+            className="text-emerald-700 hover:text-emerald-950 p-0.5 rounded cursor-pointer transition-colors shrink-0"
+            title="Dismiss"
           >
-            <X className="w-4 h-4" />
+            <X className="w-3.5 h-3.5" />
           </button>
         </div>
       )}

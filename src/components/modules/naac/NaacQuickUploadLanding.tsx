@@ -337,8 +337,8 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
   const [isChangeOpen, setIsChangeOpen] = useState<boolean>(false);
   const [isAiBoxOpen, setIsAiBoxOpen] = useState<boolean>(false);
 
-  // OpenAI Integration State (Default OFF per user requirement)
-  const [useAi, setUseAi] = useState<boolean>(false);
+  // AI Filing Mode State (Default ON for 'Let AI do the filing')
+  const [useAi, setUseAi] = useState<boolean>(true);
   const [autoCompleteFiling, setAutoCompleteFiling] = useState<boolean>(false);
   const [autoFiledNotice, setAutoFiledNotice] = useState<{
     count: number;
@@ -458,21 +458,39 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
     const parts = metric.split('.');
     const kiCode = parts.length >= 2 ? `${parts[0]}.${parts[1]}` : '1.1';
 
-    if (!useAi && uploadedFilesBatch.length > 1) {
-      // In Manual Mode with multiple files, apply the shared Criterion/KI/Metric to ALL files in the batch
-      uploadedFilesBatch.forEach((item) => {
+    if (!useAi) {
+      // In Manual Mode, apply the shared Criterion/KI/Metric to all files that haven't been manually overridden
+      if (uploadedFilesBatch.length > 0) {
+        uploadedFilesBatch.forEach((item) => {
+          if (item.isManualEdit) return; // Preserve explicit user override for this document!
+          addOrUpdateNaacDocument({
+            id: item.docId,
+            criterionCode: crit,
+            criterionId: critObj?.id || 'crit-1',
+            metricCode: metric,
+            metricName: metricObj?.name || `${metric} Evidence Proof`,
+            metricType: metricObj?.metricType || 'QnM',
+          });
+        });
+        setUploadedFilesBatch((prev) =>
+          prev.map((item) =>
+            item.isManualEdit
+              ? item
+              : { ...item, crit, keyIndicator: kiCode, metric }
+          )
+        );
+      }
+      if (activeDocId) {
         addOrUpdateNaacDocument({
-          id: item.docId,
+          id: activeDocId,
+          ...(title ? { title } : {}),
           criterionCode: crit,
           criterionId: critObj?.id || 'crit-1',
           metricCode: metric,
           metricName: metricObj?.name || `${metric} Evidence Proof`,
           metricType: metricObj?.metricType || 'QnM',
         });
-      });
-      setUploadedFilesBatch((prev) =>
-        prev.map((item) => ({ ...item, crit, keyIndicator: kiCode, metric }))
-      );
+      }
     } else {
       addOrUpdateNaacDocument({
         id: activeDocId,
@@ -553,11 +571,11 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
     setUploadedFilesBatch((prev) =>
       prev.map((item) =>
         item.docId === docId
-          ? { ...item, crit, keyIndicator: ki, metric }
+          ? { ...item, crit, keyIndicator: ki, metric, isManualEdit: true }
           : item
       )
     );
-    if (docId === activeDocId) {
+    if (docId === activeDocId && useAi) {
       setSelectedCriterionCode(crit);
       setSelectedKeyIndicatorCode(ki);
       setSelectedMetricCode(metric);
@@ -1013,9 +1031,10 @@ Respond in JSON ONLY:
     const filesArray = Array.from(fileList);
     if (filesArray.length === 0) return;
 
-    const isZeroClickAutoFile = Boolean(useAi && autoCompleteFiling);
-    const autoFiledCrits: string[] = [];
-    const autoFiledDocIds: string[] = [];
+    setAutoFiledNotice(null);
+    if (useAi) {
+      setIsAiProcessing(true);
+    }
 
     filesArray.forEach((file, index) => {
       const sizeStr = file.size > 1024 * 1024 
@@ -1032,7 +1051,7 @@ Respond in JSON ONLY:
       const ruleSug = getAiSuggestion(file.name);
       if (ruleSug) {
         initialReason = ruleSug.reason;
-        // Only split files into different criteria automatically when AI Mode is active
+        // Split files into different criteria automatically when Let AI do the filing is active
         if (useAi) {
           initialCrit = toCanonicalCrit(ruleSug.crit);
           initialKi = toCanonicalKi(ruleSug.keyIndicator);
@@ -1040,7 +1059,7 @@ Respond in JSON ONLY:
         }
       }
 
-      if (index === 0 && !isZeroClickAutoFile) {
+      if (index === 0) {
         setDocumentTitle(cleanName);
         setSelectedCriterionCode(initialCrit);
         setSelectedKeyIndicatorCode(initialKi);
@@ -1088,9 +1107,6 @@ Respond in JSON ONLY:
         const created = addOrUpdateNaacDocument(newDoc);
         const targetId = created?.id || newDoc.id;
 
-        autoFiledCrits.push(`${initialCrit} (${initialMetric})`);
-        autoFiledDocIds.push(targetId);
-
         setMyDocIds((prev) => {
           const updatedMyDocIds = Array.from(new Set([targetId, ...prev]));
           try {
@@ -1105,24 +1121,6 @@ Respond in JSON ONLY:
 
         setSelectedDocIds((prev) => Array.from(new Set([targetId, ...prev])));
         refreshDocuments();
-
-        if (isZeroClickAutoFile) {
-          // Zero-click AI complete filing: keep dropzone open, do NOT show confirm staging card
-          if (openaiKey.trim()) {
-            classifyWithOpenAi(file.name, openaiKey.trim(), rawDataUrl, targetId, false);
-          }
-          if (index === filesArray.length - 1) {
-            const uniqueCrits = Array.from(new Set(autoFiledCrits)).join(', ');
-            setAutoFiledNotice({
-              count: filesArray.length,
-              criteriaSummary: uniqueCrits,
-              docIds: [...autoFiledDocIds],
-            });
-          }
-          return;
-        }
-
-        setAutoFiledNotice(null);
 
         if (index === 0) {
           setUploadedFile({
@@ -1148,28 +1146,32 @@ Respond in JSON ONLY:
           },
         ]);
 
-        if (index === filesArray.length - 1) {
-          if (filesArray.length > 1) {
-            setSuccessToast(`✨ AI scanned & mapped ${filesArray.length} files across Criteria & Metrics! Click any file to inspect.`);
-          } else {
-            setSuccessToast(`✨ Ingested "${file.name}" as Draft into ${initialCrit} › Metric ${initialMetric}! Visible in My Evidence.`);
-          }
-          setTimeout(() => setSuccessToast(null), 4500);
-        }
-
         // If AI is enabled, classify EVERY uploaded file in the batch
         if (useAi) {
           if (openaiKey.trim()) {
             classifyWithOpenAi(file.name, openaiKey.trim(), rawDataUrl, targetId, index === 0);
-          } else if (index === 0) {
-            setIsAiBoxOpen(true);
-            setAiSuggestion({
-              crit: initialCrit,
-              keyIndicator: initialKi,
-              metric: initialMetric,
-              reason: initialReason,
-              source: 'rule-engine',
-            });
+          } else {
+            if (index === 0) {
+              setIsAiBoxOpen(true);
+              setAiSuggestion({
+                crit: initialCrit,
+                keyIndicator: initialKi,
+                metric: initialMetric,
+                reason: initialReason,
+                source: 'rule-engine',
+              });
+            }
+            if (index === filesArray.length - 1) {
+              setTimeout(() => {
+                setIsAiProcessing(false);
+                if (filesArray.length > 1) {
+                  setSuccessToast(`✨ AI scanned & mapped ${filesArray.length} documents with reasoning! Review & click Confirm to file.`);
+                } else {
+                  setSuccessToast(`✨ AI mapped "${file.name}" to ${initialCrit} › Metric ${initialMetric}! Review reasoning & click Confirm.`);
+                }
+                setTimeout(() => setSuccessToast(null), 4500);
+              }, 1600);
+            }
           }
         } else if (index === 0) {
           setIsAiBoxOpen(false);
@@ -1296,28 +1298,33 @@ Respond in JSON ONLY:
     const docTitle = documentTitle.trim() || uploadedFile.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
 
     const targetId = activeDocId || `doc-${Date.now()}`;
-    const updated = addOrUpdateNaacDocument({
-      id: targetId,
-      title: docTitle,
-      criterionCode: cleanCritCode,
-      criterionId: activeCrit?.id || 'crit-1',
-      metricCode: cleanMetricCode,
-      metricName: activeMetric?.name || `${cleanMetricCode} Evidence Proof`,
-      metricType: activeMetric?.metricType || 'QnM',
-      fileUrl: uploadedFile.dataUrl,
-      fileName,
-      fileSize: uploadedFile.size,
-      status: 'draft',
-      schoolId: schoolId || 'sch-tech',
-      programId: programId || (role === 'school' ? 'school-common' : role === 'university' ? 'univ-master' : 'prog-cse'),
-      uploadedBy: uploaderName || (role === 'school' ? 'Dean (School Coordinator)' : role === 'university' ? 'IQAC Central Committee' : 'Prof. Anita Verma'),
-      cycleId: selectedCycleId,
-    });
+    if (uploadedFilesBatch.length <= 1) {
+      addOrUpdateNaacDocument({
+        id: targetId,
+        title: docTitle,
+        criterionCode: cleanCritCode,
+        criterionId: activeCrit?.id || 'crit-1',
+        metricCode: cleanMetricCode,
+        metricName: activeMetric?.name || `${cleanMetricCode} Evidence Proof`,
+        metricType: activeMetric?.metricType || 'QnM',
+        fileUrl: uploadedFile.dataUrl,
+        fileName,
+        fileSize: uploadedFile.size,
+        status: 'draft',
+        schoolId: schoolId || 'sch-tech',
+        programId: programId || (role === 'school' ? 'school-common' : role === 'university' ? 'univ-master' : 'prog-cse'),
+        uploadedBy: uploaderName || (role === 'school' ? 'Dean (School Coordinator)' : role === 'university' ? 'IQAC Central Committee' : 'Prof. Anita Verma'),
+        cycleId: selectedCycleId,
+      });
+    }
 
-    const finalId = updated?.id || targetId;
-    const updatedMyDocIds = Array.from(new Set([finalId, ...myDocIds]));
+    const batchIds =
+      uploadedFilesBatch.length > 0
+        ? uploadedFilesBatch.map((f) => f.docId)
+        : [targetId];
+    const updatedMyDocIds = Array.from(new Set([...batchIds, ...myDocIds]));
     setMyDocIds(updatedMyDocIds);
-    setSelectedDocIds((prev) => Array.from(new Set([finalId, ...prev])));
+    setSelectedDocIds((prev) => Array.from(new Set([...batchIds, ...prev])));
     try {
       localStorage.setItem(myDocsStorageKey, JSON.stringify(updatedMyDocIds));
       localStorage.setItem('naac_my_uploaded_doc_ids_prog_cse', JSON.stringify(updatedMyDocIds));
@@ -1327,10 +1334,28 @@ Respond in JSON ONLY:
     }
     refreshDocuments();
 
-    if (uploadedFilesBatch.length > 1) {
-      setSuccessToast(`Confirmed ${uploadedFilesBatch.length} documents across Criteria & Metrics! Open My Evidence to submit.`);
+    const filedCount = uploadedFilesBatch.length > 0 ? uploadedFilesBatch.length : 1;
+    const criteriaSummary =
+      uploadedFilesBatch.length > 0
+        ? Array.from(
+            new Set(
+              uploadedFilesBatch.map(
+                (f) => `${toCanonicalCrit(f.crit)} (${toCanonicalMetric(f.metric)})`
+              )
+            )
+          ).join(', ')
+        : `${cleanCritCode} (${cleanMetricCode})`;
+
+    setAutoFiledNotice({
+      count: filedCount,
+      criteriaSummary,
+      docIds: batchIds,
+    });
+
+    if (filedCount > 1) {
+      setSuccessToast(`✓ Filed ${filedCount} documents across ${criteriaSummary}!`);
     } else {
-      setSuccessToast(`Document "${fileName}" confirmed in ${cleanCritCode} › Metric ${cleanMetricCode}! Open My Evidence to submit.`);
+      setSuccessToast(`✓ Filed "${fileName}" into ${criteriaSummary}!`);
     }
     setTimeout(() => setSuccessToast(null), 5000);
 
@@ -1463,17 +1488,18 @@ Respond in JSON ONLY:
     <div className="space-y-6 animate-in fade-in pb-12">
       {/* Toast Notification */}
       {successToast && (
-        <div className="fixed top-5 right-5 z-50 bg-emerald-700 text-white px-5 py-3.5 rounded-lg shadow-xl flex items-center gap-3 animate-in slide-in-from-top-2 border border-emerald-600">
-          <CheckCircle2 className="w-5 h-5 text-emerald-200 shrink-0" />
-          <div className="text-xs font-medium">
-            {successToast}
+        <div className="fixed top-20 right-6 z-50 bg-emerald-50 border border-emerald-300 text-emerald-950 px-4 py-3 rounded-xl shadow-xl flex items-center justify-between text-xs font-semibold gap-3 animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+            <span>{successToast}</span>
           </div>
           <button 
             type="button" 
             onClick={() => setSuccessToast(null)} 
-            className="ml-2 text-white/80 hover:text-white"
+            className="text-emerald-700 hover:text-emerald-950 p-0.5 rounded cursor-pointer transition-colors shrink-0"
+            title="Dismiss"
           >
-            <X className="w-4 h-4" />
+            <X className="w-3.5 h-3.5" />
           </button>
         </div>
       )}
@@ -1990,12 +2016,12 @@ Respond in JSON ONLY:
 
             {/* Selection Action Bar for "Compile as One PDF" */}
             {selectedDirectoryDocIds.length > 0 && (
-              <div className="px-4 py-2.5 bg-indigo-50/90 border-b border-indigo-200 flex flex-wrap items-center justify-between gap-3 animate-in fade-in">
+              <div className="px-4 py-2.5 bg-blue-50/90 border-b border-blue-200 flex flex-wrap items-center justify-between gap-3 animate-in fade-in">
                 <div className="flex items-center gap-2.5">
-                  <span className="px-2.5 py-0.5 rounded-full bg-indigo-600 text-white text-xs font-bold">
+                  <span className="px-2.5 py-0.5 rounded-full bg-[#1d4ed8] text-white text-xs font-bold">
                     {selectedDirectoryDocIds.length} Selected
                   </span>
-                  <span className="text-xs font-medium text-indigo-950">
+                  <span className="text-xs font-medium text-blue-950">
                     Select multiple evidence files to merge into a single PDF with a shareable NAAC SSR Portal link.
                   </span>
                 </div>
@@ -2030,7 +2056,7 @@ Respond in JSON ONLY:
                         sourceDocs: selectedDocs,
                       });
                     }}
-                    className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow-xs cursor-pointer inline-flex items-center gap-1.5 transition-colors"
+                    className="px-3.5 py-1.5 bg-[#1d4ed8] hover:bg-blue-800 text-white text-xs font-bold rounded-lg shadow-xs cursor-pointer inline-flex items-center gap-1.5 transition-colors"
                   >
                     <Layers className="w-3.5 h-3.5" />
                     <span>Compile as One PDF ({selectedDirectoryDocIds.length})</span>
@@ -2205,7 +2231,7 @@ Respond in JSON ONLY:
                                           }));
                                         }
                                       }}
-                                      className="w-3.5 h-3.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer shrink-0"
+                                      className="w-3.5 h-3.5 rounded border-gray-300 text-[#1d4ed8] focus:ring-blue-500 accent-[#1d4ed8] cursor-pointer shrink-0"
                                       title={`Select all ${kiDocIds.length} documents in KI ${kiCode}`}
                                     />
                                     {isKiExpanded ? (
@@ -2243,7 +2269,7 @@ Respond in JSON ONLY:
                                             sourceDocs: selectedInKiDocs,
                                           });
                                         }}
-                                        className="px-2.5 py-0.5 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold inline-flex items-center gap-1 shadow-2xs cursor-pointer transition-colors"
+                                        className="px-2.5 py-0.5 rounded-md bg-[#1d4ed8] hover:bg-blue-800 text-white text-[11px] font-bold inline-flex items-center gap-1 shadow-2xs cursor-pointer transition-colors"
                                       >
                                         <Layers className="w-3 h-3" />
                                         <span>Compile as One PDF ({selectedCountInKi})</span>
@@ -2284,11 +2310,11 @@ Respond in JSON ONLY:
                                           key={doc.id}
                                           className={`pl-12 pr-4 py-2 flex items-center justify-between gap-3 hover:bg-blue-50/30 transition-colors text-xs ${
                                             doc.isCompiledPdf
-                                              ? 'bg-indigo-50/40'
+                                              ? 'bg-blue-50/40'
                                               : isJustFiled
                                               ? 'bg-emerald-50/50'
                                               : isDocChecked
-                                              ? 'bg-indigo-50/25'
+                                              ? 'bg-blue-50/25'
                                               : ''
                                           }`}
                                         >
@@ -2304,7 +2330,7 @@ Respond in JSON ONLY:
                                                     : [...prev, doc.id]
                                                 );
                                               }}
-                                              className="w-3.5 h-3.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer shrink-0"
+                                              className="w-3.5 h-3.5 rounded border-gray-300 text-[#1d4ed8] focus:ring-blue-500 accent-[#1d4ed8] cursor-pointer shrink-0"
                                             />
                                             <span
                                               className="font-mono text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded shrink-0"
@@ -2316,18 +2342,12 @@ Respond in JSON ONLY:
                                             >
                                               Metric {docMetricCode}
                                             </span>
-                                            <FileText
-                                              className={`w-3.5 h-3.5 shrink-0 ${
-                                                doc.isCompiledPdf
-                                                  ? 'text-indigo-600'
-                                                  : 'text-blue-600'
-                                              }`}
-                                            />
+                                            <FileText className="w-3.5 h-3.5 shrink-0 text-blue-600" />
                                             <span
                                               onClick={() => openFileInNewTab(doc.fileUrl)}
                                               className={`font-semibold hover:text-blue-700 cursor-pointer truncate max-w-md ${
                                                 doc.isCompiledPdf
-                                                  ? 'text-indigo-950 font-bold'
+                                                  ? 'text-blue-950 font-bold'
                                                   : 'text-gray-900'
                                               }`}
                                               title={doc.fileName || doc.title}
@@ -2346,10 +2366,10 @@ Respond in JSON ONLY:
                                                       isCompiledPopoverOpen ? null : doc.id
                                                     );
                                                   }}
-                                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-100 hover:bg-indigo-200 text-indigo-800 border border-indigo-300 text-[10px] font-bold cursor-pointer transition-colors"
+                                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 text-[10px] font-bold cursor-pointer transition-colors"
                                                   title="Hover or click to view merged files in this compiled PDF"
                                                 >
-                                                  <Layers className="w-2.5 h-2.5 text-indigo-600" />
+                                                  <Layers className="w-2.5 h-2.5 text-blue-600" />
                                                   <span>
                                                     Compiled PDF (
                                                     {doc.compiledSourceFiles?.length || 1} files)
@@ -2417,7 +2437,7 @@ Respond in JSON ONLY:
                                                   <div className="flex items-center justify-between gap-2 mb-1 pb-1 border-b border-slate-700/80">
                                                     <span className="font-bold text-amber-300 flex items-center gap-1 text-[10px] uppercase tracking-wider">
                                                       <Sparkles className="w-3 h-3 text-amber-400" />
-                                                      AI Classification Reasoning
+                                                      AI Reasoning
                                                     </span>
                                                     {isPopoverOpen && (
                                                       <button
@@ -2535,200 +2555,13 @@ Respond in JSON ONLY:
             </div>
           </div>
 
-          {/* Edit Filing Destination Popup Modal */}
-          {editingDocModal && (
-            <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
-              <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 max-w-lg w-full overflow-hidden animate-in zoom-in-95">
-                <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-slate-50">
-                  <div>
-                    <h3 className="text-sm font-bold text-gray-900">
-                      Edit Filing Destination
-                    </h3>
-                    <p className="text-xs text-gray-500 truncate max-w-sm mt-0.5">
-                      {editingDocModal.fileName}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setEditingDocModal(null)}
-                    className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg cursor-pointer"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-
-                <div className="p-5 space-y-4">
-                  {/* Show AI Reasoning inside Edit Popup if document was AI-filed */}
-                  {editingDocModal.aiReason && (
-                    <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-200/80 text-xs text-amber-950 leading-relaxed flex items-start gap-2">
-                      <Sparkles className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                      <div>
-                        <div className="font-bold text-[11px] uppercase tracking-wider text-amber-800 mb-0.5">
-                          Why AI Filed It Here
-                        </div>
-                        <p className="text-gray-700">{editingDocModal.aiReason}</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 1. Criterion */}
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">
-                      1. Criterion
-                    </label>
-                    <select
-                      value={editingDocModal.crit}
-                      onChange={(e) => {
-                        const nextCrit = toCanonicalCrit(e.target.value);
-                        const kis = KEY_INDICATORS.filter(
-                          (k) => k.criterionCode.toLowerCase() === nextCrit.toLowerCase()
-                        );
-                        const nextKi = kis[0]?.code || '1.1';
-                        const metrics = NAAC_METRICS_LIST.filter(
-                          (m) => m.criterionCode.toLowerCase() === nextCrit.toLowerCase()
-                        );
-                        const nextMetric =
-                          metrics.find((m) => m.code.startsWith(nextKi))?.code ||
-                          metrics[0]?.code ||
-                          '1.1.1';
-                        setEditingDocModal({
-                          ...editingDocModal,
-                          crit: nextCrit,
-                          ki: nextKi,
-                          metric: nextMetric,
-                        });
-                      }}
-                      className="w-full text-xs font-semibold px-3 py-2 border border-gray-300 rounded-xl bg-white text-gray-800 outline-none focus:border-blue-500 cursor-pointer"
-                    >
-                      {NAAC_CRITERIA_SUMMARY.map((c) => (
-                        <option key={c.code} value={c.code}>
-                          {c.code}: {c.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* 2. Key Indicator */}
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">
-                      2. Key Indicator
-                    </label>
-                    <select
-                      value={editingDocModal.ki}
-                      onChange={(e) => {
-                        const nextKi = toCanonicalKi(e.target.value);
-                        const metrics = NAAC_METRICS_LIST.filter(
-                          (m) =>
-                            m.criterionCode.toLowerCase() ===
-                            editingDocModal.crit.toLowerCase()
-                        );
-                        const nextMetric =
-                          metrics.find((m) => m.code.startsWith(nextKi))?.code ||
-                          metrics[0]?.code ||
-                          '1.1.1';
-                        setEditingDocModal({
-                          ...editingDocModal,
-                          ki: nextKi,
-                          metric: nextMetric,
-                        });
-                      }}
-                      className="w-full text-xs font-semibold px-3 py-2 border border-gray-300 rounded-xl bg-white text-gray-800 outline-none focus:border-blue-500 cursor-pointer"
-                    >
-                      {KEY_INDICATORS.filter(
-                        (k) =>
-                          k.criterionCode.toLowerCase() ===
-                          editingDocModal.crit.toLowerCase()
-                      ).map((ki) => (
-                        <option key={ki.code} value={ki.code}>
-                          KI {ki.code}: {ki.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* 3. Metric */}
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">
-                      3. Metric
-                    </label>
-                    <select
-                      value={editingDocModal.metric}
-                      onChange={(e) => {
-                        const nextMetric = toCanonicalMetric(e.target.value);
-                        const parts = nextMetric.split('.');
-                        const parentKi =
-                          parts.length >= 2 ? `${parts[0]}.${parts[1]}` : editingDocModal.ki;
-                        setEditingDocModal({
-                          ...editingDocModal,
-                          ki: parentKi,
-                          metric: nextMetric,
-                        });
-                      }}
-                      className="w-full text-xs font-semibold px-3 py-2 border border-gray-300 rounded-xl bg-white text-gray-800 outline-none focus:border-blue-500 cursor-pointer"
-                    >
-                      {NAAC_METRICS_LIST.filter(
-                        (m) =>
-                          m.criterionCode.toLowerCase() ===
-                          editingDocModal.crit.toLowerCase()
-                      ).map((m) => (
-                        <option key={m.code} value={m.code}>
-                          {m.code} ({m.metricType}) — {m.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="px-5 py-3.5 bg-gray-50 border-t border-gray-100 flex items-center justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setEditingDocModal(null)}
-                    className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-gray-600 hover:bg-gray-200 cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const critObj = NAAC_CRITERIA_SUMMARY.find(
-                        (c) =>
-                          c.code.toLowerCase() === editingDocModal.crit.toLowerCase()
-                      );
-                      const metricObj = NAAC_METRICS_LIST.find(
-                        (m) => m.code === editingDocModal.metric
-                      );
-                      addOrUpdateNaacDocument({
-                        id: editingDocModal.docId,
-                        criterionCode: editingDocModal.crit,
-                        criterionId: critObj?.id || 'crit-1',
-                        keyIndicatorCode: editingDocModal.ki,
-                        metricCode: editingDocModal.metric,
-                        metricName:
-                          metricObj?.name || `${editingDocModal.metric} Evidence Proof`,
-                      });
-                      refreshDocuments();
-                      setSuccessToast(
-                        `Updated "${editingDocModal.fileName}" to ${editingDocModal.crit} › KI ${editingDocModal.ki} › Metric ${editingDocModal.metric}`
-                      );
-                      setTimeout(() => setSuccessToast(null), 3500);
-                      setEditingDocModal(null);
-                    }}
-                    className="px-4 py-1.5 rounded-lg text-xs font-bold text-white bg-[#1d4ed8] hover:bg-blue-800 shadow-2xs cursor-pointer"
-                  >
-                    Save Changes
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Compile as One PDF Popup Modal */}
           {compilePdfModal && (
             <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
               <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 max-w-xl w-full overflow-hidden animate-in zoom-in-95">
-                <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-indigo-50/70">
+                <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-slate-50">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0">
+                    <div className="w-8 h-8 rounded-lg bg-[#1d4ed8] text-white flex items-center justify-center shrink-0">
                       <Layers className="w-4 h-4" />
                     </div>
                     <div>
@@ -2762,7 +2595,7 @@ Respond in JSON ONLY:
                           className="flex items-center justify-between gap-2 text-xs bg-white px-2.5 py-1.5 rounded-lg border border-gray-200/80"
                         >
                           <div className="flex items-center gap-2 min-w-0">
-                            <span className="w-4 h-4 rounded-full bg-indigo-100 text-indigo-700 font-bold text-[10px] flex items-center justify-center shrink-0">
+                            <span className="w-4 h-4 rounded-full bg-blue-100 text-blue-700 font-bold text-[10px] flex items-center justify-center shrink-0">
                               {idx + 1}
                             </span>
                             <span className="font-medium text-gray-800 truncate">
@@ -3024,7 +2857,7 @@ Respond in JSON ONLY:
                       );
                       setTimeout(() => setSuccessToast(null), 5000);
                     }}
-                    className="px-4 py-1.5 rounded-lg text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-2xs cursor-pointer inline-flex items-center gap-1.5"
+                    className="px-4 py-1.5 rounded-lg text-xs font-bold text-white bg-[#1d4ed8] hover:bg-blue-800 shadow-2xs cursor-pointer inline-flex items-center gap-1.5"
                   >
                     <Layers className="w-3.5 h-3.5" />
                     <span>Compile PDF &amp; Copy NAAC Link</span>
@@ -3105,12 +2938,12 @@ Respond in JSON ONLY:
                 isBarDragging ? '!border-blue-500 !bg-slate-50 ring-4 ring-blue-100 scale-[1.005]' : ''
               }`}
             >
-              {/* Top Divided Header: Auto (AI Mode) vs Manual Mode Division */}
+              {/* Top Divided Header: Let AI do the filing vs Manual Mode Division */}
               <div 
                 className="w-full flex flex-col sm:flex-row items-center justify-between gap-2.5 pb-3 mb-2 border-b border-gray-100/90"
                 onClick={(e) => e.stopPropagation()}
               >
-                {/* Left: Auto (AI Mode) vs Manual Mode Segmented Division */}
+                {/* Left: Let AI do the filing vs Manual Mode Segmented Division */}
                 <div className="flex items-center gap-3">
                   <span className="text-xs font-bold text-gray-500 uppercase tracking-wider hidden sm:inline">
                     Mode:
@@ -3124,10 +2957,10 @@ Respond in JSON ONLY:
                           ? 'bg-white text-indigo-950 shadow-xs border border-indigo-200/80 ring-1 ring-indigo-100'
                           : 'text-gray-500 hover:text-gray-900'
                       }`}
-                      title="AI automatically reads document and maps to Criterion & Metric"
+                      title="AI scans documents, maps Criterion & Metric, and shows reasoning before filing"
                     >
                       <Sparkles className={`w-3.5 h-3.5 ${useAi ? 'text-amber-500 fill-amber-400' : 'text-gray-400'}`} />
-                      <span>Auto (AI Mode)</span>
+                      <span>Let AI do the filing</span>
                     </button>
 
                     <button
@@ -3141,38 +2974,9 @@ Respond in JSON ONLY:
                       title="Direct manual assignment of Criterion and Metric"
                     >
                       <SlidersHorizontal className="w-3.5 h-3.5 text-gray-500" />
-                      <span>Manual Mode</span>
+                      <span>Do Filing Manually</span>
                     </button>
                   </div>
-                </div>
-
-                {/* Right: Mode Status / Complete Filing Checkbox */}
-                <div className="flex items-center gap-2 shrink-0">
-                  {useAi ? (
-                    <label
-                      htmlFor="auto-complete-filing-dropzone"
-                      className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold cursor-pointer select-none transition-all border shadow-2xs ${
-                        autoCompleteFiling
-                          ? 'bg-emerald-50 text-emerald-900 border-emerald-300 ring-1 ring-emerald-200'
-                          : 'bg-amber-50/90 hover:bg-amber-100/80 text-amber-900 border-amber-200'
-                      }`}
-                      title="Automatically file uploaded documents into their respective Criteria & Metrics without a confirmation step"
-                    >
-                      <input
-                        id="auto-complete-filing-dropzone"
-                        type="checkbox"
-                        checked={autoCompleteFiling}
-                        onChange={(e) => setAutoCompleteFiling(e.target.checked)}
-                        className="w-3.5 h-3.5 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer accent-emerald-700"
-                      />
-                      <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />
-                      <span>Let AI do complete filing</span>
-                    </label>
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
-                      <span>Manual Mode: Coordinator assigns destination</span>
-                    </span>
-                  )}
                 </div>
               </div>
 
@@ -3207,9 +3011,9 @@ Respond in JSON ONLY:
                 isBarDragging ? 'border-blue-500 ring-4 ring-blue-100 bg-blue-50/30' : 'border-blue-200/90'
               }`}
             >
-              {/* Box Top Header: Enable AI Checkbox, File Chip, and Actions */}
+              {/* Box Top Header: Let AI do the filing Checkbox, File Chip, and Actions */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-gray-100">
-                {/* Left: Enable AI + Attached File Chip */}
+                {/* Left: Let AI do the filing + Attached File Chip */}
                 <div className="flex items-center gap-2.5 flex-wrap min-w-0">
                   <label
                     htmlFor="enable-ai-card-box"
@@ -3218,7 +3022,7 @@ Respond in JSON ONLY:
                         ? 'bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs'
                         : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300'
                     }`}
-                    title="Toggle AI Parsing"
+                    title="Toggle AI Filing & Reasoning"
                   >
                     <input
                       id="enable-ai-card-box"
@@ -3229,12 +3033,13 @@ Respond in JSON ONLY:
                         setUseAi(checked);
                         if (checked) {
                           setIsChangeOpen(false);
+                          setIsAiProcessing(true);
                           if (uploadedFilesBatch.length > 0) {
                             const activeItem =
                               uploadedFilesBatch.find((f) => f.docId === activeDocId) ||
                               uploadedFilesBatch[0];
 
-                            // Apply AI rule engine mapping to each file in the batch immediately
+                            // Apply AI rule engine mapping to each file in the batch
                             const aiMappedBatch = uploadedFilesBatch.map((item) => {
                               const sug = getAiSuggestion(item.name);
                               const c = toCanonicalCrit(sug.crit);
@@ -3291,11 +3096,15 @@ Respond in JSON ONLY:
                                 reason: mappedActive.reason,
                                 source: 'rule-engine',
                               });
+                              setTimeout(() => setIsAiProcessing(false), 1500);
                             }
                           } else if (uploadedFile && openaiKey.trim()) {
                             classifyWithOpenAi(uploadedFile.name, openaiKey.trim(), uploadedFile.dataUrl);
+                          } else {
+                            setTimeout(() => setIsAiProcessing(false), 1500);
                           }
                         } else {
+                          setIsAiProcessing(false);
                           // Switching to Manual Mode: carry over active selection & apply shared destination to batch
                           const sharedCrit = aiSuggestion
                             ? toCanonicalCrit(aiSuggestion.crit)
@@ -3345,52 +3154,8 @@ Respond in JSON ONLY:
                       className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-500 cursor-pointer accent-[#0f2748]"
                     />
                     <Sparkles className={`w-3.5 h-3.5 ${useAi ? 'text-amber-600 fill-amber-500' : 'text-gray-400'}`} />
-                    <span>Enable AI</span>
+                    <span>Let AI do the filing</span>
                   </label>
-
-                  {useAi && (
-                    <label
-                      htmlFor="auto-complete-filing-card"
-                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold select-none cursor-pointer transition-all shrink-0 border ${
-                        autoCompleteFiling
-                          ? 'bg-emerald-100 text-emerald-900 border-emerald-300 shadow-2xs'
-                          : 'bg-white hover:bg-emerald-50/70 text-gray-700 border-gray-300'
-                      }`}
-                      title="Automatically file attached documents under AI-detected Criteria"
-                    >
-                      <input
-                        id="auto-complete-filing-card"
-                        type="checkbox"
-                        checked={autoCompleteFiling}
-                        onChange={(e) => {
-                          const checked = e.target.checked;
-                          setAutoCompleteFiling(checked);
-                          if (checked && uploadedFilesBatch.length > 0) {
-                            const crits = Array.from(
-                              new Set(
-                                uploadedFilesBatch.map(
-                                  (f) => `${toCanonicalCrit(f.crit)} (${toCanonicalMetric(f.metric)})`
-                                )
-                              )
-                            ).join(', ');
-                            const ids = uploadedFilesBatch.map((f) => f.docId);
-                            setAutoFiledNotice({
-                              count: uploadedFilesBatch.length,
-                              criteriaSummary: crits,
-                              docIds: ids,
-                            });
-                            setUploadedFile(null);
-                            setUploadedFilesBatch([]);
-                            setActiveDocId(null);
-                            setAiSuggestion(null);
-                            setIsChangeOpen(false);
-                          }
-                        }}
-                        className="w-3.5 h-3.5 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer accent-emerald-700"
-                      />
-                      <span>Let AI do complete filing</span>
-                    </label>
-                  )}
 
                   <div className="h-4 w-px bg-gray-200 hidden sm:block shrink-0" />
 
@@ -3491,35 +3256,6 @@ Respond in JSON ONLY:
                     </button>
                   )}
 
-                  {useAi && uploadedFilesBatch.length <= 1 && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!isChangeOpen && aiSuggestion) {
-                          // Switching from Auto to Manual: strictly carry over the AI suggestion
-                          setSelectedCriterionCode(toCanonicalCrit(aiSuggestion.crit));
-                          setSelectedKeyIndicatorCode(toCanonicalKi(aiSuggestion.keyIndicator));
-                          setSelectedMetricCode(toCanonicalMetric(aiSuggestion.metric));
-                        }
-                        setIsChangeOpen(!isChangeOpen);
-                      }}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-300 transition-colors cursor-pointer"
-                      title={isChangeOpen ? 'Return to AI Suggestion' : 'Manually change Criterion, KI, or Metric'}
-                    >
-                      {isChangeOpen ? (
-                        <>
-                          <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                          <span>Back to AI</span>
-                        </>
-                      ) : (
-                        <>
-                          <SlidersHorizontal className="w-3.5 h-3.5 text-gray-600" />
-                          <span>Change</span>
-                        </>
-                      )}
-                    </button>
-                  )}
-
                   <button
                     type="button"
                     onClick={(e) => {
@@ -3527,19 +3263,19 @@ Respond in JSON ONLY:
                       handleConfirmAndDrop();
                     }}
                     disabled={isSubmitting || isAiProcessing}
-                    className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold text-white bg-[#0f2748] hover:bg-[#183963] active:scale-[0.98] shadow-xs hover:shadow transition-all cursor-pointer disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold text-white bg-[#1d4ed8] hover:bg-blue-800 active:scale-[0.98] shadow-xs hover:shadow transition-all cursor-pointer disabled:opacity-50"
                     title={isAiProcessing ? 'AI is analyzing evidence document...' : 'Confirm destination and drop document into repository'}
                   >
                     {isAiProcessing ? (
                       <>
                         <Loader2 className="w-3.5 h-3.5 text-blue-300 animate-spin" />
-                        <span>Analyzing...</span>
+                        <span>AI Mapping...</span>
                       </>
                     ) : (
                       <>
                         <Check className="w-3.5 h-3.5 text-emerald-400 stroke-[2.5]" />
                         <span>
-                          Confirm{uploadedFilesBatch.length > 1 ? ` (${uploadedFilesBatch.length})` : ''}
+                          Confirm &amp; File{uploadedFilesBatch.length > 1 ? ` (${uploadedFilesBatch.length})` : ''}
                         </span>
                       </>
                     )}
@@ -3547,383 +3283,15 @@ Respond in JSON ONLY:
                 </div>
               </div>
 
-              {/* MANUAL MODE + MULTIPLE FILES: Neat 2-Column File List + Shared Criteria Below */}
-              {uploadedFilesBatch.length > 1 && !useAi && (
-                <div className="py-3 border-b border-gray-100">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">
-                      Attached Batch ({uploadedFilesBatch.length} files — shared destination selected below)
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-44 overflow-y-auto pr-1">
-                    {uploadedFilesBatch.map((batchItem, idx) => (
-                      <div
-                        key={batchItem.docId}
-                        className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl border border-gray-200 bg-gray-50/70 text-xs"
-                      >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className="w-5 h-5 rounded-md bg-white border border-gray-200 text-[10px] font-bold text-gray-600 flex items-center justify-center shrink-0">
-                            {idx + 1}
-                          </span>
-                          <FileText className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                          <span className="truncate font-semibold text-gray-800">
-                            {batchItem.name}
-                          </span>
-                          <span className="text-[10px] text-gray-400 shrink-0">
-                            ({batchItem.size})
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <span className="px-2 py-0.5 rounded-md bg-white border border-blue-200 text-[10px] font-bold text-blue-700">
-                            {cleanMetricCode}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteNaacDocument(batchItem.docId);
-                              const updated = myDocIds.filter((id) => id !== batchItem.docId);
-                              setMyDocIds(updated);
-                              setSelectedDocIds((prev) =>
-                                prev.filter((id) => id !== batchItem.docId)
-                              );
-                              try {
-                                localStorage.setItem(myDocsStorageKey, JSON.stringify(updated));
-                                localStorage.setItem(
-                                  'naac_my_uploaded_doc_ids_prog_cse',
-                                  JSON.stringify(updated)
-                                );
-                                localStorage.setItem(
-                                  'naac_my_uploaded_doc_ids_program',
-                                  JSON.stringify(updated)
-                                );
-                              } catch (err) {
-                                // ignore
-                              }
-                              refreshDocuments();
-
-                              const remaining = uploadedFilesBatch.filter(
-                                (f) => f.docId !== batchItem.docId
-                              );
-                              setUploadedFilesBatch(remaining);
-                              if (remaining.length > 0) {
-                                const next = remaining[0];
-                                setActiveDocId(next.docId);
-                                setUploadedFile({
-                                  name: next.name,
-                                  size: next.size,
-                                  dataUrl: next.dataUrl,
-                                });
-                              } else {
-                                setUploadedFile(null);
-                                setActiveDocId(null);
-                                setSelectedCriterionCode('Criterion 1');
-                                setSelectedKeyIndicatorCode('1.1');
-                                setSelectedMetricCode('1.1.1');
-                                setAiSuggestion(null);
-                                setIsChangeOpen(false);
-                                setIsAiBoxOpen(false);
-                              }
-                            }}
-                            className="p-1 rounded-md text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
-                            title="Remove file"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {uploadedFilesBatch.length > 1 && useAi ? (
-                /* AI MODE + MULTIPLE FILES: Sequential File -> Criterion / Key Indicator / Metric Stack */
-                <div className="pt-4 space-y-4">
-                  {uploadedFilesBatch.map((batchItem, idx) => {
-                    const itemCritCode = toCanonicalCrit(batchItem.crit);
-                    const itemKiCode = toCanonicalKi(batchItem.keyIndicator);
-                    const itemMetricCode = toCanonicalMetric(batchItem.metric);
-
-                    const itemCriterionObj =
-                      NAAC_CRITERIA_SUMMARY.find(
-                        (c) => c.code.toLowerCase() === itemCritCode.toLowerCase()
-                      ) || NAAC_CRITERIA_SUMMARY[0];
-                    const itemAvailableKis = KEY_INDICATORS.filter(
-                      (ki) => ki.criterionCode.toLowerCase() === itemCritCode.toLowerCase()
-                    );
-                    const itemKiObj =
-                      KEY_INDICATORS.find((ki) => ki.code === itemKiCode) ||
-                      itemAvailableKis[0];
-                    const itemAvailableMetrics = NAAC_METRICS_LIST.filter(
-                      (m) => m.criterionCode.toLowerCase() === itemCritCode.toLowerCase()
-                    );
-                    const itemMetricObj =
-                      NAAC_METRICS_LIST.find((m) => m.code === itemMetricCode) ||
-                      itemAvailableMetrics[0];
-
-                    const showItemManualSelectors = !useAi || Boolean(batchItem.isManualEdit);
-                    const itemReason =
-                      batchItem.reason || getAiSuggestion(batchItem.name).reason;
-
-                    return (
-                      <div
-                        key={batchItem.docId}
-                        className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 space-y-3 shadow-2xs"
-                      >
-                        {/* File Row Header */}
-                        <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-slate-200/80">
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <span className="w-6 h-6 rounded-lg bg-[#0f2748] text-white text-xs font-bold flex items-center justify-center shrink-0">
-                              {idx + 1}
-                            </span>
-                            <FileCheck2 className="w-4 h-4 text-blue-600 shrink-0" />
-                            <span className="font-bold text-xs sm:text-sm text-gray-900 truncate max-w-[260px] sm:max-w-[420px]">
-                              {batchItem.name}
-                            </span>
-                            <span className="text-[11px] text-gray-500 shrink-0">
-                              ({batchItem.size})
-                            </span>
-                          </div>
-
-                          <div className="flex items-center gap-2 shrink-0">
-                            <span className="px-2.5 py-0.5 rounded-md bg-blue-50 border border-blue-200 text-xs font-extrabold text-blue-700 font-mono">
-                              {itemCritCode} &bull; {itemMetricCode}
-                            </span>
-
-                            {useAi && (
-                              <button
-                                type="button"
-                                onClick={() => handleBatchItemToggleManual(batchItem.docId)}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-gray-700 bg-white hover:bg-gray-100 border border-gray-300 transition-colors cursor-pointer"
-                              >
-                                {batchItem.isManualEdit ? (
-                                  <>
-                                    <Sparkles className="w-3 h-3 text-amber-500" />
-                                    <span>Back to AI</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <SlidersHorizontal className="w-3 h-3 text-gray-600" />
-                                    <span>Change</span>
-                                  </>
-                                )}
-                              </button>
-                            )}
-
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                deleteNaacDocument(batchItem.docId);
-                                const updated = myDocIds.filter((id) => id !== batchItem.docId);
-                                setMyDocIds(updated);
-                                setSelectedDocIds((prev) =>
-                                  prev.filter((id) => id !== batchItem.docId)
-                                );
-                                try {
-                                  localStorage.setItem(myDocsStorageKey, JSON.stringify(updated));
-                                  localStorage.setItem(
-                                    'naac_my_uploaded_doc_ids_prog_cse',
-                                    JSON.stringify(updated)
-                                  );
-                                  localStorage.setItem(
-                                    'naac_my_uploaded_doc_ids_program',
-                                    JSON.stringify(updated)
-                                  );
-                                } catch (err) {
-                                  // ignore
-                                }
-                                refreshDocuments();
-
-                                const remaining = uploadedFilesBatch.filter(
-                                  (f) => f.docId !== batchItem.docId
-                                );
-                                setUploadedFilesBatch(remaining);
-                                if (remaining.length > 0) {
-                                  const next = remaining[0];
-                                  setActiveDocId(next.docId);
-                                  setUploadedFile({
-                                    name: next.name,
-                                    size: next.size,
-                                    dataUrl: next.dataUrl,
-                                  });
-                                  setSelectedCriterionCode(next.crit);
-                                  setSelectedKeyIndicatorCode(next.keyIndicator);
-                                  setSelectedMetricCode(next.metric);
-                                } else {
-                                  setUploadedFile(null);
-                                  setActiveDocId(null);
-                                  setSelectedCriterionCode('Criterion 1');
-                                  setSelectedKeyIndicatorCode('1.1');
-                                  setSelectedMetricCode('1.1.1');
-                                  setAiSuggestion(null);
-                                  setIsChangeOpen(false);
-                                  setIsAiBoxOpen(false);
-                                }
-                              }}
-                              className="p-1 rounded-lg text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
-                              title="Remove file"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Directly Below File: Its Criterion, Key Indicator, and Metric */}
-                        {showItemManualSelectors ? (
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                            {/* 1. Criterion */}
-                            <div>
-                              <label className="block text-[11px] font-bold text-gray-700 mb-1">
-                                1. Criterion
-                              </label>
-                              <select
-                                value={itemCritCode}
-                                onChange={(e) =>
-                                  handleBatchItemCriterionChange(batchItem.docId, e.target.value)
-                                }
-                                className="w-full text-xs font-semibold px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-hidden bg-white text-gray-800 shadow-2xs hover:border-blue-400 transition-colors cursor-pointer"
-                              >
-                                {NAAC_CRITERIA_SUMMARY.map((c) => (
-                                  <option key={c.code} value={c.code}>
-                                    {c.code}: {c.name}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-
-                            {/* 2. Key Indicator */}
-                            <div>
-                              <label className="block text-[11px] font-bold text-gray-700 mb-1">
-                                2. Key Indicator
-                              </label>
-                              <select
-                                value={itemKiCode}
-                                onChange={(e) =>
-                                  handleBatchItemKiChange(
-                                    batchItem.docId,
-                                    itemCritCode,
-                                    e.target.value
-                                  )
-                                }
-                                className="w-full text-xs font-semibold px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-hidden bg-white text-gray-800 shadow-2xs hover:border-blue-400 transition-colors cursor-pointer"
-                              >
-                                {itemAvailableKis.map((ki) => (
-                                  <option key={ki.code} value={ki.code}>
-                                    KI {ki.code}: {ki.name}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-
-                            {/* 3. Metric */}
-                            <div>
-                              <label className="block text-[11px] font-bold text-gray-700 mb-1">
-                                3. Metric
-                              </label>
-                              <select
-                                value={itemMetricCode}
-                                onChange={(e) =>
-                                  handleBatchItemMetricChange(
-                                    batchItem.docId,
-                                    itemCritCode,
-                                    e.target.value
-                                  )
-                                }
-                                className="w-full text-xs font-semibold px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-hidden bg-white text-gray-800 shadow-2xs hover:border-blue-400 transition-colors cursor-pointer"
-                              >
-                                {itemAvailableKis.map((ki) => {
-                                  const metricsInKi = itemAvailableMetrics.filter((m) =>
-                                    m.code.startsWith(ki.code)
-                                  );
-                                  if (metricsInKi.length === 0) return null;
-                                  return (
-                                    <optgroup key={ki.code} label={`KI ${ki.code}: ${ki.name}`}>
-                                      {metricsInKi.map((m) => (
-                                        <option key={m.code} value={m.code}>
-                                          {m.code} ({m.metricType}) — {m.name}
-                                        </option>
-                                      ))}
-                                    </optgroup>
-                                  );
-                                })}
-                              </select>
-                            </div>
-                          </div>
-                        ) : (
-                          /* AI Mode Cards + Reasoning Directly Under This File */
-                          <div className="space-y-2.5">
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                              <div className="bg-white border border-slate-200/90 rounded-xl p-3 flex flex-col justify-between min-w-0 shadow-2xs">
-                                <div className="flex items-center justify-between mb-1">
-                                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                                    Criterion
-                                  </span>
-                                  <span className="text-xs font-extrabold text-[#0f2748] font-mono bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">
-                                    {itemCritCode}
-                                  </span>
-                                </div>
-                                <p className="text-xs sm:text-sm font-bold text-gray-900 line-clamp-2 leading-snug">
-                                  {itemCriterionObj.name}
-                                </p>
-                              </div>
-
-                              <div className="bg-white border border-slate-200/90 rounded-xl p-3 flex flex-col justify-between min-w-0 shadow-2xs">
-                                <div className="flex items-center justify-between mb-1">
-                                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                                    Key Indicator
-                                  </span>
-                                  <span className="text-xs font-extrabold text-slate-800 font-mono bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">
-                                    KI {itemKiCode}
-                                  </span>
-                                </div>
-                                <p className="text-xs sm:text-sm font-bold text-gray-900 line-clamp-2 leading-snug">
-                                  {itemKiObj?.name || `KI ${itemKiCode}`}
-                                </p>
-                              </div>
-
-                              <div className="bg-white border border-slate-200/90 rounded-xl p-3 flex flex-col justify-between min-w-0 shadow-2xs">
-                                <div className="flex items-center justify-between mb-1">
-                                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                                    Target Metric
-                                  </span>
-                                  <span className="text-xs font-extrabold text-blue-700 font-mono bg-blue-50 border border-blue-200 px-2 py-0.5 rounded">
-                                    Metric {itemMetricCode}
-                                  </span>
-                                </div>
-                                <p className="text-xs sm:text-sm font-bold text-gray-900 line-clamp-2 leading-snug">
-                                  {itemMetricObj?.name || `Metric ${itemMetricCode}`}
-                                </p>
-                              </div>
-                            </div>
-
-                            {itemReason && (
-                              <div className="bg-blue-50/80 border border-blue-100/90 rounded-xl px-3 py-2 flex items-start gap-2">
-                                <Sparkles className="w-3.5 h-3.5 text-blue-600 shrink-0 mt-0.5" />
-                                <p className="text-xs text-blue-950 leading-relaxed">
-                                  <span className="font-bold text-blue-900">AI Reasoning: </span>
-                                  {itemReason}
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : isChangeOpen || !useAi ? (
-                /* VIEW A: Manual Destination Selectors */
-                <div className="pt-3 animate-in fade-in">
+              {/* MANUAL MODE: Target Destination Selectors Above the Unified Table */}
+              {!useAi && (
+                <div className="pt-2.5 pb-3 border-b border-gray-100 animate-in fade-in">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-[11px] font-bold text-gray-700 uppercase tracking-wider">
-                      Select Target Destination
+                      Select Target Destination{uploadedFilesBatch.length > 1 ? ` (Applies to all ${uploadedFilesBatch.length} documents below)` : ''}
                     </span>
                     <span className="text-[11px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
-                      Manual Selection
+                      Do Filing Manually
                     </span>
                   </div>
 
@@ -3990,159 +3358,295 @@ Respond in JSON ONLY:
                       </select>
                     </div>
                   </div>
-
-                  {/* Manual Target Summary: Prominent Readable Pathway */}
-                  <div className="mt-3 pt-3 border-t border-gray-100">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      {/* Criterion */}
-                      <div className="bg-white border border-slate-200/90 rounded-xl p-3.5 sm:p-4 flex flex-col justify-between min-w-0 min-h-[110px] shadow-2xs">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-[11px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider">
-                            Criterion
-                          </span>
-                          <span className="text-xs sm:text-sm font-extrabold text-[#0f2748] bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-md font-mono shadow-2xs">
-                            {cleanCritCode}
-                          </span>
-                        </div>
-                        <p className="text-sm sm:text-[15px] font-bold text-gray-900 line-clamp-3 leading-snug" title={currentCriterion.name}>
-                          {currentCriterion.name}
-                        </p>
-                      </div>
-
-                      {/* Key Indicator */}
-                      <div className="bg-white border border-slate-200/90 rounded-xl p-3.5 sm:p-4 flex flex-col justify-between min-w-0 min-h-[110px] shadow-2xs">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-[11px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider">
-                            Key Indicator
-                          </span>
-                          <span className="text-xs sm:text-sm font-extrabold text-slate-800 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-md font-mono shadow-2xs">
-                            KI {cleanKiCode}
-                          </span>
-                        </div>
-                        <p className="text-sm sm:text-[15px] font-bold text-gray-900 line-clamp-3 leading-snug" title={currentKeyIndicator?.name}>
-                          {currentKeyIndicator?.name || `KI ${cleanKiCode}`}
-                        </p>
-                      </div>
-
-                      {/* Metric */}
-                      <div className="bg-white border border-slate-200/90 rounded-xl p-3.5 sm:p-4 flex flex-col justify-between min-w-0 min-h-[110px] shadow-2xs">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-[11px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider">
-                            Target Metric
-                          </span>
-                          <span className="text-xs sm:text-sm font-extrabold text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded-md font-mono shadow-2xs">
-                            Metric {cleanMetricCode}
-                          </span>
-                        </div>
-                        <p className="text-sm sm:text-[15px] font-bold text-gray-900 line-clamp-3 leading-snug" title={currentMetric?.name}>
-                          {currentMetric?.name || `Metric ${cleanMetricCode}`}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
                 </div>
-              ) : isAiProcessing ? (
-                /* AI ANALYZING LOADER: Sleek Spinner Icon (No progress bar) */
-                <div className="py-2.5 px-3 my-1 bg-slate-50/90 border border-slate-200/90 rounded-xl flex items-center justify-center gap-3 text-left animate-in fade-in">
-                  <div className="w-7 h-7 rounded-lg bg-[#0f2748] text-white flex items-center justify-center shrink-0 shadow-2xs">
-                    <Loader2 className="w-4 h-4 text-emerald-400 animate-spin" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-bold text-gray-900">
-                        AI Analyzing Evidence Document...
-                      </span>
-                      <span className="text-[10px] font-bold text-blue-700 bg-blue-100/90 border border-blue-200 px-2 py-0.2 rounded-full animate-pulse">
-                        Matching NAAC Criteria
-                      </span>
+              )}
+
+              {isAiProcessing && useAi ? (
+                /* IMPRESSIVE AI SCANNING & CLASSIFICATION LOADER (Shown for both Single & Multi-File Drops) */
+                <div className="py-6 px-4 sm:px-6 my-2 bg-gradient-to-br from-indigo-50/90 via-blue-50/60 to-slate-50 border border-indigo-200/80 rounded-2xl text-left animate-in fade-in space-y-4 shadow-2xs">
+                  <div className="flex items-start gap-3.5">
+                    <div className="w-11 h-11 rounded-2xl bg-[#0f2748] text-white flex items-center justify-center shrink-0 shadow-md ring-4 ring-indigo-100">
+                      <Loader2 className="w-5 h-5 text-amber-400 animate-spin" />
                     </div>
-                    <p className="text-[11px] text-gray-500 mt-0.5 truncate">
-                      Evaluating file context, attributes & title against AQAR Criteria and Metrics...
-                    </p>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm sm:text-base font-extrabold text-[#0f2748]">
+                          AI is scanning &amp; classifying{' '}
+                          {uploadedFilesBatch.length > 1
+                            ? `${uploadedFilesBatch.length} evidence documents`
+                            : `"${uploadedFile.name}"`}
+                          ...
+                        </span>
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-800 bg-indigo-100/90 border border-indigo-200 px-2.5 py-0.5 rounded-full animate-pulse">
+                          <Sparkles className="w-3 h-3 text-amber-500 fill-amber-400" />
+                          <span>NAAC SSR Mapping</span>
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-600 mt-1">
+                        Reading document titles, institutional attributes &amp; academic keywords to determine exact NAAC Criterion, Key Indicator, Metric &amp; audit reasoning...
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Animated Progress Bar */}
+                  <div className="w-full h-2 bg-indigo-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-gradient-to-r from-[#0f2748] via-indigo-600 to-emerald-500 rounded-full animate-pulse w-4/5 transition-all duration-700" />
+                  </div>
+
+                  {/* 3 Step Indicators */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/90 border border-indigo-100 text-xs font-semibold text-gray-800 shadow-2xs">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span>1. Document Ingested</span>
+                    </div>
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/90 border border-indigo-200 text-xs font-bold text-indigo-900 shadow-2xs">
+                      <Loader2 className="w-3.5 h-3.5 text-indigo-600 animate-spin shrink-0" />
+                      <span>2. Matching Criterion &amp; Metric</span>
+                    </div>
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/70 border border-gray-200 text-xs font-semibold text-gray-600">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                      <span>3. Preparing AI Reasoning</span>
+                    </div>
                   </div>
                 </div>
               ) : (
-                /* VIEW B: Auto AI Classification Display */
+                /* UNIFIED PREVIEW TABLE (100% VISUAL CONSISTENCY FOR BOTH AI AND MANUAL MODES) */
                 <div className="pt-3 animate-in fade-in space-y-2.5">
-                  {/* Top sub-header: Label + Provider Pill */}
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between px-0.5">
                     <div className="flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      <span className={`w-2 h-2 rounded-full ${useAi ? 'bg-emerald-500 animate-pulse' : 'bg-blue-600'}`} />
                       <span className="text-[11px] font-bold text-gray-700 uppercase tracking-wider">
-                        AI Destination Pathway
+                        {useAi
+                          ? `AI Classification & Reasoning Review (${uploadedFilesBatch.length} ${
+                              uploadedFilesBatch.length === 1 ? 'Document' : 'Documents'
+                            })`
+                          : `Filing Preview (${uploadedFilesBatch.length} ${
+                              uploadedFilesBatch.length === 1 ? 'Document' : 'Documents'
+                            })`}
                       </span>
                     </div>
-                    {aiSuggestion?.source === 'openai' ? (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-white border border-emerald-200 px-2 py-0.5 rounded-full shadow-2xs">
-                        <Sparkles className="w-3 h-3 text-emerald-600 fill-emerald-500" />
-                        <span>OpenAI GPT-4o-mini</span>
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-white border border-blue-200 px-2 py-0.5 rounded-full shadow-2xs">
-                        <Sparkles className="w-3 h-3 text-blue-600" />
-                        <span>NAAC AI Rule Engine</span>
-                      </span>
-                    )}
+                    {useAi &&
+                      (aiSuggestion?.source === 'openai' ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-white border border-emerald-200 px-2 py-0.5 rounded-full shadow-2xs">
+                          <Sparkles className="w-3 h-3 text-emerald-600 fill-emerald-500" />
+                          <span>OpenAI GPT-4o-mini</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-white border border-blue-200 px-2 py-0.5 rounded-full shadow-2xs">
+                          <Sparkles className="w-3 h-3 text-blue-600" />
+                          <span>NAAC AI Rule Engine</span>
+                        </span>
+                      ))}
                   </div>
 
-                  {/* 3 Prominent Easily-Readable Destination Cards */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    {/* Criterion */}
-                    <div className="bg-white border border-slate-200/90 rounded-xl p-3.5 sm:p-4 flex flex-col justify-between min-w-0 min-h-[115px] shadow-2xs hover:shadow-xs transition-shadow">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-[11px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider">
-                          Criterion
-                        </span>
-                        <span className="text-xs sm:text-sm font-extrabold text-[#0f2748] font-mono bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-md shadow-2xs">
-                          {cleanCritCode}
-                        </span>
-                      </div>
-                      <p className="text-sm sm:text-base font-bold text-gray-900 line-clamp-3 leading-snug" title={currentCriterion.name}>
-                        {currentCriterion.name}
-                      </p>
-                    </div>
+                  <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-2xs bg-white">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50/90 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                          <th className={`py-2.5 px-3.5 ${useAi ? 'w-[24%]' : 'w-[34%]'}`}>Document</th>
+                          <th className={`py-2.5 px-3 ${useAi ? 'w-[20%]' : 'w-[28%]'}`}>Criteria &amp; KI</th>
+                          <th className={`py-2.5 px-3 ${useAi ? 'w-[18%]' : 'w-[26%]'}`}>Metric</th>
+                          {useAi && <th className="py-2.5 px-3 w-[28%]">AI Reasoning</th>}
+                          <th className="py-2.5 px-3 text-right w-[10%]">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 text-xs">
+                        {uploadedFilesBatch.map((batchItem, idx) => {
+                          const itemCritCode = toCanonicalCrit(batchItem.crit);
+                          const itemKiCode = toCanonicalKi(batchItem.keyIndicator);
+                          const itemMetricCode = toCanonicalMetric(batchItem.metric);
 
-                    {/* Key Indicator */}
-                    <div className="bg-white border border-slate-200/90 rounded-xl p-3.5 sm:p-4 flex flex-col justify-between min-w-0 min-h-[115px] shadow-2xs hover:shadow-xs transition-shadow">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-[11px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider">
-                          Key Indicator
-                        </span>
-                        <span className="text-xs sm:text-sm font-extrabold text-slate-800 font-mono bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-md shadow-2xs">
-                          KI {cleanKiCode}
-                        </span>
-                      </div>
-                      <p className="text-sm sm:text-base font-bold text-gray-900 line-clamp-3 leading-snug" title={currentKeyIndicator?.name}>
-                        {currentKeyIndicator?.name || `KI ${cleanKiCode}`}
-                      </p>
-                    </div>
+                          const itemCriterionObj =
+                            NAAC_CRITERIA_SUMMARY.find(
+                              (c) => c.code.toLowerCase() === itemCritCode.toLowerCase()
+                            ) || NAAC_CRITERIA_SUMMARY[0];
+                          const itemAvailableKis = KEY_INDICATORS.filter(
+                            (ki) => ki.criterionCode.toLowerCase() === itemCritCode.toLowerCase()
+                          );
+                          const itemKiObj =
+                            KEY_INDICATORS.find((ki) => ki.code === itemKiCode) ||
+                            itemAvailableKis[0];
+                          const itemAvailableMetrics = NAAC_METRICS_LIST.filter(
+                            (m) => m.criterionCode.toLowerCase() === itemCritCode.toLowerCase()
+                          );
+                          const itemMetricObj =
+                            NAAC_METRICS_LIST.find((m) => m.code === itemMetricCode) ||
+                            itemAvailableMetrics[0];
 
-                    {/* Metric */}
-                    <div className="bg-white border border-slate-200/90 rounded-xl p-3.5 sm:p-4 flex flex-col justify-between min-w-0 min-h-[115px] shadow-2xs hover:shadow-xs transition-shadow">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-[11px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider">
-                          Target Metric
-                        </span>
-                        <span className="text-xs sm:text-sm font-extrabold text-blue-700 font-mono bg-blue-50 px-2.5 py-0.5 rounded-md border border-blue-200 shadow-2xs">
-                          Metric {cleanMetricCode}
-                        </span>
-                      </div>
-                      <p className="text-sm sm:text-base font-bold text-gray-900 line-clamp-3 leading-snug" title={currentMetric?.name}>
-                        {currentMetric?.name || `Metric ${cleanMetricCode}`}
-                      </p>
-                    </div>
+                          const itemReason =
+                            batchItem.reason || getAiSuggestion(batchItem.name).reason;
+
+                          return (
+                            <tr
+                              key={batchItem.docId}
+                              className="transition-colors align-top hover:bg-slate-50/70"
+                            >
+                              {/* 1. Document */}
+                              <td className="py-3 px-3.5">
+                                <div className="flex items-start gap-2 min-w-0">
+                                  <span className="w-5 h-5 rounded-md bg-slate-100 border border-slate-200 text-[10px] font-bold text-slate-700 flex items-center justify-center shrink-0 mt-0.5">
+                                    {idx + 1}
+                                  </span>
+                                  <div className="min-w-0">
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        openFileInNewTab(batchItem.dataUrl, batchItem.name)
+                                      }
+                                      className="font-bold text-gray-900 hover:text-blue-600 text-left break-words line-clamp-2 leading-snug cursor-pointer"
+                                      title={`Preview ${batchItem.name}`}
+                                    >
+                                      {batchItem.name}
+                                    </button>
+                                    <span className="text-[10px] text-gray-400 font-medium block mt-0.5">
+                                      {batchItem.size}
+                                    </span>
+                                  </div>
+                                </div>
+                              </td>
+
+                              {/* 2. Criteria & KI */}
+                              <td className="py-3 px-3">
+                                <div>
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="px-2 py-0.5 rounded bg-[#0f2748] text-white font-mono text-[10px] font-bold">
+                                      {itemCritCode}
+                                    </span>
+                                    <span className="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-700 font-mono text-[10px] font-bold">
+                                      KI {itemKiCode}
+                                    </span>
+                                    {!useAi && batchItem.isManualEdit && (
+                                      <span className="px-1.5 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-700 text-[10px] font-bold" title="Manually customized for this document">
+                                        Custom
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p
+                                    className="text-[11px] font-semibold text-gray-700 mt-1 line-clamp-2 leading-snug"
+                                    title={`${itemCriterionObj.name} — ${itemKiObj?.name || ''}`}
+                                  >
+                                    {itemKiObj?.name || itemCriterionObj.name}
+                                  </p>
+                                </div>
+                              </td>
+
+                              {/* 3. Metric */}
+                              <td className="py-3 px-3">
+                                <div>
+                                  <span className="inline-block px-2 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-700 font-mono text-[11px] font-extrabold">
+                                    Metric {itemMetricCode}
+                                  </span>
+                                  <p
+                                    className="text-[11px] font-medium text-gray-600 mt-1 line-clamp-2 leading-snug"
+                                    title={itemMetricObj?.name}
+                                  >
+                                    {itemMetricObj?.name || `Metric ${itemMetricCode}`}
+                                  </p>
+                                </div>
+                              </td>
+
+                              {/* 4. AI Reasoning (Only in AI Mode) */}
+                              {useAi && (
+                                <td className="py-3 px-3">
+                                  <div className="flex items-start gap-1.5 text-[11px] text-slate-700 leading-relaxed">
+                                    <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
+                                    <span className="line-clamp-3" title={itemReason}>
+                                      {itemReason}
+                                    </span>
+                                  </div>
+                                </td>
+                              )}
+
+                              {/* 5. Edit / Remove Actions */}
+                              <td className="py-3 px-3 text-right whitespace-nowrap">
+                                <div className="inline-flex items-center justify-end gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setEditingDocModal({
+                                        docId: batchItem.docId,
+                                        fileName: batchItem.name,
+                                        crit: itemCritCode,
+                                        ki: itemKiCode,
+                                        metric: itemMetricCode,
+                                        aiReason: useAi ? itemReason : undefined,
+                                      })
+                                    }
+                                    className="p-1.5 rounded-lg bg-white text-gray-600 border border-gray-200 hover:text-blue-600 hover:border-blue-200 hover:bg-blue-50 transition-colors cursor-pointer"
+                                    title="Edit Filing Destination"
+                                  >
+                                    <Pencil className="w-3.5 h-3.5" />
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      deleteNaacDocument(batchItem.docId);
+                                      const updated = myDocIds.filter(
+                                        (id) => id !== batchItem.docId
+                                      );
+                                      setMyDocIds(updated);
+                                      setSelectedDocIds((prev) =>
+                                        prev.filter((id) => id !== batchItem.docId)
+                                      );
+                                      try {
+                                        localStorage.setItem(
+                                          myDocsStorageKey,
+                                          JSON.stringify(updated)
+                                        );
+                                        localStorage.setItem(
+                                          'naac_my_uploaded_doc_ids_prog_cse',
+                                          JSON.stringify(updated)
+                                        );
+                                        localStorage.setItem(
+                                          'naac_my_uploaded_doc_ids_program',
+                                          JSON.stringify(updated)
+                                        );
+                                      } catch (err) {
+                                        // ignore
+                                      }
+                                      refreshDocuments();
+
+                                      const remaining = uploadedFilesBatch.filter(
+                                        (f) => f.docId !== batchItem.docId
+                                      );
+                                      setUploadedFilesBatch(remaining);
+                                      if (remaining.length > 0) {
+                                        const next = remaining[0];
+                                        setActiveDocId(next.docId);
+                                        setUploadedFile({
+                                          name: next.name,
+                                          size: next.size,
+                                          dataUrl: next.dataUrl,
+                                        });
+                                        setSelectedCriterionCode(next.crit);
+                                        setSelectedKeyIndicatorCode(next.keyIndicator);
+                                        setSelectedMetricCode(next.metric);
+                                      } else {
+                                        setUploadedFile(null);
+                                        setActiveDocId(null);
+                                        setSelectedCriterionCode('Criterion 1');
+                                        setSelectedKeyIndicatorCode('1.1');
+                                        setSelectedMetricCode('1.1.1');
+                                        setAiSuggestion(null);
+                                        setIsChangeOpen(false);
+                                        setIsAiBoxOpen(false);
+                                      }
+                                    }}
+                                    className="p-1.5 rounded-lg bg-white text-gray-500 border border-gray-200 hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50 transition-colors cursor-pointer"
+                                    title="Remove document"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
-
-                  {/* Integrated AI Reasoning in Light Blue */}
-                  {aiSuggestion?.reason && (
-                    <div className="bg-blue-50/80 border border-blue-100/90 rounded-xl p-3 sm:p-3.5 flex items-start gap-2.5 shadow-2xs">
-                      <Sparkles className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-                      <p className="text-xs sm:text-[13px] text-blue-950 leading-relaxed font-normal">
-                        <span className="font-bold text-blue-900">Reasoning: </span>
-                        {aiSuggestion.reason}
-                      </p>
-                    </div>
-                  )}
                 </div>
               )}
             </div>
@@ -4755,6 +4259,199 @@ Respond in JSON ONLY:
                 </div>
               </div>
 
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Filing Destination Popup Modal (Shared across AI Review Table & Evidence Directory) */}
+      {editingDocModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 max-w-lg w-full overflow-hidden animate-in zoom-in-95 text-left">
+            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-slate-50">
+              <div>
+                <h3 className="text-sm font-bold text-gray-900">
+                  Edit Filing Destination
+                </h3>
+                <p className="text-xs text-gray-500 truncate max-w-sm mt-0.5">
+                  {editingDocModal.fileName}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingDocModal(null)}
+                className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              {/* Show AI Reasoning inside Edit Popup if document was AI-filed */}
+              {editingDocModal.aiReason && (
+                <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-200/80 text-xs text-amber-950 leading-relaxed flex items-start gap-2">
+                  <Sparkles className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                  <div>
+                    <div className="font-bold text-[11px] uppercase tracking-wider text-amber-800 mb-0.5">
+                      AI Reasoning
+                    </div>
+                    <p className="text-gray-700">{editingDocModal.aiReason}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* 1. Criterion */}
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">
+                  1. Criterion
+                </label>
+                <select
+                  value={editingDocModal.crit}
+                  onChange={(e) => {
+                    const nextCrit = toCanonicalCrit(e.target.value);
+                    const kis = KEY_INDICATORS.filter(
+                      (k) => k.criterionCode.toLowerCase() === nextCrit.toLowerCase()
+                    );
+                    const nextKi = kis[0]?.code || '1.1';
+                    const metrics = NAAC_METRICS_LIST.filter(
+                      (m) => m.criterionCode.toLowerCase() === nextCrit.toLowerCase()
+                    );
+                    const nextMetric =
+                      metrics.find((m) => m.code.startsWith(nextKi))?.code ||
+                      metrics[0]?.code ||
+                      '1.1.1';
+                    setEditingDocModal({
+                      ...editingDocModal,
+                      crit: nextCrit,
+                      ki: nextKi,
+                      metric: nextMetric,
+                    });
+                  }}
+                  className="w-full text-xs font-semibold px-3 py-2 border border-gray-300 rounded-xl bg-white text-gray-800 outline-none focus:border-blue-500 cursor-pointer"
+                >
+                  {NAAC_CRITERIA_SUMMARY.map((c) => (
+                    <option key={c.code} value={c.code}>
+                      {c.code}: {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 2. Key Indicator */}
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">
+                  2. Key Indicator
+                </label>
+                <select
+                  value={editingDocModal.ki}
+                  onChange={(e) => {
+                    const nextKi = toCanonicalKi(e.target.value);
+                    const metrics = NAAC_METRICS_LIST.filter(
+                      (m) =>
+                        m.criterionCode.toLowerCase() ===
+                        editingDocModal.crit.toLowerCase()
+                    );
+                    const nextMetric =
+                      metrics.find((m) => m.code.startsWith(nextKi))?.code ||
+                      metrics[0]?.code ||
+                      '1.1.1';
+                    setEditingDocModal({
+                      ...editingDocModal,
+                      ki: nextKi,
+                      metric: nextMetric,
+                    });
+                  }}
+                  className="w-full text-xs font-semibold px-3 py-2 border border-gray-300 rounded-xl bg-white text-gray-800 outline-none focus:border-blue-500 cursor-pointer"
+                >
+                  {KEY_INDICATORS.filter(
+                    (k) =>
+                      k.criterionCode.toLowerCase() ===
+                      editingDocModal.crit.toLowerCase()
+                  ).map((ki) => (
+                    <option key={ki.code} value={ki.code}>
+                      KI {ki.code}: {ki.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 3. Metric */}
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">
+                  3. Metric
+                </label>
+                <select
+                  value={editingDocModal.metric}
+                  onChange={(e) => {
+                    const nextMetric = toCanonicalMetric(e.target.value);
+                    const parts = nextMetric.split('.');
+                    const parentKi =
+                      parts.length >= 2 ? `${parts[0]}.${parts[1]}` : editingDocModal.ki;
+                    setEditingDocModal({
+                      ...editingDocModal,
+                      ki: parentKi,
+                      metric: nextMetric,
+                    });
+                  }}
+                  className="w-full text-xs font-semibold px-3 py-2 border border-gray-300 rounded-xl bg-white text-gray-800 outline-none focus:border-blue-500 cursor-pointer"
+                >
+                  {NAAC_METRICS_LIST.filter(
+                    (m) =>
+                      m.criterionCode.toLowerCase() ===
+                      editingDocModal.crit.toLowerCase()
+                  ).map((m) => (
+                    <option key={m.code} value={m.code}>
+                      {m.code} ({m.metricType}) — {m.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="px-5 py-3.5 bg-gray-50 border-t border-gray-100 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setEditingDocModal(null)}
+                className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-gray-600 hover:bg-gray-200 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  updateBatchItemDestination(
+                    editingDocModal.docId,
+                    editingDocModal.crit,
+                    editingDocModal.ki,
+                    editingDocModal.metric
+                  );
+                  const critObj = NAAC_CRITERIA_SUMMARY.find(
+                    (c) =>
+                      c.code.toLowerCase() === editingDocModal.crit.toLowerCase()
+                  );
+                  const metricObj = NAAC_METRICS_LIST.find(
+                    (m) => m.code === editingDocModal.metric
+                  );
+                  addOrUpdateNaacDocument({
+                    id: editingDocModal.docId,
+                    criterionCode: editingDocModal.crit,
+                    criterionId: critObj?.id || 'crit-1',
+                    keyIndicatorCode: editingDocModal.ki,
+                    metricCode: editingDocModal.metric,
+                    metricName:
+                      metricObj?.name || `${editingDocModal.metric} Evidence Proof`,
+                  });
+                  refreshDocuments();
+                  setSuccessToast(
+                    `Updated "${editingDocModal.fileName}" to ${editingDocModal.crit} › KI ${editingDocModal.ki} › Metric ${editingDocModal.metric}`
+                  );
+                  setTimeout(() => setSuccessToast(null), 3500);
+                  setEditingDocModal(null);
+                }}
+                className="px-4 py-1.5 rounded-lg text-xs font-bold text-white bg-[#1d4ed8] hover:bg-blue-800 shadow-2xs cursor-pointer"
+              >
+                Save Changes
+              </button>
             </div>
           </div>
         </div>
