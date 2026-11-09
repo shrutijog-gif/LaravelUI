@@ -54,6 +54,7 @@ import { openFileInNewTab } from '../../../utils/fileHelper';
 import { NaacQuickUploadLanding } from './NaacQuickUploadLanding';
 import { ExtendedProfileWorkspace } from './ExtendedProfileWorkspace';
 import { DvvClarificationsWorkspace } from './DvvClarificationsWorkspace';
+import { QifEvidenceDirectoryTable } from './QifEvidenceDirectoryTable';
 
 interface NaacSsrCycleModuleProps {
   mode?: 'ssr' | 'aqar';
@@ -835,84 +836,15 @@ export const NaacSsrCycleModule: React.FC<NaacSsrCycleModuleProps> = ({
             />
           )}
 
-          {/* TAB 1: Key Indicator Framework (Criteria 1 to 7) */}
+          {/* TAB 2: Key Indicator Framework (Drop-enabled Directory Table) */}
           {cycleActiveTab === 'qif' && (
-            <div className="bg-white rounded-xl border border-gray-200 p-5 sm:p-6 shadow-2xs space-y-6">
-              {/* Gray Banner: Quality Indicator Framework (Criterias) */}
-              <div className="bg-[#f3f4f6] py-3.5 px-4 text-center rounded-xl border border-gray-200/80">
-                <h4 className="text-xs sm:text-sm font-bold text-gray-900">
-                  Quality Indicator Framework (Criterias 1 to 7)
-                </h4>
-                <p className="text-[11px] text-gray-500 mt-0.5">
-                  Click any criterion to view key indicators, quantitative metrics, and manage evidence documents.
-                </p>
-              </div>
-
-              {/* 3-Column Grid of Criteria 1 to 7 matching 4.png */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                {NAAC_CRITERIA_SUMMARY.map((crit, idx) => {
-                  const critDocs = documents.filter((d) => d.criterionCode === crit.code);
-                  const publishedCount = critDocs.filter(
-                    (d) => d.status === 'university_verified'
-                  ).length;
-                  const pendingCount = critDocs.filter(
-                    (d) => d.status !== 'university_verified' && d.status !== 'draft'
-                  ).length;
-
-                  return (
-                    <div
-                      key={crit.id}
-                      className="border border-gray-200 rounded-lg p-5 bg-white hover:border-blue-300 transition-all flex items-start gap-4 justify-between"
-                    >
-                      <div className="flex items-start gap-3.5 w-full">
-                        {/* Criterion Book/Badge Icon */}
-                        <div className="w-11 h-11 rounded-xl bg-blue-50 border border-blue-100 text-blue-700 flex flex-col items-center justify-center shrink-0 mt-1">
-                          <BookOpen className="w-4 h-4" />
-                          <span className="text-[10px] font-black leading-none mt-0.5">
-                            C-{idx + 1}
-                          </span>
-                        </div>
-
-                        <div className="flex-1 min-w-0">
-                          <span className="block text-xs text-gray-400 font-medium mb-0.5">
-                            Criterion-{idx + 1}
-                          </span>
-                          <h5 className="text-sm font-bold text-gray-900 leading-snug mb-2">
-                            {crit.name}
-                          </h5>
-
-                          {/* Subtle hierarchy status pills */}
-                          <div className="flex flex-wrap items-center gap-1.5 mb-3.5">
-                            <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-gray-100 text-gray-700">
-                              {critDocs.length} Docs
-                            </span>
-                            {pendingCount > 0 && (
-                              <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">
-                                {pendingCount} In Review
-                              </span>
-                            )}
-                            {publishedCount > 0 && (
-                              <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                {publishedCount} Published
-                              </span>
-                            )}
-                          </div>
-
-                          <button
-                            onClick={() => setSelectedCriterionCode(crit.code)}
-                            className="px-4 py-1.5 rounded-lg border border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white text-xs font-semibold transition-colors cursor-pointer"
-                          >
-                            {critDocs.length > 0
-                              ? 'Manage documents'
-                              : 'Start adding documents'}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+            <QifEvidenceDirectoryTable
+              cycleId={selectedCycle.id}
+              cycleNumber={selectedCycle.cycleNumber}
+              yearFrom={selectedCycle.yearFrom}
+              yearTo={selectedCycle.yearTo}
+              initialCriterionCode={selectedCriterionCode || undefined}
+            />
           )}
 
           {/* TAB 2: Extended Profile */}
