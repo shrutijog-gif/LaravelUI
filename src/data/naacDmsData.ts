@@ -2114,4 +2114,462 @@ export const setActiveNaacRole = (role: NaacSimRole): void => {
   window.dispatchEvent(new Event('naac-role-changed'));
 };
 
+// ============================================================================
+// EXTENDED PROFILE & DVV CLARIFICATION MODELS & STORAGE
+// ============================================================================
+
+export const SAMPLE_PDF_URL = 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf';
+
+export interface ExtendedProfileDocProof {
+  id: string;
+  fileName: string;
+  fileUrl: string;
+  fileSize: string;
+  uploadedAt: string;
+  verified: boolean;
+  verificationNote?: string;
+}
+
+export interface ExtendedProfileMetric {
+  id: string;
+  section: 'programs' | 'students' | 'teachers' | 'expenditure';
+  code: string; // '1.1', '1.2', '2.1', '2.2', '2.3', '3.1', '3.2', '4.1', '4.2'
+  title: string;
+  description: string;
+  unit: string;
+  isQuantitative: boolean;
+  years: {
+    year: string;
+    value: number;
+  }[];
+  total?: number;
+  average?: number;
+  documentProofs: ExtendedProfileDocProof[];
+}
+
+export const DEFAULT_EXTENDED_PROFILE_METRICS: ExtendedProfileMetric[] = [
+  // 1. PROGRAMS
+  {
+    id: 'ep-1.1',
+    section: 'programs',
+    code: '1.1',
+    title: 'Number of courses offered across all programs during the last five years',
+    description: 'Total approved courses (theory, practical, electives) offered across degree programs.',
+    unit: 'Courses',
+    isQuantitative: true,
+    years: [
+      { year: '2021-22', value: 420 },
+      { year: '2022-23', value: 435 },
+      { year: '2023-24', value: 450 },
+      { year: '2024-25', value: 465 },
+      { year: '2025-26', value: 480 },
+    ],
+    total: 2250,
+    average: 450,
+    documentProofs: [
+      {
+        id: 'ep-doc-1.1-1',
+        fileName: 'UGC_AICTE_Approved_Course_Catalog_Cycle3.pdf',
+        fileUrl: SAMPLE_PDF_URL,
+        fileSize: '1.8 MB',
+        uploadedAt: '2026-10-15',
+        verified: true,
+        verificationNote: 'Certified by Dean Academics & Principal',
+      },
+    ],
+  },
+  {
+    id: 'ep-1.2',
+    section: 'programs',
+    code: '1.2',
+    title: 'Number of programs offered during the last five years',
+    description: 'Degree-granting undergraduate, postgraduate, and doctoral degree programs.',
+    unit: 'Programs',
+    isQuantitative: true,
+    years: [
+      { year: '2021-22', value: 18 },
+      { year: '2022-23', value: 18 },
+      { year: '2023-24', value: 20 },
+      { year: '2024-25', value: 22 },
+      { year: '2025-26', value: 22 },
+    ],
+    total: 22,
+    average: 20,
+    documentProofs: [
+      {
+        id: 'ep-doc-1.2-1',
+        fileName: 'Academic_Council_Approved_Program_List.pdf',
+        fileUrl: SAMPLE_PDF_URL,
+        fileSize: '1.2 MB',
+        uploadedAt: '2026-10-18',
+        verified: true,
+        verificationNote: 'Affiliating University sanction order attached',
+      },
+    ],
+  },
+
+  // 2. STUDENTS
+  {
+    id: 'ep-2.1',
+    section: 'students',
+    code: '2.1',
+    title: 'Number of students year-wise during the last five years',
+    description: 'Total on-roll registered students across all programs and academic years.',
+    unit: 'Students',
+    isQuantitative: true,
+    years: [
+      { year: '2021-22', value: 2150 },
+      { year: '2022-23', value: 2280 },
+      { year: '2023-24', value: 2410 },
+      { year: '2024-25', value: 2520 },
+      { year: '2025-26', value: 2650 },
+    ],
+    total: 12010,
+    average: 2402,
+    documentProofs: [
+      {
+        id: 'ep-doc-2.1-1',
+        fileName: 'Certified_Enrollment_Roll_List_Registrar_Signed.pdf',
+        fileUrl: SAMPLE_PDF_URL,
+        fileSize: '3.4 MB',
+        uploadedAt: '2026-10-20',
+        verified: true,
+        verificationNote: 'Certified by Registrar with Official Seal',
+      },
+    ],
+  },
+  {
+    id: 'ep-2.2',
+    section: 'students',
+    code: '2.2',
+    title: 'Number of seats earmarked for reserved category as per GOI/State Govt rule',
+    description: 'Sanctioned intake seats reserved for SC, ST, OBC, Divyangjan, EWS categories.',
+    unit: 'Seats',
+    isQuantitative: true,
+    years: [
+      { year: '2021-22', value: 540 },
+      { year: '2022-23', value: 560 },
+      { year: '2023-24', value: 590 },
+      { year: '2024-25', value: 620 },
+      { year: '2025-26', value: 640 },
+    ],
+    total: 2950,
+    average: 590,
+    documentProofs: [
+      {
+        id: 'ep-doc-2.2-1',
+        fileName: 'State_Govt_Reservation_Sanction_Order.pdf',
+        fileUrl: SAMPLE_PDF_URL,
+        fileSize: '980 KB',
+        uploadedAt: '2026-10-22',
+        verified: true,
+        verificationNote: 'State Higher Education Dept quota roster certified',
+      },
+    ],
+  },
+  {
+    id: 'ep-2.3',
+    section: 'students',
+    code: '2.3',
+    title: 'Number of outgoing / final year students year-wise during the last five years',
+    description: 'Final year graduating candidates appearing for terminal examinations.',
+    unit: 'Students',
+    isQuantitative: true,
+    years: [
+      { year: '2021-22', value: 480 },
+      { year: '2022-23', value: 510 },
+      { year: '2023-24', value: 545 },
+      { year: '2024-25', value: 580 },
+      { year: '2025-26', value: 610 },
+    ],
+    total: 2725,
+    average: 545,
+    documentProofs: [
+      {
+        id: 'ep-doc-2.3-1',
+        fileName: 'Final_Year_Graduating_Students_List_CoE_Signed.pdf',
+        fileUrl: SAMPLE_PDF_URL,
+        fileSize: '2.1 MB',
+        uploadedAt: '2026-10-24',
+        verified: true,
+        verificationNote: 'Controller of Examinations authenticated roll list',
+      },
+    ],
+  },
+
+  // 3. TEACHERS
+  {
+    id: 'ep-3.1',
+    section: 'teachers',
+    code: '3.1',
+    title: 'Number of full-time teachers year-wise during the last five years',
+    description: 'Regular and full-time faculty members appointed on sanctioned posts.',
+    unit: 'Teachers',
+    isQuantitative: true,
+    years: [
+      { year: '2021-22', value: 108 },
+      { year: '2022-23', value: 112 },
+      { year: '2023-24', value: 118 },
+      { year: '2024-25', value: 122 },
+      { year: '2025-26', value: 126 },
+    ],
+    total: 586,
+    average: 117.2,
+    documentProofs: [
+      {
+        id: 'ep-doc-3.1-1',
+        fileName: 'Sanctioned_Faculty_Appointment_Letters_Principal_Signed.pdf',
+        fileUrl: SAMPLE_PDF_URL,
+        fileSize: '2.6 MB',
+        uploadedAt: '2026-10-25',
+        verified: true,
+        verificationNote: 'Signed by Principal with employee IDs and joining dates',
+      },
+    ],
+  },
+  {
+    id: 'ep-3.2',
+    section: 'teachers',
+    code: '3.2',
+    title: 'Number of sanctioned posts year-wise during the last five years',
+    description: 'Faculty posts sanctioned by Governing Body / Management / State Govt.',
+    unit: 'Posts',
+    isQuantitative: true,
+    years: [
+      { year: '2021-22', value: 115 },
+      { year: '2022-23', value: 118 },
+      { year: '2023-24', value: 122 },
+      { year: '2024-25', value: 125 },
+      { year: '2025-26', value: 130 },
+    ],
+    total: 610,
+    average: 122,
+    documentProofs: [
+      {
+        id: 'ep-doc-3.2-1',
+        fileName: 'Governing_Body_Sanctioned_Posts_Resolution.pdf',
+        fileUrl: SAMPLE_PDF_URL,
+        fileSize: '1.4 MB',
+        uploadedAt: '2026-10-26',
+        verified: true,
+        verificationNote: 'Board of Governors official minutes & sanction letters',
+      },
+    ],
+  },
+
+  // 4. INSTITUTION & EXPENDITURE
+  {
+    id: 'ep-4.1',
+    section: 'expenditure',
+    code: '4.1',
+    title: 'Number of eligible computers for academic purposes',
+    description: 'Working desktop and workstation PCs accessible to students in academic labs.',
+    unit: 'Computers',
+    isQuantitative: true,
+    years: [
+      { year: '2021-22', value: 450 },
+      { year: '2022-23', value: 500 },
+      { year: '2023-24', value: 560 },
+      { year: '2024-25', value: 620 },
+      { year: '2025-26', value: 700 },
+    ],
+    total: 700,
+    average: 566,
+    documentProofs: [
+      {
+        id: 'ep-doc-4.1-1',
+        fileName: 'IT_Asset_Register_Computers_Physical_Stock_Report.pdf',
+        fileUrl: SAMPLE_PDF_URL,
+        fileSize: '1.5 MB',
+        uploadedAt: '2026-10-28',
+        verified: true,
+        verificationNote: 'Stock verification committee report with MAC addresses',
+      },
+    ],
+  },
+  {
+    id: 'ep-4.2',
+    section: 'expenditure',
+    code: '4.2',
+    title: 'Total expenditure excluding salary year-wise during the last five years (INR in Lakhs)',
+    description: 'Operational, academic, library, lab equipment, maintenance and infrastructure expenses.',
+    unit: 'INR in Lakhs',
+    isQuantitative: true,
+    years: [
+      { year: '2021-22', value: 145.2 },
+      { year: '2022-23', value: 168.5 },
+      { year: '2023-24', value: 182.0 },
+      { year: '2024-25', value: 195.4 },
+      { year: '2025-26', value: 210.8 },
+    ],
+    total: 901.9,
+    average: 180.38,
+    documentProofs: [
+      {
+        id: 'ep-doc-4.2-1',
+        fileName: 'CA_Certified_Audited_Income_Expenditure_Statements_5Years.pdf',
+        fileUrl: SAMPLE_PDF_URL,
+        fileSize: '4.8 MB',
+        uploadedAt: '2026-10-30',
+        verified: true,
+        verificationNote: 'Chartered Accountant stamped with UDIN number',
+      },
+    ],
+  },
+];
+
+const EXTENDED_PROFILE_STORAGE_KEY_PREFIX = 'cms_naac_extended_profile_';
+
+export const getStoredExtendedProfile = (cycleId?: string): ExtendedProfileMetric[] => {
+  const cid = cycleId || 'default';
+  try {
+    const raw = localStorage.getItem(`${EXTENDED_PROFILE_STORAGE_KEY_PREFIX}${cid}`);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {
+    // ignore
+  }
+  return DEFAULT_EXTENDED_PROFILE_METRICS;
+};
+
+export const saveExtendedProfile = (cycleId: string, metrics: ExtendedProfileMetric[]): void => {
+  try {
+    localStorage.setItem(`${EXTENDED_PROFILE_STORAGE_KEY_PREFIX}${cycleId}`, JSON.stringify(metrics));
+    window.dispatchEvent(new Event('naac-extended-profile-updated'));
+  } catch {
+    // ignore
+  }
+};
+
+// ============================================================================
+// DVV CLARIFICATION MODELS & STORAGE
+// ============================================================================
+
+export interface NaacDvvQuery {
+  id: string;
+  cycleId: string;
+  queryNumber: string; // e.g. 'DVV-Q-01'
+  targetType: 'criterion_metric' | 'extended_profile';
+  targetCode: string; // e.g. 'Metric 2.1.2', 'Metric 3.1'
+  targetTitle: string;
+  naacQueryText: string;
+  naacQueryDate: string;
+  deadlineDate: string;
+  status: 'pending' | 'submitted' | 'accepted';
+  heiResponseText?: string;
+  heiResponseDate?: string;
+  supportingDocuments: {
+    id: string;
+    fileName: string;
+    fileUrl: string;
+    fileSize: string;
+    uploadedAt: string;
+  }[];
+}
+
+export const DEFAULT_DVV_QUERIES: NaacDvvQuery[] = [
+  {
+    id: 'dvv-1',
+    cycleId: 'cycle-3',
+    queryNumber: 'DVV-Q-01',
+    targetType: 'criterion_metric',
+    targetCode: 'Metric 2.1.2',
+    targetTitle: 'Average percentage of seats filled against seats reserved for various categories',
+    naacQueryText: 'Kindly provide year-wise certified list of students enrolled against reserved category seats signed by the Principal and Registrar for all 5 assessment years. Provide state government reservation quota notification.',
+    naacQueryDate: '2026-10-28',
+    deadlineDate: '2026-11-12',
+    status: 'submitted',
+    heiResponseText: 'Certified student enrollment list against reserved categories along with State Higher Education Department reservation roster attached.',
+    heiResponseDate: '2026-11-02',
+    supportingDocuments: [
+      {
+        id: 'dvv-doc-1',
+        fileName: 'Certified_Reserved_Students_List_DVV_Clarification.pdf',
+        fileUrl: SAMPLE_PDF_URL,
+        fileSize: '2.4 MB',
+        uploadedAt: '2026-11-02',
+      },
+    ],
+  },
+  {
+    id: 'dvv-2',
+    cycleId: 'cycle-3',
+    queryNumber: 'DVV-Q-02',
+    targetType: 'criterion_metric',
+    targetCode: 'Metric 3.1.1',
+    targetTitle: 'Grants received from government and non-governmental agencies for research projects',
+    naacQueryText: 'Provide sanction letters from funding agencies (DST, SERB, UGC, AICTE) showing grant amount disbursed, project title, and investigator names during the assessment period.',
+    naacQueryDate: '2026-10-29',
+    deadlineDate: '2026-11-13',
+    status: 'submitted',
+    heiResponseText: 'Official grant sanction orders from DST and AICTE with sanction numbers and bank statement transfer credits provided.',
+    heiResponseDate: '2026-11-03',
+    supportingDocuments: [
+      {
+        id: 'dvv-doc-2',
+        fileName: 'Research_Grants_Sanction_Orders_DVV_Clarification.pdf',
+        fileUrl: SAMPLE_PDF_URL,
+        fileSize: '3.1 MB',
+        uploadedAt: '2026-11-03',
+      },
+    ],
+  },
+  {
+    id: 'dvv-3',
+    cycleId: 'cycle-3',
+    queryNumber: 'DVV-Q-03',
+    targetType: 'extended_profile',
+    targetCode: 'Extended Profile 4.2',
+    targetTitle: 'Total expenditure excluding salary year-wise during the last five years (INR in Lakhs)',
+    naacQueryText: 'Audited income & expenditure statements show variation with SSR figure in 2023-24. Provide Chartered Accountant certificate highlighting specifically non-salary expenditure with UDIN.',
+    naacQueryDate: '2026-11-01',
+    deadlineDate: '2026-11-16',
+    status: 'pending',
+    heiResponseText: '',
+    supportingDocuments: [],
+  },
+  {
+    id: 'dvv-4',
+    cycleId: 'cycle-3',
+    queryNumber: 'DVV-Q-04',
+    targetType: 'criterion_metric',
+    targetCode: 'Metric 1.1.3',
+    targetTitle: 'Average percentage of courses having focus on employability/entrepreneurship/skill development',
+    naacQueryText: 'Provide Board of Studies (BoS) minutes approving syllabi and highlighted curriculum copies indicating employability mapping for 2024-25.',
+    naacQueryDate: '2026-11-02',
+    deadlineDate: '2026-11-17',
+    status: 'pending',
+    heiResponseText: '',
+    supportingDocuments: [],
+  },
+];
+
+const DVV_STORAGE_KEY_PREFIX = 'cms_naac_dvv_queries_';
+
+export const getStoredDvvQueries = (cycleId?: string): NaacDvvQuery[] => {
+  const cid = cycleId || 'default';
+  try {
+    const raw = localStorage.getItem(`${DVV_STORAGE_KEY_PREFIX}${cid}`);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {
+    // ignore
+  }
+  return DEFAULT_DVV_QUERIES;
+};
+
+export const saveDvvQueries = (cycleId: string, queries: NaacDvvQuery[]): void => {
+  try {
+    localStorage.setItem(`${DVV_STORAGE_KEY_PREFIX}${cycleId}`, JSON.stringify(queries));
+    window.dispatchEvent(new Event('naac-dvv-updated'));
+  } catch {
+    // ignore
+  }
+};
+
+
 

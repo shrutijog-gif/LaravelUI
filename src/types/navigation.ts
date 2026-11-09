@@ -4,6 +4,8 @@ export interface MenuItem {
   icon?: string;
   path?: string;
   children?: MenuItem[];
+  badge?: string;
+  isIndent?: boolean;
 }
 
 export interface NavigationSection {
