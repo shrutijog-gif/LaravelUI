@@ -22,6 +22,7 @@ import {
 import { getActiveTenant, CollegeTenant, collegeTenantsList, setActiveTenantId } from '../../data/tenantData';
 import { TimetableBlock } from './blocks/TimetableBlock';
 import { DynamicModuleBlock } from './blocks/DynamicModuleBlock';
+import { PublicNaacViewer } from './PublicNaacViewer';
 import { getStoredWebPages, getStoredPagePuckData } from '../../data/mockPageData';
 import { getTenantTemplateData, TenantTemplateData } from '../../data/tenantTemplateStorage';
 import { config, getDynamicPuckConfig } from '../../puck.config';
@@ -166,14 +167,14 @@ export const CollegeStorefront: React.FC<CollegeStorefrontProps> = ({ onToggleVi
                     <div 
                       className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${tenant.badgeGradient} p-2 flex items-center justify-center text-white shadow-md`}
                     >
-                      {tenant.logoType === 'lady-irwin' && (
+                      {(tenant.logoType === 'elite-crest' || tenant.logoType === 'lady-irwin') && (
                         <GraduationCap className="w-7 h-7 text-white" />
                       )}
-                      {tenant.logoType === 'kvk-leaf' && (
-                        <Sparkles className="w-7 h-7 text-white" />
-                      )}
-                      {tenant.logoType === 'university-crest' && (
+                      {(tenant.logoType === 'elite-tech' || tenant.logoType === 'university-crest') && (
                         <Building2 className="w-7 h-7 text-white" />
+                      )}
+                      {(tenant.logoType === 'elite-agri' || tenant.logoType === 'kvk-leaf') && (
+                        <Sparkles className="w-7 h-7 text-white" />
                       )}
                     </div>
                     <div>
@@ -194,6 +195,7 @@ export const CollegeStorefront: React.FC<CollegeStorefrontProps> = ({ onToggleVi
                     <a href="#notices-section" className="hover:text-amber-600 transition-colors">Notices</a>
                     <a href="?mode=storefront&page=careers" className="hover:text-amber-600 transition-colors">Careers</a>
                     <a href="?mode=storefront&page=nirf-showcase" className="hover:text-amber-600 transition-colors">NIRF</a>
+                    <a href="?mode=storefront&page=naac" className="hover:text-amber-600 transition-colors text-blue-700 font-extrabold">NAAC</a>
                     <a 
                       href="#admissions" 
                       className="px-4 py-2 rounded-xl text-white font-extrabold shadow-sm transition-all hover:shadow-md"
@@ -209,7 +211,34 @@ export const CollegeStorefront: React.FC<CollegeStorefrontProps> = ({ onToggleVi
         )}
 
         {/* Dynamic Specific Web Page View or Home Page */}
-        {isHomePage ? (
+        {activePageSlug === 'naac' || activePageSlug === 'aqar' ? (
+          <div>
+            {/* NAAC Hero Breadcrumb Banner matching 7.png */}
+            <div
+              className="relative py-12 px-4 sm:px-8 text-white overflow-hidden shadow-inner"
+              style={{
+                backgroundImage: `linear-gradient(110deg, #0f2748 0%, #0f2748 45%, rgba(15, 39, 72, 0.7) 100%), url('https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?q=80&w=1920&auto=format&fit=crop')`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+              }}
+            >
+              <div className="relative max-w-6xl mx-auto flex flex-col gap-1.5">
+                <h1 className="text-2xl sm:text-3xl font-serif font-bold text-white tracking-tight">
+                  NAAC — SSR & AQAR
+                </h1>
+                <div className="flex items-center gap-2 text-xs text-white/90 font-medium">
+                  <a href="?mode=storefront" className="underline hover:text-amber-300">
+                    Home
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            <div className="px-4 sm:px-8 py-8 bg-gray-50/40 min-h-[520px]">
+              <PublicNaacViewer />
+            </div>
+          </div>
+        ) : isHomePage ? (
           <div className="w-full">
             <Render config={dynamicConfig} data={dynamicPuckData || homePuckData} />
           </div>

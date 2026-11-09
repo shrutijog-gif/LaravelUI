@@ -98,14 +98,14 @@ export const StorefrontHeader: React.FC<StorefrontHeaderProps> = ({
             <div 
               className={`w-12 h-12 rounded-full bg-gradient-to-br ${tenant.badgeGradient} p-2 flex items-center justify-center text-white shadow-md group-hover:scale-105 transition-transform`}
             >
-              {tenant.logoType === 'lady-irwin' && (
-                <span className="font-extrabold text-base">LI</span>
+              {(tenant.logoType === 'elite-crest' || tenant.logoType === 'lady-irwin') && (
+                <span className="font-extrabold text-sm tracking-tight">ELITE</span>
               )}
-              {tenant.logoType === 'kvk-leaf' && (
-                <Leaf className="w-7 h-7 text-emerald-200" />
+              {(tenant.logoType === 'elite-tech' || tenant.logoType === 'university-crest') && (
+                <span className="font-extrabold text-sm tracking-tight">TECH</span>
               )}
-              {tenant.logoType === 'university-crest' && (
-                <span className="font-extrabold text-base">SX</span>
+              {(tenant.logoType === 'elite-agri' || tenant.logoType === 'kvk-leaf') && (
+                <Leaf className="w-6 h-6 text-emerald-200" />
               )}
             </div>
             <div>

@@ -294,9 +294,9 @@ export const StudioFieldsEditor: React.FC<StudioFieldsEditorProps> = ({ fields, 
                 <div className="sm:col-span-2 bg-gray-50 border border-gray-200 rounded-xl p-3.5 flex items-start gap-2.5 text-xs text-gray-800 animate-in fade-in duration-200">
                   <FileText className="w-4 h-4 text-gray-600 shrink-0 mt-0.5" />
                   <div>
-                    <span className="font-bold text-gray-900">Captures Document Title & PDF File:</span>
+                    <span className="font-bold text-gray-900">Captures Document Title & File / Web Link:</span>
                     <p className="text-[11px] text-gray-600 mt-0.5 leading-relaxed">
-                      While adding records, this field captures both the <strong>Title / Link Text</strong> (e.g. <em>FYBSC PRN NO LIST 2022-2023</em>) and the <strong>PDF File</strong>. On the website storefront, it displays as the title which opens the PDF document in a new window when clicked.
+                      While adding records, this field captures both the <strong>Title / Link Text</strong> (e.g. <em>FYBSC PRN NO LIST 2022-2023</em>) and the <strong>File or Link</strong>. On the website storefront, it displays as the title which opens the document or web link in a new window when clicked.
                     </p>
                   </div>
                 </div>

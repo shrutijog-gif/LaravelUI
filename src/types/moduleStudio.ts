@@ -35,13 +35,14 @@ export interface FieldDefinition {
   badgeColor?: 'blue' | 'green' | 'amber' | 'purple' | 'red' | 'gray';
 }
 
-export type ViewMode = 'card' | 'grid' | 'table';
+export type ViewMode = 'card' | 'grid' | 'table' | 'list';
 export type CardStylePreset = 'style-1' | 'style-2' | 'style-3' | 'style-4';
 export type TableStylePreset = 'table-1' | 'table-2' | 'table-3';
+export type ListStylePreset = 'list-1' | 'list-2' | 'list-3';
 
 export interface DisplayBlockConfig {
   defaultView: ViewMode;
-  cardStyle: CardStylePreset;
+  cardStyle: CardStylePreset | TableStylePreset | ListStylePreset | string;
   tableStyle: TableStylePreset;
   columns: 2 | 3 | 4;
   showTitle: boolean;

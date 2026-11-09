@@ -124,8 +124,8 @@ export const PageAdmin: React.FC = () => {
   return (
     <div className="space-y-6 relative">
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-gray-900 text-white px-4 py-2.5 rounded-xl shadow-2xl flex items-center gap-2 text-xs font-semibold animate-in fade-in slide-in-from-bottom-2 duration-150">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+        <div className="fixed bottom-6 right-6 z-50 bg-emerald-50 border border-emerald-300 text-emerald-950 px-4 py-2.5 rounded-xl shadow-xl flex items-center gap-2 text-xs font-semibold animate-in fade-in slide-in-from-bottom-2 duration-150">
+          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
           <span>{toastMessage}</span>
         </div>
       )}

@@ -1,0 +1,2575 @@
+/**
+ * NAAC Document Management System Data Layer
+ * ITM Skills University — 5 Schools, 18 Programs, Criteria 1–7
+ * 100% Client-Side LocalStorage with Live Sync
+ */
+
+export interface NaacSchool {
+  id: string;
+  name: string;
+  shortCode: string;
+  deanName: string;
+  deanEmail?: string;
+  coordinatorName: string;
+  programs: NaacProgram[];
+}
+
+export interface NaacCriterionSummary {
+  id: string;
+  code: string;
+  name: string;
+  weightage: number;
+  description?: string;
+}
+
+export interface NaacProgram {
+  id: string;
+  name: string;
+  shortCode: string;
+  degreeType: 'UG' | 'PG' | 'Diploma';
+  coordinatorName: string;
+  coordinatorEmail: string;
+}
+
+export interface NaacMetric {
+  code: string;
+  name: string;
+  criterionId: string;
+  criterionCode: string;
+  metricType: 'QnM' | 'QlM';
+  description: string;
+}
+
+export type NaacWorkflowStatus = 
+  | 'draft'
+  | 'submitted_to_program'
+  | 'submitted_to_school'
+  | 'changes_requested'
+  | 'approved_by_school'
+  | 'submitted_to_university'
+  | 'university_verified';
+
+export interface NaacEvidenceDocument {
+  id: string;
+  title: string;
+  description: string;
+  schoolId: string;
+  schoolName: string;
+  programId: string;
+  programName: string;
+  academicYear: string;
+  criterionId: string;
+  criterionCode: string;
+  keyIndicatorCode?: string;
+  metricCode: string;
+  metricName: string;
+  metricType: 'QnM' | 'QlM';
+  fileUrl: string;
+  fileName: string;
+  fileSize?: string;
+  uploadedBy: string;
+  uploadedAt: string;
+  createdAt?: string;
+  status: NaacWorkflowStatus;
+  version: string;
+  // Department Faculty Metadata (Submissions by staff under Program Coordinator)
+  submittedByFacultyId?: string;
+  facultyName?: string;
+  facultyDesignation?: string;
+  coordinatorReviewStatus?: 'pending_review' | 'compiled' | 'changes_requested' | 'rejected';
+  coordinatorFeedback?: string;
+  compiledAt?: string;
+  // School review
+  schoolReviewNote?: string;
+  schoolReviewedBy?: string;
+  schoolReviewedAt?: string;
+  universityReviewNote?: string;
+  universityVerifiedBy?: string;
+  universityVerifiedAt?: string;
+  // AI Auto-Filing Metadata
+  aiReason?: string;
+  aiAutoFiled?: boolean;
+  cycleId?: string;
+  // Compiled Single PDF Metadata for NAAC Portal Submission
+  isCompiledPdf?: boolean;
+  compiledSourceFiles?: string[];
+  naacPortalUrl?: string;
+}
+
+export interface DepartmentFaculty {
+  id: string;
+  name: string;
+  designation: string;
+  criterionAssigned: string;
+  email: string;
+  avatarInitials: string;
+}
+
+export const CSE_DEPARTMENT_FACULTY: DepartmentFaculty[] = [
+  {
+    id: 'fac-1',
+    name: 'Dr. Ramesh Gupta',
+    designation: 'Associate Professor & Criterion 2 Lead',
+    criterionAssigned: 'Criterion 2: Teaching-Learning & Evaluation',
+    email: 'r.gupta@itmuniversity.edu',
+    avatarInitials: 'RG',
+  },
+  {
+    id: 'fac-2',
+    name: 'Prof. Sneha Patel',
+    designation: 'Assistant Professor & Lab / Infrastructure In-charge',
+    criterionAssigned: 'Criterion 4: Infrastructure & Learning Resources',
+    email: 's.patel@itmuniversity.edu',
+    avatarInitials: 'SP',
+  },
+  {
+    id: 'fac-3',
+    name: 'Dr. Arun Joshi',
+    designation: 'Associate Professor & Department Research Lead',
+    criterionAssigned: 'Criterion 3: Research, Innovations & Extension',
+    email: 'a.joshi@itmuniversity.edu',
+    avatarInitials: 'AJ',
+  },
+  {
+    id: 'fac-4',
+    name: 'Prof. Vikas Shinde',
+    designation: 'Assistant Professor & Student Mentorship Coordinator',
+    criterionAssigned: 'Criterion 5: Student Support & Progression',
+    email: 'v.shinde@itmuniversity.edu',
+    avatarInitials: 'VS',
+  },
+  {
+    id: 'fac-5',
+    name: 'Prof. Priyanka Deshmukh',
+    designation: 'Assistant Professor & Curriculum Committee Lead',
+    criterionAssigned: 'Criterion 1: Curricular Planning',
+    email: 'p.deshmukh@itmuniversity.edu',
+    avatarInitials: 'PD',
+  },
+  {
+    id: 'fac-6',
+    name: 'Prof. Amit Saxena',
+    designation: 'Associate Professor & Governance In-charge',
+    criterionAssigned: 'Criterion 6: Governance, Leadership & Management',
+    email: 'a.saxena@itmuniversity.edu',
+    avatarInitials: 'AS',
+  },
+  {
+    id: 'fac-7',
+    name: 'Dr. Neha Kulkarni',
+    designation: 'Assistant Professor & Institutional Values Lead',
+    criterionAssigned: 'Criterion 7: Institutional Values & Best Practices',
+    email: 'n.kulkarni@itmuniversity.edu',
+    avatarInitials: 'NK',
+  },
+];
+
+export const ITM_SCHOOLS: NaacSchool[] = [
+  {
+    id: 'sch-tech',
+    name: 'School of Technology & Computer Engineering',
+    shortCode: 'SOT',
+    deanName: 'Dr. Alok Nath',
+    coordinatorName: 'Dr. Rajesh Sharma',
+    programs: [
+      { id: 'prog-cse', name: 'B.Tech Computer Science & Engineering', shortCode: 'B.Tech CSE', degreeType: 'UG', coordinatorName: 'Prof. Anita Verma', coordinatorEmail: 'cse.coord@itmuniversity.edu' },
+      { id: 'prog-bca', name: 'BCA & Cloud Computing', shortCode: 'BCA', degreeType: 'UG', coordinatorName: 'Prof. Ramesh Kulkarni', coordinatorEmail: 'bca.coord@itmuniversity.edu' },
+      { id: 'prog-cyber', name: 'B.Sc Cyber Security & Digital Forensics', shortCode: 'B.Sc Cyber', degreeType: 'UG', coordinatorName: 'Prof. Neha Gupta', coordinatorEmail: 'cyber.coord@itmuniversity.edu' },
+      { id: 'prog-ai', name: 'M.Tech Artificial Intelligence & Machine Learning', shortCode: 'M.Tech AI', degreeType: 'PG', coordinatorName: 'Dr. Sanjeev Rao', coordinatorEmail: 'ai.coord@itmuniversity.edu' },
+    ],
+  },
+  {
+    id: 'sch-mgmt',
+    name: 'School of Management & Business Studies',
+    shortCode: 'SOM',
+    deanName: 'Dr. Priya Singhania',
+    coordinatorName: 'Dr. Manisha Patil',
+    programs: [
+      { id: 'prog-mba', name: 'MBA Executive & Global Finance', shortCode: 'MBA', degreeType: 'PG', coordinatorName: 'Prof. Deepak Joshi', coordinatorEmail: 'mba.coord@itmuniversity.edu' },
+      { id: 'prog-fintech', name: 'BBA Fintech & Quantitative Finance', shortCode: 'BBA Fintech', degreeType: 'UG', coordinatorName: 'Prof. Sneha Iyer', coordinatorEmail: 'fintech.coord@itmuniversity.edu' },
+      { id: 'prog-mkt', name: 'BBA Digital Marketing & E-Commerce', shortCode: 'BBA Marketing', degreeType: 'UG', coordinatorName: 'Prof. Rohan Roy', coordinatorEmail: 'mkt.coord@itmuniversity.edu' },
+      { id: 'prog-acc', name: 'B.Com International Professional Accounting', shortCode: 'B.Com Accounting', degreeType: 'UG', coordinatorName: 'Prof. Kavita Rao', coordinatorEmail: 'acc.coord@itmuniversity.edu' },
+    ],
+  },
+  {
+    id: 'sch-design',
+    name: 'School of Design, Media & Visual Arts',
+    shortCode: 'SOD',
+    deanName: 'Prof. Sudhir Menon',
+    coordinatorName: 'Prof. Ananya Sen',
+    programs: [
+      { id: 'prog-uiux', name: 'B.Des Interactive & UI/UX Product Design', shortCode: 'B.Des UI/UX', degreeType: 'UG', coordinatorName: 'Prof. Tariq Khan', coordinatorEmail: 'uiux.coord@itmuniversity.edu' },
+      { id: 'prog-vfx', name: 'B.Sc 3D Animation, Gaming & VFX', shortCode: 'B.Sc VFX', degreeType: 'UG', coordinatorName: 'Prof. Varun Dave', coordinatorEmail: 'vfx.coord@itmuniversity.edu' },
+      { id: 'prog-fashion', name: 'B.Des Fashion & Apparel Lifestyle Styling', shortCode: 'B.Des Fashion', degreeType: 'UG', coordinatorName: 'Prof. Simran Kaur', coordinatorEmail: 'fashion.coord@itmuniversity.edu' },
+    ],
+  },
+  {
+    id: 'sch-health',
+    name: 'School of Health & Life Sciences',
+    shortCode: 'SOHS',
+    deanName: 'Dr. V. K. Ramaswamy',
+    coordinatorName: 'Dr. Sunita Deshmukh',
+    programs: [
+      { id: 'prog-pharm', name: 'B.Pharm Pharmaceutical Sciences', shortCode: 'B.Pharm', degreeType: 'UG', coordinatorName: 'Dr. Ashok Merchant', coordinatorEmail: 'pharm.coord@itmuniversity.edu' },
+      { id: 'prog-biotech', name: 'B.Sc Industrial Biotechnology & Genomics', shortCode: 'B.Sc Biotech', degreeType: 'UG', coordinatorName: 'Dr. Meera Nambiar', coordinatorEmail: 'biotech.coord@itmuniversity.edu' },
+      { id: 'prog-clin', name: 'M.Sc Clinical Diagnostics & Pathology', shortCode: 'M.Sc Clinical', degreeType: 'PG', coordinatorName: 'Dr. Harish Patel', coordinatorEmail: 'clin.coord@itmuniversity.edu' },
+    ],
+  },
+  {
+    id: 'sch-hospitality',
+    name: 'School of Hospitality & Culinary Arts',
+    shortCode: 'SOHA',
+    deanName: 'Chef Martin Fernandez',
+    coordinatorName: 'Prof. Rajiv Kapoor',
+    programs: [
+      { id: 'prog-hosp', name: 'B.Sc International Hospitality & Resort Studies', shortCode: 'B.Sc Hospitality', degreeType: 'UG', coordinatorName: 'Prof. George Thomas', coordinatorEmail: 'hosp.coord@itmuniversity.edu' },
+      { id: 'prog-culinary', name: 'B.A. Bakery, Pastry & Global Culinary Arts', shortCode: 'B.A. Culinary', degreeType: 'UG', coordinatorName: 'Chef Shalini Nair', coordinatorEmail: 'culinary.coord@itmuniversity.edu' },
+      { id: 'prog-hotel', name: 'Diploma in Luxury Hotel Operations & Front Office', shortCode: 'Dip. Hotel Ops', degreeType: 'Diploma', coordinatorName: 'Prof. Vivek Saxena', coordinatorEmail: 'hotel.coord@itmuniversity.edu' },
+    ],
+  },
+];
+
+export const NAAC_CRITERIA_SUMMARY: NaacCriterionSummary[] = [
+  { id: 'crit-1', code: 'Criterion 1', name: 'Curricular Aspects', weightage: 150 },
+  { id: 'crit-2', code: 'Criterion 2', name: 'Teaching-Learning and Evaluation', weightage: 200 },
+  { id: 'crit-3', code: 'Criterion 3', name: 'Research, Innovations and Extension', weightage: 250 },
+  { id: 'crit-4', code: 'Criterion 4', name: 'Infrastructure and Learning Resources', weightage: 100 },
+  { id: 'crit-5', code: 'Criterion 5', name: 'Student Support and Progression', weightage: 100 },
+  { id: 'crit-6', code: 'Criterion 6', name: 'Governance, Leadership and Management', weightage: 100 },
+  { id: 'crit-7', code: 'Criterion 7', name: 'Institutional Values and Best Practices', weightage: 100 },
+];
+
+export interface KeyIndicatorDef {
+  code: string;
+  name: string;
+  criterionCode: string;
+  metricCodes: string[];
+}
+
+export const KEY_INDICATORS: KeyIndicatorDef[] = [
+  // Criterion 1: Curricular Aspects
+  { code: '1.1', name: 'Curricular Planning and Implementation', criterionCode: 'Criterion 1', metricCodes: ['1.1.1', '1.1.2', '1.1.3'] },
+  { code: '1.2', name: 'Academic Flexibility', criterionCode: 'Criterion 1', metricCodes: ['1.2.1', '1.2.2'] },
+  { code: '1.3', name: 'Curriculum Enrichment', criterionCode: 'Criterion 1', metricCodes: ['1.3.1', '1.3.2', '1.3.3'] },
+  { code: '1.4', name: 'Feedback System', criterionCode: 'Criterion 1', metricCodes: ['1.4.1', '1.4.2'] },
+
+  // Criterion 2: Teaching-Learning and Evaluation
+  { code: '2.1', name: 'Student Enrolment and Profile', criterionCode: 'Criterion 2', metricCodes: ['2.1.1', '2.1.2'] },
+  { code: '2.2', name: 'Catering to Student Diversity', criterionCode: 'Criterion 2', metricCodes: ['2.2.1', '2.2.2'] },
+  { code: '2.3', name: 'Teaching-Learning Process & Experiential Methods', criterionCode: 'Criterion 2', metricCodes: ['2.3.1', '2.3.2'] },
+  { code: '2.4', name: 'Teacher Profile and Quality Credentials', criterionCode: 'Criterion 2', metricCodes: ['2.4.1', '2.4.2', '2.4.3'] },
+  { code: '2.5', name: 'Evaluation Process and Reforms', criterionCode: 'Criterion 2', metricCodes: ['2.5.1', '2.5.2'] },
+  { code: '2.6', name: 'Student Performance and Learning Outcomes (PO/CO)', criterionCode: 'Criterion 2', metricCodes: ['2.6.1', '2.6.2', '2.6.3'] },
+  { code: '2.7', name: 'Student Satisfaction Survey', criterionCode: 'Criterion 2', metricCodes: ['2.7.1'] },
+
+  // Criterion 3: Research, Innovations and Extension
+  { code: '3.1', name: 'Resource Mobilization for Research & Grants', criterionCode: 'Criterion 3', metricCodes: ['3.1.1', '3.1.2'] },
+  { code: '3.2', name: 'Innovation Ecosystem & Incubation Center', criterionCode: 'Criterion 3', metricCodes: ['3.2.1', '3.2.2'] },
+  { code: '3.3', name: 'Research Publications and Awards', criterionCode: 'Criterion 3', metricCodes: ['3.3.1', '3.3.2'] },
+  { code: '3.4', name: 'Extension Activities & Social Responsibility', criterionCode: 'Criterion 3', metricCodes: ['3.4.1', '3.4.2'] },
+  { code: '3.5', name: 'Collaboration, Linkages & Corporate MoUs', criterionCode: 'Criterion 3', metricCodes: ['3.5.1', '3.5.2'] },
+
+  // Criterion 4: Infrastructure and Learning Resources
+  { code: '4.1', name: 'Physical Facilities (ICT Classrooms & Labs)', criterionCode: 'Criterion 4', metricCodes: ['4.1.1', '4.1.2', '4.1.3'] },
+  { code: '4.2', name: 'Library as a Learning Resource & E-Subscriptions', criterionCode: 'Criterion 4', metricCodes: ['4.2.1', '4.2.2'] },
+  { code: '4.3', name: 'IT Infrastructure & Wi-Fi Facilities', criterionCode: 'Criterion 4', metricCodes: ['4.3.1', '4.3.2'] },
+  { code: '4.4', name: 'Maintenance of Campus Infrastructure', criterionCode: 'Criterion 4', metricCodes: ['4.4.1', '4.4.2'] },
+
+  // Criterion 5: Student Support and Progression
+  { code: '5.1', name: 'Student Support & Freeships', criterionCode: 'Criterion 5', metricCodes: ['5.1.1', '5.1.2', '5.1.3'] },
+  { code: '5.2', name: 'Student Progression & Placements', criterionCode: 'Criterion 5', metricCodes: ['5.2.1', '5.2.2'] },
+  { code: '5.3', name: 'Student Participation & Awards', criterionCode: 'Criterion 5', metricCodes: ['5.3.1', '5.3.2'] },
+  { code: '5.4', name: 'Alumni Engagement', criterionCode: 'Criterion 5', metricCodes: ['5.4.1', '5.4.2'] },
+
+  // Criterion 6: Governance, Leadership and Management
+  { code: '6.1', name: 'Institutional Vision and Leadership', criterionCode: 'Criterion 6', metricCodes: ['6.1.1', '6.1.2'] },
+  { code: '6.2', name: 'Strategy Development and Deployment', criterionCode: 'Criterion 6', metricCodes: ['6.2.1', '6.2.2', '6.2.3'] },
+  { code: '6.3', name: 'Faculty Empowerment Strategies', criterionCode: 'Criterion 6', metricCodes: ['6.3.1', '6.3.2', '6.3.3'] },
+  { code: '6.4', name: 'Financial Management & Resource Mobilization', criterionCode: 'Criterion 6', metricCodes: ['6.4.1', '6.4.2'] },
+  { code: '6.5', name: 'Internal Quality Assurance System (IQAC)', criterionCode: 'Criterion 6', metricCodes: ['6.5.1', '6.5.2'] },
+
+  // Criterion 7: Institutional Values and Best Practices
+  { code: '7.1', name: 'Institutional Values & Gender Equity', criterionCode: 'Criterion 7', metricCodes: ['7.1.1', '7.1.2', '7.1.3'] },
+  { code: '7.2', name: 'Institutional Best Practices', criterionCode: 'Criterion 7', metricCodes: ['7.2.1'] },
+  { code: '7.3', name: 'Institutional Distinctiveness', criterionCode: 'Criterion 7', metricCodes: ['7.3.1'] },
+];
+
+export const NAAC_METRICS_LIST: NaacMetric[] = [
+  // Criterion 1
+  { code: '1.1.1', name: 'Curriculum Planning & Delivery Implementation System', criterionId: 'crit-1', criterionCode: 'Criterion 1', metricType: 'QlM', description: 'Academic council minutes, lesson plans, course handouts, and timetable alignment.' },
+  { code: '1.1.2', name: 'Percentage of Programmes where Syllabus Revision was Carried Out', criterionId: 'crit-1', criterionCode: 'Criterion 1', metricType: 'QnM', description: 'Board of Studies (BoS) minutes, comparative curriculum charts, and revised course structures.' },
+  { code: '1.1.3', name: 'Courses with Focus on Employability, Entrepreneurship & Skill Development', criterionId: 'crit-1', criterionCode: 'Criterion 1', metricType: 'QnM', description: 'Course content highlighting practical skills, live projects, and professional certifications.' },
+  { code: '1.2.1', name: 'Academic Flexibility & Choice-Based Credit System (CBCS) Courses', criterionId: 'crit-1', criterionCode: 'Criterion 1', metricType: 'QnM', description: 'List of elective and interdisciplinary courses offered across programs.' },
+  { code: '1.2.2', name: 'Percentage of Programmes Adopting CBCS / Elective Course System', criterionId: 'crit-1', criterionCode: 'Criterion 1', metricType: 'QnM', description: 'University approval letters, statutory council notifications for CBCS implementation.' },
+  { code: '1.3.1', name: 'Cross-cutting Issues: Gender, Environment, Sustainability & Professional Ethics', criterionId: 'crit-1', criterionCode: 'Criterion 1', metricType: 'QlM', description: 'Course syllabi integrating sustainability, environmental studies, and human values.' },
+  { code: '1.3.2', name: 'Value-Added Courses for Imparting Transferable & Life Skills', criterionId: 'crit-1', criterionCode: 'Criterion 1', metricType: 'QnM', description: 'Brochures, attendance sheets, and certificates of value-added training modules.' },
+  { code: '1.3.3', name: 'Students Undertaking Field Projects, Internships & Student Projects', criterionId: 'crit-1', criterionCode: 'Criterion 1', metricType: 'QnM', description: 'Industry internship completion certificates, field study reports, and project rosters.' },
+  { code: '1.4.1', name: 'Structured Stakeholder Feedback Analysis & Action Taken Report (ATR)', criterionId: 'crit-1', criterionCode: 'Criterion 1', metricType: 'QnM', description: 'Student, teacher, employer, and alumni feedback reports with institutional ATRs.' },
+  { code: '1.4.2', name: 'Institutional Feedback Process & Communication on Website', criterionId: 'crit-1', criterionCode: 'Criterion 1', metricType: 'QnM', description: 'Feedback collection policy, web links, analysis summaries, and action taken reports.' },
+
+  // Criterion 2
+  { code: '2.1.1', name: 'Enrolment Percentage and Sanctioned Intake Allocation', criterionId: 'crit-2', criterionCode: 'Criterion 2', metricType: 'QnM', description: 'Admission register, state quota sanction letters, and final enrolled lists.' },
+  { code: '2.1.2', name: 'Percentage of Seats Filled Against Reserved Categories', criterionId: 'crit-2', criterionCode: 'Criterion 2', metricType: 'QnM', description: 'Category-wise student enrolment data, caste certificates, and admission ledger.' },
+  { code: '2.2.1', name: 'Assessing Learning Levels & Programmes for Advanced and Slow Learners', criterionId: 'crit-2', criterionCode: 'Criterion 2', metricType: 'QlM', description: 'Diagnostic test reports, remedial class timetables, and peer tutoring logs.' },
+  { code: '2.2.2', name: 'Student - Full Time Teacher Ratio', criterionId: 'crit-2', criterionCode: 'Criterion 2', metricType: 'QnM', description: 'Calculated student to teacher ratio roster signed by head of institution.' },
+  { code: '2.3.1', name: 'Student-Centric Learning Methods (Experiential, Participative & Problem-Solving)', criterionId: 'crit-2', criterionCode: 'Criterion 2', metricType: 'QlM', description: 'Industrial visits, case study documentation, capstone projects, and lab manuals.' },
+  { code: '2.3.2', name: 'Teachers Use of ICT Enabled Tools Including LMS & E-Resources', criterionId: 'crit-2', criterionCode: 'Criterion 2', metricType: 'QlM', description: 'Google Classroom / Moodle audit logs, e-content links, and interactive lecture slides.' },
+  { code: '2.4.1', name: 'Full-time Teachers and Faculty Quality Credentials (Ph.D. / NET)', criterionId: 'crit-2', criterionCode: 'Criterion 2', metricType: 'QnM', description: 'Faculty appointment orders, doctoral degree certificates, and staff lists.' },
+  { code: '2.4.2', name: 'Percentage of Full-Time Teachers with Ph.D. / D.Sc. / D.Litt.', criterionId: 'crit-2', criterionCode: 'Criterion 2', metricType: 'QnM', description: 'Doctoral degree certificates, university approval notifications, and thesis titles.' },
+  { code: '2.4.3', name: 'Average Teaching Experience of Full-Time Teachers in Same Institution', criterionId: 'crit-2', criterionCode: 'Criterion 2', metricType: 'QnM', description: 'Experience certificates, joining letters, and service verification records.' },
+  { code: '2.5.1', name: 'Mechanism of Internal / Continuous Assessment is Transparent & Robust', criterionId: 'crit-2', criterionCode: 'Criterion 2', metricType: 'QlM', description: 'Examination circulars, internal assessment rubrics, and answer sheet grievance logs.' },
+  { code: '2.5.2', name: 'Mechanism to Deal with Examination-Related Grievances', criterionId: 'crit-2', criterionCode: 'Criterion 2', metricType: 'QlM', description: 'Grievance redressal minutes, revaluation requests, and re-check reports.' },
+  { code: '2.6.1', name: 'Programme Outcomes (PO) and Course Outcomes (CO) Attainment', criterionId: 'crit-2', criterionCode: 'Criterion 2', metricType: 'QlM', description: 'Outcome-based education (OBE) evaluation matrices and attainment rubrics.' },
+  { code: '2.6.2', name: 'Attainment of Programme Outcomes and Course Outcomes Evaluated', criterionId: 'crit-2', criterionCode: 'Criterion 2', metricType: 'QlM', description: 'Direct and indirect assessment sheets with target vs attainment graphs.' },
+  { code: '2.6.3', name: 'Pass Percentage of Final Year Students in University Examinations', criterionId: 'crit-2', criterionCode: 'Criterion 2', metricType: 'QnM', description: 'Controller of Examinations (CoE) certified annual result sheets and gazettes.' },
+  { code: '2.7.1', name: 'Online Student Satisfaction Survey (SSS) on Teaching-Learning Process', criterionId: 'crit-2', criterionCode: 'Criterion 2', metricType: 'QnM', description: 'Google Form / portal SSS survey responses, percentage metrics, and report.' },
+
+  // Criterion 3
+  { code: '3.1.1', name: 'Research Grants & Resource Mobilization from Government and Industry', criterionId: 'crit-3', criterionCode: 'Criterion 3', metricType: 'QnM', description: 'Sanction letters for funded research projects, consultancy receipts, and budgets.' },
+  { code: '3.1.2', name: 'Percentage of Teachers Recognized as Research Guides', criterionId: 'crit-3', criterionCode: 'Criterion 3', metricType: 'QnM', description: 'Ph.D. guide recognition letters from affiliating university / research council.' },
+  { code: '3.2.1', name: 'Innovation Ecosystem & Incubation Center Documentation', criterionId: 'crit-3', criterionCode: 'Criterion 3', metricType: 'QlM', description: 'Startup incubation records, intellectual property filings, and hackathon reports.' },
+  { code: '3.2.2', name: 'Workshops / Seminars Conducted on Research Methodology, IPR & Entrepreneurship', criterionId: 'crit-3', criterionCode: 'Criterion 3', metricType: 'QnM', description: 'Event flyers, participant rosters, speaker profiles, and geo-tagged photos.' },
+  { code: '3.3.1', name: 'Research Papers Published in UGC CARE / Scopus / WoS Journals', criterionId: 'crit-3', criterionCode: 'Criterion 3', metricType: 'QnM', description: 'Journal publication links, paper first-page prints, and ISSN proof.' },
+  { code: '3.3.2', name: 'Books and Chapters in Edited Volumes & Conference Proceedings Published', criterionId: 'crit-3', criterionCode: 'Criterion 3', metricType: 'QnM', description: 'Book cover scans, ISBN certificates, and publisher agreements.' },
+  { code: '3.4.1', name: 'Extension & Outreach Activities in Community Development (NSS/NCC)', criterionId: 'crit-3', criterionCode: 'Criterion 3', metricType: 'QnM', description: 'Reports of blood donation camps, village adoption programs, and community clinics.' },
+  { code: '3.4.2', name: 'Awards and Recognitions Received for Extension Activities', criterionId: 'crit-3', criterionCode: 'Criterion 3', metricType: 'QnM', description: 'Government certificates, NGO appreciation letters, and civic recognition trophies.' },
+  { code: '3.5.1', name: 'Institutional Linkages, Corporate MoUs & Industry Collaborations', criterionId: 'crit-3', criterionCode: 'Criterion 3', metricType: 'QnM', description: 'Signed Memoranda of Understanding (MoU) with corporations and foreign universities.' },
+  { code: '3.5.2', name: 'Functional MoUs with Institutions and Corporates Ongoing During Year', criterionId: 'crit-3', criterionCode: 'Criterion 3', metricType: 'QnM', description: 'Activity reports executed under active MoUs (internships, guest lectures).' },
+
+  // Criterion 4
+  { code: '4.1.1', name: 'Adequacy of Physical Infrastructure (ICT Classrooms, Labs, Seminar Halls)', criterionId: 'crit-4', criterionCode: 'Criterion 4', metricType: 'QlM', description: 'Geo-tagged photos of smart classrooms, IoT laboratories, and auditorium facilities.' },
+  { code: '4.1.2', name: 'Facilities for Cultural Activities, Sports, Games & Gymnasium', criterionId: 'crit-4', criterionCode: 'Criterion 4', metricType: 'QlM', description: 'Sports ground dimensions, gymnasium equipment list, and cultural hall photos.' },
+  { code: '4.1.3', name: 'Classrooms and Seminar Halls with ICT Enabled Facilities & Smart Boards', criterionId: 'crit-4', criterionCode: 'Criterion 4', metricType: 'QnM', description: 'Room numbers list with projector models, LMS integration proofs, and photos.' },
+  { code: '4.2.1', name: 'Library as a Learning Resource & Integrated Library Management System', criterionId: 'crit-4', criterionCode: 'Criterion 4', metricType: 'QlM', description: 'Koha / LibSys software automation screenshots, barcode scanner logs.' },
+  { code: '4.2.2', name: 'Library E-Journals Subscriptions & Remote Access Usage Logs', criterionId: 'crit-4', criterionCode: 'Criterion 4', metricType: 'QnM', description: 'IEEE, Springer, ScienceDirect invoice receipts, ILMS software utilization logs.' },
+  { code: '4.3.1', name: 'Institution Frequently Updates IT Facilities Including Wi-Fi Bandwidth', criterionId: 'crit-4', criterionCode: 'Criterion 4', metricType: 'QlM', description: 'Internet lease line bills, firewall configuration reports, and access point maps.' },
+  { code: '4.3.2', name: 'Student - Computer Ratio for Academic Purposes', criterionId: 'crit-4', criterionCode: 'Criterion 4', metricType: 'QnM', description: 'Lab asset registers, stock registers, and computer invoices signed by HoD.' },
+  { code: '4.4.1', name: 'Expenditure Incurred on Maintenance of Physical & Academic Support Facilities', criterionId: 'crit-4', criterionCode: 'Criterion 4', metricType: 'QnM', description: 'Audited balance sheets, maintenance ledger statements, and AMC agreements.' },
+  { code: '4.4.2', name: 'Established Systems and Procedures for Maintaining Physical & Academic Facilities', criterionId: 'crit-4', criterionCode: 'Criterion 4', metricType: 'QlM', description: 'Standard operating procedures (SOP), maintenance request registers, and policies.' },
+
+  // Criterion 5
+  { code: '5.1.1', name: 'Scholarships & Institutional Freeships Beneficiary Records', criterionId: 'crit-5', criterionCode: 'Criterion 5', metricType: 'QnM', description: 'Merit scholarship disbursement vouchers and government grant lists.' },
+  { code: '5.1.2', name: 'Capacity Building & Skills Enhancement Initiatives (Soft skills, ICT, Language)', criterionId: 'crit-5', criterionCode: 'Criterion 5', metricType: 'QnM', description: 'Skill enhancement course syllabi, attendance sheets, and trainer MOUs.' },
+  { code: '5.1.3', name: 'Guidance for Competitive Examinations and Career Counseling Offered', criterionId: 'crit-5', criterionCode: 'Criterion 5', metricType: 'QnM', description: 'GATE/GRE coaching schedules, career fair flyers, and counseling registers.' },
+  { code: '5.2.1', name: 'Placement of Outgoing Students and Progression to Higher Education', criterionId: 'crit-5', criterionCode: 'Criterion 5', metricType: 'QnM', description: 'Offer letters, employer verification emails, and admission letters for higher studies.' },
+  { code: '5.2.2', name: 'Students Qualifying in State / National / International Level Exams (GATE/NET)', criterionId: 'crit-5', criterionCode: 'Criterion 5', metricType: 'QnM', description: 'Scorecards, rank letters for GATE, CAT, GRE, GMAT, and civil service exams.' },
+  { code: '5.3.1', name: 'Student Sports, Cultural Competitions & National / International Awards', criterionId: 'crit-5', criterionCode: 'Criterion 5', metricType: 'QnM', description: 'Merit certificates, event photographs, and university sports representation proofs.' },
+  { code: '5.3.2', name: 'Presence of an Active Student Council & Student Representation on Bodies', criterionId: 'crit-5', criterionCode: 'Criterion 5', metricType: 'QlM', description: 'Student council constitution, notification circulars, and meeting minutes.' },
+  { code: '5.4.1', name: 'Registered Alumni Association Contributing Significantly to Institution', criterionId: 'crit-5', criterionCode: 'Criterion 5', metricType: 'QlM', description: 'Alumni registration certificate, guest lecture photos, and mentorship records.' },
+  { code: '5.4.2', name: 'Alumni Financial and In-kind Contribution During the Year', criterionId: 'crit-5', criterionCode: 'Criterion 5', metricType: 'QnM', description: 'Audited alumni donation statements, endowment receipts, and equipment gifts.' },
+
+  // Criterion 6
+  { code: '6.1.1', name: 'Governance Aligned with Vision and Mission of the Institution', criterionId: 'crit-6', criterionCode: 'Criterion 6', metricType: 'QlM', description: 'Governing body resolutions, perspective plan documents, and mission statements.' },
+  { code: '6.1.2', name: 'Decentralization and Participative Management in Academic & Administrative Bodies', criterionId: 'crit-6', criterionCode: 'Criterion 6', metricType: 'QlM', description: 'Committee circulars, delegation of authority matrices, and meeting minutes.' },
+  { code: '6.2.1', name: 'Strategic Perspective Plan Deployment and Implementation Proofs', criterionId: 'crit-6', criterionCode: 'Criterion 6', metricType: 'QlM', description: 'Five-year strategic plan, annual targets vs achievements, and review reports.' },
+  { code: '6.2.2', name: 'Functioning of Institutional Bodies and E-Governance Implementation Policy', criterionId: 'crit-6', criterionCode: 'Criterion 6', metricType: 'QlM', description: 'Organogram, service rules, promotion policies, and ERP user manuals.' },
+  { code: '6.2.3', name: 'Implementation of E-Governance in Administration, Finance & Examinations', criterionId: 'crit-6', criterionCode: 'Criterion 6', metricType: 'QnM', description: 'ERP software invoices, screenshots of student admission & examination portals.' },
+  { code: '6.3.1', name: 'Effective Welfare Measures for Teaching and Non-Teaching Staff', criterionId: 'crit-6', criterionCode: 'Criterion 6', metricType: 'QlM', description: 'Staff medical insurance policies, PF statements, and maternity leave records.' },
+  { code: '6.3.2', name: 'Financial Support Provided to Teachers for Conferences & Professional Memberships', criterionId: 'crit-6', criterionCode: 'Criterion 6', metricType: 'QnM', description: 'Sanction vouchers, conference registration fee receipts, and travel grants.' },
+  { code: '6.3.3', name: 'Professional Development & Administrative Training Programs Organized', criterionId: 'crit-6', criterionCode: 'Criterion 6', metricType: 'QnM', description: 'FDP flyers, participant attendance sheets, and completion certificates.' },
+  { code: '6.4.1', name: 'Institutional Financial Audits (Internal & External) Conducted Regularly', criterionId: 'crit-6', criterionCode: 'Criterion 6', metricType: 'QlM', description: 'Chartered Accountant audited balance sheets and statutory audit reports.' },
+  { code: '6.4.2', name: 'Mobilization of Funds and Resource Utilization Strategies', criterionId: 'crit-6', criterionCode: 'Criterion 6', metricType: 'QnM', description: 'Endowments, consultancy fee ledgers, and budget utilization statements.' },
+  { code: '6.5.1', name: 'Internal Quality Assurance Cell (IQAC) Review & Academic Audit Reports', criterionId: 'crit-6', criterionCode: 'Criterion 6', metricType: 'QlM', description: 'IQAC quarterly meeting minutes, external peer team audits, and action taken matrices.' },
+  { code: '6.5.2', name: 'Quality Assurance Initiatives of the Institution (Collaborations, NIRF, ISO)', criterionId: 'crit-6', criterionCode: 'Criterion 6', metricType: 'QlM', description: 'NIRF submission copies, ISO 9001 certificates, and collaborative quality workshops.' },
+
+  // Criterion 7
+  { code: '7.1.1', name: 'Gender Equity Promotion & Safety Measures in Campus', criterionId: 'crit-7', criterionCode: 'Criterion 7', metricType: 'QlM', description: 'Internal Complaints Committee (ICC) notices, CCTV audits, and women counseling records.' },
+  { code: '7.1.2', name: 'Facilities for Alternate Energy, Solar Panels, Water Conservation & Waste Management', criterionId: 'crit-7', criterionCode: 'Criterion 7', metricType: 'QnM', description: 'Geo-tagged photos of solar rooftops, rainwater harvesting pits, and STP plants.' },
+  { code: '7.1.3', name: 'Quality Audits on Environment and Energy (Green Audit, Energy Audit)', criterionId: 'crit-7', criterionCode: 'Criterion 7', metricType: 'QlM', description: 'Third-party certified Green Audit reports, Energy Audit certificates, and clean campus awards.' },
+  { code: '7.2.1', name: 'Institutional Best Practices Case Studies (Best Practice 1 & 2)', criterionId: 'crit-7', criterionCode: 'Criterion 7', metricType: 'QlM', description: 'Detailed case studies with outcome evidence on campus sustainability and industry immersion.' },
+  { code: '7.3.1', name: 'Institutional Distinctiveness in Priority Area and Thrust', criterionId: 'crit-7', criterionCode: 'Criterion 7', metricType: 'QlM', description: 'Comprehensive report highlighting unique institutional achievements and distinctive features.' },
+];
+
+const INITIAL_NAAC_DOCUMENTS: NaacEvidenceDocument[] = [
+  // B.Tech CSE Department Faculty Submissions (Under Program Coordinator Prof. Anita Verma)
+  {
+    id: 'naac-cse-fac-1',
+    title: 'Outcome-Based Education (OBE) Course Attainment Matrix 2025-26',
+    description: 'Direct & indirect PO/CO attainment rubrics, Bloom taxonomy mapping, and sample evaluated answer sheets for 8 semesters.',
+    schoolId: 'sch-tech',
+    schoolName: 'School of Technology & Computer Engineering',
+    programId: 'prog-cse',
+    programName: 'B.Tech Computer Science & Engineering',
+    academicYear: '2025-2026',
+    criterionId: 'crit-2',
+    criterionCode: 'Criterion 2',
+    metricCode: '2.6.1',
+    metricName: 'Programme Outcomes (PO) and Course Outcomes (CO) Attainment',
+    metricType: 'QlM',
+    fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    fileName: 'CSE_OBE_Attainment_Report_2025_26.pdf',
+    fileSize: '3.4 MB',
+    uploadedBy: 'Dr. Ramesh Gupta',
+    uploadedAt: '2026-10-14T09:30:00Z',
+    status: 'draft',
+    version: 'v1.0',
+    submittedByFacultyId: 'fac-1',
+    facultyName: 'Dr. Ramesh Gupta',
+    facultyDesignation: 'Associate Professor & Criterion 2 Lead',
+    coordinatorReviewStatus: 'changes_requested',
+    coordinatorFeedback: 'Please attach evaluated sample answer sheets with Bloom level mapping for Sem 3 and Sem 5 to satisfy QnM verification.',
+  },
+  {
+    id: 'naac-cse-fac-1-b',
+    title: 'Student Experiential & Participative Learning Project Portfolios with Industrial Mentorship',
+    description: 'Student capstone project progress reviews, industrial guide evaluation sheets, and field immersion project certificates.',
+    schoolId: 'sch-tech',
+    schoolName: 'School of Technology & Computer Engineering',
+    programId: 'prog-cse',
+    programName: 'B.Tech Computer Science & Engineering',
+    academicYear: '2025-2026',
+    criterionId: 'crit-2',
+    criterionCode: 'Criterion 2',
+    metricCode: '2.3.1',
+    metricName: 'Student-Centric Methods (Experiential, Participative & Problem-Solving Learning)',
+    metricType: 'QlM',
+    fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    fileName: 'Experiential_Learning_Field_Projects_Audit.pdf',
+    fileSize: '3.6 MB',
+    uploadedBy: 'Dr. Ramesh Gupta',
+    uploadedAt: '2026-10-15T14:30:00Z',
+    status: 'draft',
+    version: 'v1.0',
+    submittedByFacultyId: 'fac-1',
+    facultyName: 'Dr. Ramesh Gupta',
+    facultyDesignation: 'Associate Professor & Criterion 2 Lead',
+    coordinatorReviewStatus: 'compiled',
+    compiledAt: '2026-10-16T11:00:00Z',
+  },
+  {
+    id: 'naac-cse-fac-2',
+    title: 'High-Performance GPU AI Server Cluster & Cloud Lab Invoices with Geo-tagged Photos',
+    description: 'Hardware procurement invoices, vendor calibration certificates, and geo-tagged photographs of NVIDIA A100 AI lab workstations.',
+    schoolId: 'sch-tech',
+    schoolName: 'School of Technology & Computer Engineering',
+    programId: 'prog-cse',
+    programName: 'B.Tech Computer Science & Engineering',
+    academicYear: '2025-2026',
+    criterionId: 'crit-4',
+    criterionCode: 'Criterion 4',
+    metricCode: '4.1.1',
+    metricName: 'Adequacy of Physical Infrastructure (ICT Classrooms, Labs, Seminar Halls)',
+    metricType: 'QlM',
+    fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    fileName: 'CSE_AI_Server_Cluster_Procurement_GeoPhotos.pdf',
+    fileSize: '5.6 MB',
+    uploadedBy: 'Prof. Sneha Patel',
+    uploadedAt: '2026-10-12T14:15:00Z',
+    status: 'draft',
+    version: 'v1.0',
+    submittedByFacultyId: 'fac-2',
+    facultyName: 'Prof. Sneha Patel',
+    facultyDesignation: 'Assistant Professor & Lab / Infrastructure In-charge',
+    coordinatorReviewStatus: 'compiled',
+    compiledAt: '2026-10-15T11:20:00Z',
+  },
+  {
+    id: 'naac-cse-fac-3',
+    title: 'DST-SERB & Industry AI Research Grants Sanction Orders with Scopus Publications',
+    description: 'Sanction letter for Rs. 38.5 Lakhs research grant from DST SERB, research consultancy invoices, and first-author Scopus indexed papers.',
+    schoolId: 'sch-tech',
+    schoolName: 'School of Technology & Computer Engineering',
+    programId: 'prog-cse',
+    programName: 'B.Tech Computer Science & Engineering',
+    academicYear: '2025-2026',
+    criterionId: 'crit-3',
+    criterionCode: 'Criterion 3',
+    metricCode: '3.1.1',
+    metricName: 'Research Grants & Resource Mobilization from Government and Industry',
+    metricType: 'QnM',
+    fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    fileName: 'CSE_DST_SERB_Research_Sanction_Papers.pdf',
+    fileSize: '4.2 MB',
+    uploadedBy: 'Dr. Arun Joshi',
+    uploadedAt: '2026-10-15T16:45:00Z',
+    status: 'draft',
+    version: 'v1.0',
+    submittedByFacultyId: 'fac-3',
+    facultyName: 'Dr. Arun Joshi',
+    facultyDesignation: 'Associate Professor & Department Research Lead',
+    coordinatorReviewStatus: 'pending_review',
+  },
+  {
+    id: 'naac-cse-fac-4',
+    title: 'Student Mentorship Logs, Remedial Class Vouchers & Campus Placement Records',
+    description: 'Faculty-student mentoring session logs, remedial coaching for slow learners, and campus placement appointment letters.',
+    schoolId: 'sch-tech',
+    schoolName: 'School of Technology & Computer Engineering',
+    programId: 'prog-cse',
+    programName: 'B.Tech Computer Science & Engineering',
+    academicYear: '2025-2026',
+    criterionId: 'crit-5',
+    criterionCode: 'Criterion 5',
+    metricCode: '5.1.1',
+    metricName: 'Scholarships & Institutional Freeships Beneficiary Records',
+    metricType: 'QnM',
+    fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    fileName: 'CSE_Mentorship_Placement_Records_2025.pdf',
+    fileSize: '2.8 MB',
+    uploadedBy: 'Prof. Vikas Shinde',
+    uploadedAt: '2026-10-10T10:00:00Z',
+    status: 'draft',
+    version: 'v1.0',
+    submittedByFacultyId: 'fac-4',
+    facultyName: 'Prof. Vikas Shinde',
+    facultyDesignation: 'Assistant Professor & Student Mentorship Coordinator',
+    coordinatorReviewStatus: 'changes_requested',
+    coordinatorFeedback: 'Please attach the official offer letters from Google, Microsoft, and Infosys for the top 10 placed students to satisfy QnM verification.',
+  },
+  {
+    id: 'naac-cse-fac-5',
+    title: 'Board of Studies (BoS) Minutes on CBCS Electives Restructuring & AI Curriculum Alignment',
+    description: 'Signed minutes of meeting of Department Academic Board approving 4 new industry electives (LLMs, GenAI, Cloud Security) with stakeholder ATR.',
+    schoolId: 'sch-tech',
+    schoolName: 'School of Technology & Computer Engineering',
+    programId: 'prog-cse',
+    programName: 'B.Tech Computer Science & Engineering',
+    academicYear: '2025-2026',
+    criterionId: 'crit-1',
+    criterionCode: 'Criterion 1',
+    metricCode: '1.1.1',
+    metricName: 'Curriculum Planning & Delivery Implementation System',
+    metricType: 'QlM',
+    fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    fileName: 'CSE_BoS_Minutes_CBCS_Electives_Restructuring.pdf',
+    fileSize: '3.1 MB',
+    uploadedBy: 'Prof. Priyanka Deshmukh',
+    uploadedAt: '2026-10-08T11:30:00Z',
+    status: 'draft',
+    version: 'v1.0',
+    submittedByFacultyId: 'fac-5',
+    facultyName: 'Prof. Priyanka Deshmukh',
+    facultyDesignation: 'Assistant Professor & Curriculum Committee Lead',
+    coordinatorReviewStatus: 'compiled',
+    compiledAt: '2026-10-11T15:00:00Z',
+  },
+  {
+    id: 'naac-cse-fac-5-b',
+    title: 'Academic Council Resolution & Approved Syllabus Matrix 2025-26',
+    description: 'Certified resolution of the University Academic Council approving credit redistribution and AI electives.',
+    schoolId: 'sch-tech',
+    schoolName: 'School of Technology & Computer Engineering',
+    programId: 'prog-cse',
+    programName: 'B.Tech Computer Science & Engineering',
+    academicYear: '2025-2026',
+    criterionId: 'crit-1',
+    criterionCode: 'Criterion 1',
+    metricCode: '1.1.1',
+    metricName: 'Curriculum Planning & Delivery Implementation System',
+    metricType: 'QlM',
+    fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    fileName: 'Academic_Council_Approved_Syllabus_Structure_2025_26.pdf',
+    fileSize: '2.4 MB',
+    uploadedBy: 'Dr. Ramesh Gupta',
+    uploadedAt: '2026-10-09T14:20:00Z',
+    status: 'draft',
+    version: 'v1.0',
+    submittedByFacultyId: 'fac-1',
+    facultyName: 'Dr. Ramesh Gupta',
+    facultyDesignation: 'Associate Professor & Criterion 1 Co-Lead',
+    coordinatorReviewStatus: 'compiled',
+    compiledAt: '2026-10-12T10:00:00Z',
+  },
+  {
+    id: 'naac-cse-fac-5-c',
+    title: 'Lesson Plans, Course Files & Continuous Internal Evaluation (CIE) Audit Report',
+    description: "Signed Dean's quality compliance certificate verifying lesson plan adherence and LMS course delivery records.",
+    schoolId: 'sch-tech',
+    schoolName: 'School of Technology & Computer Engineering',
+    programId: 'prog-cse',
+    programName: 'B.Tech Computer Science & Engineering',
+    academicYear: '2025-2026',
+    criterionId: 'crit-1',
+    criterionCode: 'Criterion 1',
+    metricCode: '1.1.1',
+    metricName: 'Curriculum Planning & Delivery Implementation System',
+    metricType: 'QlM',
+    fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    fileName: 'Lesson_Plans_Course_Files_Audit_Report_Sem1_Sem2.pdf',
+    fileSize: '4.1 MB',
+    uploadedBy: 'Prof. Anita Verma',
+    uploadedAt: '2026-10-12T16:00:00Z',
+    status: 'draft',
+    version: 'v1.0',
+    submittedByFacultyId: 'fac-coord',
+    facultyName: 'Prof. Anita Verma',
+    facultyDesignation: 'Associate Professor & Program Coordinator',
+    coordinatorReviewStatus: 'compiled',
+    compiledAt: '2026-10-13T12:00:00Z',
+  },
+  {
+    id: 'naac-cse-fac-5-d',
+    title: 'Choice-Based Credit System (CBCS) & Interdisciplinary Electives Offering Matrix',
+    description: 'Departmental curriculum flexibility records showcasing 14 open and industry-sponsored electives for 2025-26.',
+    schoolId: 'sch-tech',
+    schoolName: 'School of Technology & Computer Engineering',
+    programId: 'prog-cse',
+    programName: 'B.Tech Computer Science & Engineering',
+    academicYear: '2025-2026',
+    criterionId: 'crit-1',
+    criterionCode: 'Criterion 1',
+    metricCode: '1.2.1',
+    metricName: 'Academic Flexibility & Choice Based Credit System (CBCS)',
+    metricType: 'QnM',
+    fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    fileName: 'CBCS_Interdisciplinary_Electives_Offerings_2025_26.pdf',
+    fileSize: '2.6 MB',
+    uploadedBy: 'Prof. Anita Verma',
+    uploadedAt: '2026-10-14T11:00:00Z',
+    status: 'draft',
+    version: 'v1.0',
+    submittedByFacultyId: 'fac-coord',
+    facultyName: 'Prof. Anita Verma',
+    facultyDesignation: 'Associate Professor & Program Coordinator',
+    coordinatorReviewStatus: 'compiled',
+    compiledAt: '2026-10-14T15:00:00Z',
+  },
+  {
+    id: 'naac-cse-fac-5-e',
+    title: 'Stakeholder Feedback on Curriculum & Action Taken Report (ATR) 2025',
+    description: 'Consolidated feedback analysis from students, teachers, employers, and alumni with Action Taken Report approved in BoS.',
+    schoolId: 'sch-tech',
+    schoolName: 'School of Technology & Computer Engineering',
+    programId: 'prog-cse',
+    programName: 'B.Tech Computer Science & Engineering',
+    academicYear: '2025-2026',
+    criterionId: 'crit-1',
+    criterionCode: 'Criterion 1',
+    metricCode: '1.4.1',
+    metricName: 'Structured Feedback on Curriculum from Stakeholders & Action Taken Report',
+    metricType: 'QnM',
+    fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    fileName: 'Curriculum_Feedback_Analysis_Stakeholder_ATR.pdf',
+    fileSize: '3.2 MB',
+    uploadedBy: 'Prof. Priyanka Deshmukh',
+    uploadedAt: '2026-10-15T10:30:00Z',
+    status: 'draft',
+    version: 'v1.0',
+    submittedByFacultyId: 'fac-5',
+    facultyName: 'Prof. Priyanka Deshmukh',
+    facultyDesignation: 'Assistant Professor & Curriculum Committee Lead',
+    coordinatorReviewStatus: 'changes_requested',
+  },
+  // Other school items for cross-tier demonstration
+  {
+    id: 'naac-doc-2',
+    title: 'Cloud Computing Capstone Experiential Projects & Lab Manuals',
+    description: 'Documentation of AWS student cloud credits, hands-on lab experiments, and live project deliverables.',
+    schoolId: 'sch-tech',
+    schoolName: 'School of Technology & Computer Engineering',
+    programId: 'prog-bca',
+    programName: 'BCA & Cloud Computing',
+    academicYear: '2025-2026',
+    criterionId: 'crit-2',
+    criterionCode: 'Criterion 2',
+    metricCode: '2.3.1',
+    metricName: 'Student-Centric Learning Methods (Experiential, Participative & Problem-Solving)',
+    metricType: 'QlM',
+    fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    fileName: 'BCA_Cloud_Capstone_Manuals.pdf',
+    fileSize: '4.8 MB',
+    uploadedBy: 'Prof. Ramesh Kulkarni',
+    uploadedAt: '2026-09-08T14:15:00Z',
+    status: 'approved_by_school',
+    version: 'v1.1',
+    schoolReviewNote: 'Excellent documentation of industrial cloud labs. Verified and forwarded to university.',
+    schoolReviewedBy: 'Dr. Rajesh Sharma',
+    schoolReviewedAt: '2026-09-15T11:00:00Z',
+  },
+  {
+    id: 'naac-doc-3',
+    title: 'Fintech Industry Immersion & NSE Academy Guest Lecture Series',
+    description: 'Attendance sheets, syllabus alignment notes, and certificates of completion for 120 BBA students.',
+    schoolId: 'sch-mgmt',
+    schoolName: 'School of Management & Business Studies',
+    programId: 'prog-fintech',
+    programName: 'BBA Fintech & Quantitative Finance',
+    academicYear: '2025-2026',
+    criterionId: 'crit-1',
+    criterionCode: 'Criterion 1',
+    metricCode: '1.2.1',
+    metricName: 'Academic Flexibility & Choice-Based Credit System (CBCS) Courses',
+    metricType: 'QnM',
+    fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    fileName: 'BBA_Fintech_NSE_Certification_Proof.pdf',
+    fileSize: '1.8 MB',
+    uploadedBy: 'Prof. Sneha Iyer',
+    uploadedAt: '2026-08-20T09:40:00Z',
+    status: 'changes_requested',
+    version: 'v1.0',
+    schoolReviewNote: 'Please attach the official MoU copy with NSE along with the student attendance rosters.',
+    schoolReviewedBy: 'Dr. Manisha Patil',
+    schoolReviewedAt: '2026-08-25T16:20:00Z',
+  },
+  {
+    id: 'naac-doc-4',
+    title: 'B.Pharm Drug Discovery Lab Equipment Calibration & GLP Certification',
+    description: 'Annual third-party validation reports for HPLC machines, spectrophotometers, and laminar airflows.',
+    schoolId: 'sch-health',
+    schoolName: 'School of Health & Life Sciences',
+    programId: 'prog-pharm',
+    programName: 'B.Pharm Pharmaceutical Sciences',
+    academicYear: '2025-2026',
+    criterionId: 'crit-4',
+    criterionCode: 'Criterion 4',
+    metricCode: '4.1.1',
+    metricName: 'Adequacy of Physical Infrastructure (ICT Classrooms, Labs, Seminar Halls)',
+    metricType: 'QlM',
+    fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    fileName: 'Pharm_Equipment_Calibration_GLP_2025.pdf',
+    fileSize: '5.2 MB',
+    uploadedBy: 'Dr. Ashok Merchant',
+    uploadedAt: '2026-07-14T11:00:00Z',
+    status: 'university_verified',
+    version: 'v2.0',
+    schoolReviewNote: 'Verified against Pharmacy Council of India guidelines.',
+    schoolReviewedBy: 'Dr. Sunita Deshmukh',
+    schoolReviewedAt: '2026-07-20T10:00:00Z',
+    universityReviewNote: 'Master verified. Complies 100% with NAAC Criteria 4 physical infrastructure metrics.',
+    universityVerifiedBy: 'Dr. Vikram Malhotra',
+    universityVerifiedAt: '2026-08-01T15:30:00Z',
+  },
+  // BCA & Cloud Computing (Facing NAAC)
+  {
+    id: 'naac-bca-bos-1',
+    title: 'BCA Cloud Computing Board of Studies (BoS) Curriculum Approval & Syllabus Restructuring',
+    description: 'Signed minutes of BoS introducing DevOps, Microservices and AWS cloud curriculum modules.',
+    schoolId: 'sch-tech',
+    schoolName: 'School of Technology & Computer Engineering',
+    programId: 'prog-bca',
+    programName: 'BCA & Cloud Computing',
+    academicYear: '2025-2026',
+    criterionId: 'crit-1',
+    criterionCode: 'Criterion 1',
+    metricCode: '1.1.1',
+    metricName: 'Curriculum Planning & Delivery Implementation System',
+    metricType: 'QlM',
+    fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    fileName: 'BCA_Cloud_BoS_Curriculum_Minutes.pdf',
+    fileSize: '2.9 MB',
+    uploadedBy: 'Prof. Ramesh Kulkarni',
+    uploadedAt: '2026-09-18T10:15:00Z',
+    status: 'approved_by_school',
+    version: 'v1.0',
+    schoolReviewNote: 'Approved for School of Technology AQAR compilation.',
+    schoolReviewedBy: 'Dr. Rajesh Sharma',
+    schoolReviewedAt: '2026-09-22T14:30:00Z',
+  },
+  {
+    id: 'naac-bca-mou-1',
+    title: 'AWS Cloud Academy Institutional Collaboration & Student Global Certifications Roster',
+    description: 'Partnership MoU with Amazon Web Services (AWS) Academy along with student certificate roster.',
+    schoolId: 'sch-tech',
+    schoolName: 'School of Technology & Computer Engineering',
+    programId: 'prog-bca',
+    programName: 'BCA & Cloud Computing',
+    academicYear: '2025-2026',
+    criterionId: 'crit-3',
+    criterionCode: 'Criterion 3',
+    metricCode: '3.5.1',
+    metricName: 'Institutional Linkages, Corporate MoUs & Industry Collaborations',
+    metricType: 'QnM',
+    fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    fileName: 'BCA_AWS_Academy_MoU_Certification.pdf',
+    fileSize: '3.4 MB',
+    uploadedBy: 'Prof. Ramesh Kulkarni',
+    uploadedAt: '2026-10-18T11:45:00Z',
+    status: 'submitted_to_school',
+    version: 'v1.0',
+  },
+  // B.Sc Cyber Security & Digital Forensics (Non-Facing / Contributing)
+  {
+    id: 'naac-cyber-lab-1',
+    title: 'Digital Forensics Investigation Lab Hardware Setup & Asset Register with Invoices',
+    description: 'EnCase forensics workstation procurement invoices, write-blocker hardware logs, and calibrated lab setup photos.',
+    schoolId: 'sch-tech',
+    schoolName: 'School of Technology & Computer Engineering',
+    programId: 'prog-cyber',
+    programName: 'B.Sc Cyber Security & Digital Forensics',
+    academicYear: '2025-2026',
+    criterionId: 'crit-4',
+    criterionCode: 'Criterion 4',
+    metricCode: '4.1.1',
+    metricName: 'Adequacy of Physical Infrastructure (ICT Classrooms, Labs, Seminar Halls)',
+    metricType: 'QlM',
+    fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    fileName: 'Cyber_Forensics_Lab_Asset_Register.pdf',
+    fileSize: '4.7 MB',
+    uploadedBy: 'Prof. Neha Gupta',
+    uploadedAt: '2026-09-25T15:20:00Z',
+    status: 'approved_by_school',
+    version: 'v1.0',
+    schoolReviewNote: 'Certified as school-level ICT infrastructure proof.',
+    schoolReviewedBy: 'Dr. Rajesh Sharma',
+    schoolReviewedAt: '2026-09-28T16:00:00Z',
+  },
+  {
+    id: 'naac-cyber-mou-1',
+    title: 'Industry Threat Intelligence MoU with QuickHeal & Red Team Workshop Deliverables',
+    description: 'Signed industrial partnership agreement, hands-on CTF workshop participant attendance, and completion certificates.',
+    schoolId: 'sch-tech',
+    schoolName: 'School of Technology & Computer Engineering',
+    programId: 'prog-cyber',
+    programName: 'B.Sc Cyber Security & Digital Forensics',
+    academicYear: '2025-2026',
+    criterionId: 'crit-3',
+    criterionCode: 'Criterion 3',
+    metricCode: '3.5.1',
+    metricName: 'Institutional Linkages, Corporate MoUs & Industry Collaborations',
+    metricType: 'QnM',
+    fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    fileName: 'QuickHeal_Cyber_Security_MoU_Workshops.pdf',
+    fileSize: '3.8 MB',
+    uploadedBy: 'Prof. Neha Gupta',
+    uploadedAt: '2026-10-02T12:00:00Z',
+    status: 'approved_by_school',
+    version: 'v1.0',
+    schoolReviewNote: 'Valid active MoU verified for Criteria 3 compilation.',
+    schoolReviewedBy: 'Dr. Rajesh Sharma',
+    schoolReviewedAt: '2026-10-05T11:30:00Z',
+  },
+  {
+    id: 'naac-cyber-syl-1',
+    title: 'B.Sc Cyber Security Choice Based Credit System (CBCS) Electives Syllabus Structure',
+    description: 'Ethical hacking and malware reverse engineering syllabus matrix approved by academic committee.',
+    schoolId: 'sch-tech',
+    schoolName: 'School of Technology & Computer Engineering',
+    programId: 'prog-cyber',
+    programName: 'B.Sc Cyber Security & Digital Forensics',
+    academicYear: '2025-2026',
+    criterionId: 'crit-1',
+    criterionCode: 'Criterion 1',
+    metricCode: '1.2.1',
+    metricName: 'Academic Flexibility & Choice-Based Credit System (CBCS) Courses',
+    metricType: 'QnM',
+    fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    fileName: 'BSc_Cyber_CBCS_Electives_Syllabus.pdf',
+    fileSize: '2.1 MB',
+    uploadedBy: 'Prof. Neha Gupta',
+    uploadedAt: '2026-10-19T09:30:00Z',
+    status: 'submitted_to_school',
+    version: 'v1.0',
+  },
+  // M.Tech Artificial Intelligence & Machine Learning (Non-Facing / Contributing)
+  {
+    id: 'naac-ai-res-1',
+    title: 'NVIDIA GPU Accelerated AI Research Grant Sanction from DST SERB',
+    description: 'Grant sanction letter for Rs. 42 Lakhs for Generative AI in Healthcare with expenditure utilization certificates.',
+    schoolId: 'sch-tech',
+    schoolName: 'School of Technology & Computer Engineering',
+    programId: 'prog-ai',
+    programName: 'M.Tech Artificial Intelligence & Machine Learning',
+    academicYear: '2025-2026',
+    criterionId: 'crit-3',
+    criterionCode: 'Criterion 3',
+    metricCode: '3.1.1',
+    metricName: 'Research Grants & Resource Mobilization from Government and Industry',
+    metricType: 'QnM',
+    fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    fileName: 'AI_Research_Grant_SERB_Sanction_Order.pdf',
+    fileSize: '3.7 MB',
+    uploadedBy: 'Dr. Sanjeev Rao',
+    uploadedAt: '2026-09-10T14:00:00Z',
+    status: 'approved_by_school',
+    version: 'v1.0',
+    schoolReviewNote: 'Excellent research mobilization proof. Forwarded for institutional SSR.',
+    schoolReviewedBy: 'Dr. Rajesh Sharma',
+    schoolReviewedAt: '2026-09-15T15:00:00Z',
+  },
+  {
+    id: 'naac-ai-pub-1',
+    title: 'M.Tech AI Faculty & Scholar Scopus/IEEE Research Publications Master Roster',
+    description: 'First page reprints and DOI indexing proofs of 16 peer-reviewed papers published in IEEE Transactions and Springer.',
+    schoolId: 'sch-tech',
+    schoolName: 'School of Technology & Computer Engineering',
+    programId: 'prog-ai',
+    programName: 'M.Tech Artificial Intelligence & Machine Learning',
+    academicYear: '2025-2026',
+    criterionId: 'crit-3',
+    criterionCode: 'Criterion 3',
+    metricCode: '3.3.1',
+    metricName: 'Research Papers Published in UGC CARE / Scopus / WoS Journals',
+    metricType: 'QnM',
+    fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    fileName: 'MTech_AI_Scopus_Publications_Roster.pdf',
+    fileSize: '4.5 MB',
+    uploadedBy: 'Dr. Sanjeev Rao',
+    uploadedAt: '2026-09-28T16:45:00Z',
+    status: 'approved_by_school',
+    version: 'v1.0',
+    schoolReviewNote: 'Indexed in Scopus Q1/Q2 confirmed.',
+    schoolReviewedBy: 'Dr. Rajesh Sharma',
+    schoolReviewedAt: '2026-10-02T10:00:00Z',
+  },
+  {
+    id: 'naac-ai-proj-1',
+    title: 'Postgraduate Capstone Industry Immersion & Live Projects with Tata Elxsi',
+    description: 'Industry project review sheets, student completion sign-offs, and company appraisal reports.',
+    schoolId: 'sch-tech',
+    schoolName: 'School of Technology & Computer Engineering',
+    programId: 'prog-ai',
+    programName: 'M.Tech Artificial Intelligence & Machine Learning',
+    academicYear: '2025-2026',
+    criterionId: 'crit-1',
+    criterionCode: 'Criterion 1',
+    metricCode: '1.3.3',
+    metricName: 'Students Undertaking Field Projects, Internships & Student Projects',
+    metricType: 'QnM',
+    fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    fileName: 'AI_Industry_Internship_Capstone_Reports.pdf',
+    fileSize: '3.3 MB',
+    uploadedBy: 'Dr. Sanjeev Rao',
+    uploadedAt: '2026-10-21T11:00:00Z',
+    status: 'submitted_to_school',
+    version: 'v1.0',
+  },
+  // School Level / Dean's Office Common Proofs
+  {
+    id: 'naac-sot-gov-1',
+    title: 'School of Technology Board of Studies & Academic Governance Resolutions 2025',
+    description: 'Consolidated school-level governing resolutions, faculty recruitment norms, and academic calendar notifications.',
+    schoolId: 'sch-tech',
+    schoolName: 'School of Technology & Computer Engineering',
+    programId: 'school-common',
+    programName: 'School Level / Dean Office Common Proofs',
+    academicYear: '2025-2026',
+    criterionId: 'crit-6',
+    criterionCode: 'Criterion 6',
+    metricCode: '6.1.1',
+    metricName: 'Governance Aligned with Vision and Mission of the Institution',
+    metricType: 'QlM',
+    fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    fileName: 'SOT_Dean_Governing_Council_Resolutions_2025.pdf',
+    fileSize: '3.9 MB',
+    uploadedBy: 'Dr. Rajesh Sharma',
+    uploadedAt: '2026-08-30T10:00:00Z',
+    status: 'approved_by_school',
+    version: 'v1.0',
+    schoolReviewNote: 'Certified by Dean Dr. Alok Nath.',
+    schoolReviewedBy: 'Dr. Rajesh Sharma',
+    schoolReviewedAt: '2026-09-01T11:00:00Z',
+  },
+  {
+    id: 'naac-sot-fdp-1',
+    title: 'School-Wide Annual Faculty Development Program (FDP) & Pedagogy Workshop Roster',
+    description: 'Attendance sheets, syllabus alignment notes, and certificates of completion for 48 engineering faculty members.',
+    schoolId: 'sch-tech',
+    schoolName: 'School of Technology & Computer Engineering',
+    programId: 'school-common',
+    programName: 'School Level / Dean Office Common Proofs',
+    academicYear: '2025-2026',
+    criterionId: 'crit-6',
+    criterionCode: 'Criterion 6',
+    metricCode: '6.3.3',
+    metricName: 'Professional Development & Administrative Training Programs Organized',
+    metricType: 'QnM',
+    fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    fileName: 'SOT_Faculty_Empowerment_FDP_Certificates.pdf',
+    fileSize: '4.1 MB',
+    uploadedBy: 'Dr. Rajesh Sharma',
+    uploadedAt: '2026-09-12T14:30:00Z',
+    status: 'approved_by_school',
+    version: 'v1.0',
+    schoolReviewNote: 'Complete FDP portfolio verified.',
+    schoolReviewedBy: 'Dr. Rajesh Sharma',
+    schoolReviewedAt: '2026-09-14T09:30:00Z',
+  },
+  // Additional Rich Evidence Documents across Criteria 1–7 & Key Indicators with AI Reasoning
+  {
+    id: 'naac-dir-c1-112',
+    title: 'Academic Calendar & Master Timetable Compliance Report 2025-26',
+    description: 'Continuous internal evaluation (CIE) schedule and academic calendar adherence report.',
+    schoolId: 'sch-tech',
+    schoolName: 'School of Technology & Computer Engineering',
+    programId: 'prog-cse',
+    programName: 'B.Tech Computer Science & Engineering',
+    academicYear: '2025-2026',
+    criterionId: 'crit-1',
+    criterionCode: 'Criterion 1',
+    keyIndicatorCode: '1.1',
+    metricCode: '1.1.2',
+    metricName: 'Adherence to Academic Calendar and Continuous Internal Evaluation (CIE)',
+    metricType: 'QlM',
+    fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    fileName: 'Academic_Calendar_CIE_Compliance_Report_2025_26.pdf',
+    fileSize: '2.8 MB',
+    uploadedBy: 'Prof. Anita Verma',
+    uploadedAt: '2026-10-28',
+    status: 'university_verified',
+    version: 'v1.0',
+    aiAutoFiled: true,
+    aiReason: 'Detected Academic Calendar schedules and Continuous Internal Evaluation (CIE) compliance milestones. Filed under Criterion 1 › KI 1.1 › Metric 1.1.2.',
+  },
+  {
+    id: 'naac-dir-c1-113',
+    title: 'University BoS & Academic Council Participation Certificates (Faculty)',
+    description: 'Appointment letters and attendance certificates of faculty members in Board of Studies (BoS).',
+    schoolId: 'sch-tech',
+    schoolName: 'School of Technology & Computer Engineering',
+    programId: 'prog-cse',
+    programName: 'B.Tech Computer Science & Engineering',
+    academicYear: '2025-2026',
+    criterionId: 'crit-1',
+    criterionCode: 'Criterion 1',
+    keyIndicatorCode: '1.1',
+    metricCode: '1.1.3',
+    metricName: 'Teachers Participating in Curriculum Development and BoS Bodies',
+    metricType: 'QnM',
+    fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    fileName: 'BoS_Academic_Council_Faculty_Nomination_Letters_2025.pdf',
+    fileSize: '3.4 MB',
+    uploadedBy: 'Dr. Ramesh Gupta',
+    uploadedAt: '2026-10-25',
+    status: 'approved_by_school',
+    version: 'v1.0',
+  },
+  {
+    id: 'naac-dir-c1-122',
+    title: 'Value-Added & CBCS Add-on Certificate Programs Enrolment Register',
+    description: 'Student enrolment and completion certificates across 18 CBCS add-on courses.',
+    schoolId: 'sch-tech',
+    schoolName: 'School of Technology & Computer Engineering',
+    programId: 'prog-cse',
+    programName: 'B.Tech Computer Science & Engineering',
+    academicYear: '2025-2026',
+    criterionId: 'crit-1',
+    criterionCode: 'Criterion 1',
+    keyIndicatorCode: '1.2',
+    metricCode: '1.2.2',
+    metricName: 'Percentage of Students Enrolled in Certificate / Add-on / Value-Added Programs',
+    metricType: 'QnM',
+    fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    fileName: 'CBCS_Value_Added_Courses_Student_Enrolment_2025_26.pdf',
+    fileSize: '4.6 MB',
+    uploadedBy: 'Prof. Anita Verma',
+    uploadedAt: '2026-10-29',
+    status: 'university_verified',
+    version: 'v1.0',
+    aiAutoFiled: true,
+    aiReason: 'Document contains student enrolment registers and completion rosters for CBCS Add-on Certificate Programs. Mapped to Criterion 1 › KI 1.2 › Metric 1.2.2.',
+  },
+  {
+    id: 'naac-dir-c1-132',
+    title: 'Cloud Computing & GenAI Industry Internship Project Certificates',
+    description: 'Verified internship completion certificates and field project reports of final year students.',
+    schoolId: 'sch-tech',
+    schoolName: 'School of Technology & Computer Engineering',
+    programId: 'prog-cse',
+    programName: 'B.Tech Computer Science & Engineering',
+    academicYear: '2025-2026',
+    criterionId: 'crit-1',
+    criterionCode: 'Criterion 1',
+    keyIndicatorCode: '1.3',
+    metricCode: '1.3.2',
+    metricName: 'Percentage of Students Undertaking Project Work, Field Work, and Internships',
+    metricType: 'QnM',
+    fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    fileName: 'Industry_Internships_And_Field_Project_Certificates_2025.pdf',
+    fileSize: '5.2 MB',
+    uploadedBy: 'Dr. Neha Kulkarni',
+    uploadedAt: '2026-10-30',
+    status: 'approved_by_school',
+    version: 'v1.0',
+    aiAutoFiled: true,
+    aiReason: 'Detected student internship completion letters and capstone project evaluation sheets. Filed under Criterion 1 › KI 1.3 › Metric 1.3.2.',
+  },
+  {
+    id: 'naac-dir-c2-212',
+    title: 'HEI Reserved Category Seat Matrix & Admission Roster (SC/ST/OBC/EWS)',
+    description: 'State CET Cell verified admission extract against earmarked reserved category seats.',
+    schoolId: 'sch-tech',
+    schoolName: 'School of Technology & Computer Engineering',
+    programId: 'prog-cse',
+    programName: 'B.Tech Computer Science & Engineering',
+    academicYear: '2025-2026',
+    criterionId: 'crit-2',
+    criterionCode: 'Criterion 2',
+    keyIndicatorCode: '2.1',
+    metricCode: '2.1.2',
+    metricName: 'Percentage of Seats Filled Against Reserved Categories (SC, ST, OBC, Divyangjan, etc.)',
+    metricType: 'QnM',
+    fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    fileName: 'Reserved_Category_Admission_Roster_Verified_2025_26.pdf',
+    fileSize: '3.9 MB',
+    uploadedBy: 'Dr. Vikram Malhotra',
+    uploadedAt: '2026-10-27',
+    status: 'university_verified',
+    version: 'v1.0',
+    aiAutoFiled: true,
+    aiReason: 'Identified category-wise seat matrix and State CET admission roster for SC/ST/OBC/EWS categories. Mapped to Criterion 2 › KI 2.1 › Metric 2.1.2.',
+  },
+  {
+    id: 'naac-dir-c2-221',
+    title: 'Bridge Courses, Remedial Coaching & Advanced Learner Mentorship Log',
+    description: 'Assessment of learning levels after admission and action taken report for slow and advanced learners.',
+    schoolId: 'sch-tech',
+    schoolName: 'School of Technology & Computer Engineering',
+    programId: 'prog-cse',
+    programName: 'B.Tech Computer Science & Engineering',
+    academicYear: '2025-2026',
+    criterionId: 'crit-2',
+    criterionCode: 'Criterion 2',
+    keyIndicatorCode: '2.2',
+    metricCode: '2.2.1',
+    metricName: 'Assessment of Learning Levels of Students and Special Programs for Slow/Advanced Learners',
+    metricType: 'QlM',
+    fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    fileName: 'Bridge_Course_And_Remedial_Mentorship_Report_2025.pdf',
+    fileSize: '2.1 MB',
+    uploadedBy: 'Prof. Anita Verma',
+    uploadedAt: '2026-10-24',
+    status: 'approved_by_school',
+    version: 'v1.0',
+  },
+  {
+    id: 'naac-dir-c2-231',
+    title: 'Experiential Learning, Design Thinking & Industrial Visit Dossier',
+    description: 'Geotagged photographs and project rubrics for participatory and problem-solving methodologies.',
+    schoolId: 'sch-tech',
+    schoolName: 'School of Technology & Computer Engineering',
+    programId: 'prog-cse',
+    programName: 'B.Tech Computer Science & Engineering',
+    academicYear: '2025-2026',
+    criterionId: 'crit-2',
+    criterionCode: 'Criterion 2',
+    keyIndicatorCode: '2.3',
+    metricCode: '2.3.1',
+    metricName: 'Student-Centric Methods: Experiential, Participative & Problem-Solving Learning',
+    metricType: 'QlM',
+    fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    fileName: 'Experiential_Learning_And_Industrial_Visits_Dossier.pdf',
+    fileSize: '6.4 MB',
+    uploadedBy: 'Dr. Ramesh Gupta',
+    uploadedAt: '2026-10-29',
+    status: 'university_verified',
+    version: 'v1.0',
+    aiAutoFiled: true,
+    aiReason: 'Detected student-centric experiential learning activities, hackathons, and industrial visit reports. Filed under Criterion 2 › KI 2.3 › Metric 2.3.1.',
+  },
+  {
+    id: 'naac-dir-c2-242',
+    title: 'Full-Time Teachers with Ph.D. / NET / SET Degree Notifications',
+    description: 'University convocation certificates and Ph.D. gazette notifications of 68 full-time faculty.',
+    schoolId: 'sch-tech',
+    schoolName: 'School of Technology & Computer Engineering',
+    programId: 'prog-cse',
+    programName: 'B.Tech Computer Science & Engineering',
+    academicYear: '2025-2026',
+    criterionId: 'crit-2',
+    criterionCode: 'Criterion 2',
+    keyIndicatorCode: '2.4',
+    metricCode: '2.4.2',
+    metricName: 'Percentage of Full-Time Teachers with NET/SET/SLET/Ph.D./D.M./M.Ch./D.N.B',
+    metricType: 'QnM',
+    fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    fileName: 'Faculty_PhD_NET_SET_Degree_Notifications_2025_26.pdf',
+    fileSize: '7.8 MB',
+    uploadedBy: 'Dr. Rajesh Sharma',
+    uploadedAt: '2026-10-26',
+    status: 'university_verified',
+    version: 'v1.0',
+    aiAutoFiled: true,
+    aiReason: 'Matched faculty Ph.D. degree certificates and UGC-NET qualification notifications. Mapped to Criterion 2 › KI 2.4 › Metric 2.4.2.',
+  },
+  {
+    id: 'naac-dir-c3-311',
+    title: 'DST-SERB & AICTE Extramural Research Grants Sanction Orders',
+    description: 'Audited utilization certificates and sanction letters from government funding agencies.',
+    schoolId: 'sch-tech',
+    schoolName: 'School of Technology & Computer Engineering',
+    programId: 'prog-cse',
+    programName: 'B.Tech Computer Science & Engineering',
+    academicYear: '2025-2026',
+    criterionId: 'crit-3',
+    criterionCode: 'Criterion 3',
+    keyIndicatorCode: '3.1',
+    metricCode: '3.1.1',
+    metricName: 'Grants Received from Government and Non-Governmental Agencies for Research Projects',
+    metricType: 'QnM',
+    fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    fileName: 'DST_SERB_AICTE_Research_Grants_Sanction_Orders_2025.pdf',
+    fileSize: '4.9 MB',
+    uploadedBy: 'Dr. Vikram Malhotra',
+    uploadedAt: '2026-10-30',
+    status: 'university_verified',
+    version: 'v1.0',
+    aiAutoFiled: true,
+    aiReason: 'Detected DST-SERB and AICTE research grant sanction letters and audited utilization statements. Filed under Criterion 3 › KI 3.1 › Metric 3.1.1.',
+  },
+  {
+    id: 'naac-dir-c3-322',
+    title: 'Institution Innovation Council (IIC) IPR, Patents & Startup Workshops',
+    description: 'Summary report of 24 workshops on Research Methodology, Intellectual Property Rights (IPR), and Entrepreneurship.',
+    schoolId: 'sch-tech',
+    schoolName: 'School of Technology & Computer Engineering',
+    programId: 'prog-cse',
+    programName: 'B.Tech Computer Science & Engineering',
+    academicYear: '2025-2026',
+    criterionId: 'crit-3',
+    criterionCode: 'Criterion 3',
+    keyIndicatorCode: '3.2',
+    metricCode: '3.2.2',
+    metricName: 'Number of Workshops/Seminars on Research Methodology, IPR and Entrepreneurship',
+    metricType: 'QnM',
+    fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    fileName: 'IIC_IPR_Entrepreneurship_Workshops_Consolidated_2025.pdf',
+    fileSize: '3.7 MB',
+    uploadedBy: 'Prof. Anita Verma',
+    uploadedAt: '2026-10-28',
+    status: 'approved_by_school',
+    version: 'v1.0',
+  },
+  {
+    id: 'naac-dir-c3-331',
+    title: 'Scopus & Web of Science Indexed Journal Publications Compendium',
+    description: 'DOI-verified research papers published in UGC-CARE, Scopus, and WoS journals during 2025-26.',
+    schoolId: 'sch-tech',
+    schoolName: 'School of Technology & Computer Engineering',
+    programId: 'prog-cse',
+    programName: 'B.Tech Computer Science & Engineering',
+    academicYear: '2025-2026',
+    criterionId: 'crit-3',
+    criterionCode: 'Criterion 3',
+    keyIndicatorCode: '3.3',
+    metricCode: '3.3.1',
+    metricName: 'Number of Research Papers Published per Teacher in UGC-CARE / Scopus / WoS Journals',
+    metricType: 'QnM',
+    fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    fileName: 'Scopus_WoS_Journal_Publications_Compendium_2025_26.pdf',
+    fileSize: '8.5 MB',
+    uploadedBy: 'Dr. Ramesh Gupta',
+    uploadedAt: '2026-10-31',
+    status: 'university_verified',
+    version: 'v1.0',
+    aiAutoFiled: true,
+    aiReason: 'Detected Scopus/WoS ISSN numbers, DOIs, and faculty research paper abstracts. Mapped to Criterion 3 › KI 3.3 › Metric 3.3.1.',
+  },
+  {
+    id: 'naac-dir-c3-343',
+    title: 'NSS & Unnat Bharat Abhiyan Rural Health & Digital Literacy Drives',
+    description: 'Geotagged activity reports of 16 community outreach and village adoption camps.',
+    schoolId: 'sch-tech',
+    schoolName: 'School of Technology & Computer Engineering',
+    programId: 'prog-cse',
+    programName: 'B.Tech Computer Science & Engineering',
+    academicYear: '2025-2026',
+    criterionId: 'crit-3',
+    criterionCode: 'Criterion 3',
+    keyIndicatorCode: '3.4',
+    metricCode: '3.4.3',
+    metricName: 'Number of Extension and Outreach Programs Conducted through NSS/NCC/Red Cross',
+    metricType: 'QnM',
+    fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    fileName: 'NSS_Unnat_Bharat_Community_Outreach_Drives_2025.pdf',
+    fileSize: '5.6 MB',
+    uploadedBy: 'Prof. Anita Verma',
+    uploadedAt: '2026-10-29',
+    status: 'university_verified',
+    version: 'v1.0',
+    aiAutoFiled: true,
+    aiReason: 'Matched NSS and Unnat Bharat Abhiyan extension activity reports and community outreach certificates. Filed under Criterion 3 › KI 3.4 › Metric 3.4.3.',
+  },
+  {
+    id: 'naac-dir-c4-412',
+    title: 'Audited Infrastructure Augmentation & Smart Lab Expenditure Statement',
+    description: 'CA-certified capital expenditure statement on AI/ML GPU Labs and Smart Classrooms.',
+    schoolId: 'sch-tech',
+    schoolName: 'School of Technology & Computer Engineering',
+    programId: 'prog-cse',
+    programName: 'B.Tech Computer Science & Engineering',
+    academicYear: '2025-2026',
+    criterionId: 'crit-4',
+    criterionCode: 'Criterion 4',
+    keyIndicatorCode: '4.1',
+    metricCode: '4.1.2',
+    metricName: 'Percentage of Expenditure for Infrastructure Augmentation Excluding Salary',
+    metricType: 'QnM',
+    fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    fileName: 'CA_Audited_Infrastructure_Augmentation_Statement_2025.pdf',
+    fileSize: '3.2 MB',
+    uploadedBy: 'Dr. Vikram Malhotra',
+    uploadedAt: '2026-10-28',
+    status: 'university_verified',
+    version: 'v1.0',
+    aiAutoFiled: true,
+    aiReason: 'Detected CA-certified balance sheet schedule for physical infrastructure augmentation. Mapped to Criterion 4 › KI 4.1 › Metric 4.1.2.',
+  },
+  {
+    id: 'naac-dir-c4-421',
+    title: 'Central Library KOHA ILMS, IEEE Xplore & Shodhganga Subscription Invoices',
+    description: 'Library automation software documentation and e-journal consortium renewal receipts.',
+    schoolId: 'sch-tech',
+    schoolName: 'School of Technology & Computer Engineering',
+    programId: 'prog-cse',
+    programName: 'B.Tech Computer Science & Engineering',
+    academicYear: '2025-2026',
+    criterionId: 'crit-4',
+    criterionCode: 'Criterion 4',
+    keyIndicatorCode: '4.2',
+    metricCode: '4.2.1',
+    metricName: 'Library is Automated Using Integrated Library Management System (ILMS)',
+    metricType: 'QlM',
+    fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    fileName: 'Library_KOHA_ILMS_And_IEEE_Subscription_Receipts.pdf',
+    fileSize: '4.0 MB',
+    uploadedBy: 'Dr. Rajesh Sharma',
+    uploadedAt: '2026-10-25',
+    status: 'approved_by_school',
+    version: 'v1.0',
+  },
+  {
+    id: 'naac-dir-c4-432',
+    title: 'Campus IT Infrastructure, 1 Gbps NKN Leased Line & Student Computer Ratio',
+    description: 'Stock register of 1,450 student workstations and 1 Gbps National Knowledge Network (NKN) certificate.',
+    schoolId: 'sch-tech',
+    schoolName: 'School of Technology & Computer Engineering',
+    programId: 'prog-cse',
+    programName: 'B.Tech Computer Science & Engineering',
+    academicYear: '2025-2026',
+    criterionId: 'crit-4',
+    criterionCode: 'Criterion 4',
+    keyIndicatorCode: '4.3',
+    metricCode: '4.3.2',
+    metricName: 'Student-Computer Ratio and Campus Wi-Fi / Internet Bandwidth',
+    metricType: 'QnM',
+    fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    fileName: 'IT_Infrastructure_1Gbps_Leased_Line_And_Computer_Stock.pdf',
+    fileSize: '2.9 MB',
+    uploadedBy: 'Prof. Anita Verma',
+    uploadedAt: '2026-10-30',
+    status: 'university_verified',
+    version: 'v1.0',
+    aiAutoFiled: true,
+    aiReason: 'Identified student computer stock register and 1 Gbps leased line billing proof. Filed under Criterion 4 › KI 4.3 › Metric 4.3.2.',
+  },
+  {
+    id: 'naac-dir-c5-511',
+    title: 'National Scholarship Portal (NSP) & Institutional Freeship Sanction List',
+    description: 'Verified beneficiary list of 842 students receiving government and institutional scholarships.',
+    schoolId: 'sch-tech',
+    schoolName: 'School of Technology & Computer Engineering',
+    programId: 'prog-cse',
+    programName: 'B.Tech Computer Science & Engineering',
+    academicYear: '2025-2026',
+    criterionId: 'crit-5',
+    criterionCode: 'Criterion 5',
+    keyIndicatorCode: '5.1',
+    metricCode: '5.1.1',
+    metricName: 'Percentage of Students Benefited by Scholarships and Freeships',
+    metricType: 'QnM',
+    fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    fileName: 'NSP_Government_And_Institutional_Scholarship_Sanction_2025.pdf',
+    fileSize: '5.1 MB',
+    uploadedBy: 'Dr. Vikram Malhotra',
+    uploadedAt: '2026-10-29',
+    status: 'university_verified',
+    version: 'v1.0',
+    aiAutoFiled: true,
+    aiReason: 'Detected National Scholarship Portal (NSP) disbursement sheets and institutional freeship orders. Mapped to Criterion 5 › KI 5.1 › Metric 5.1.1.',
+  },
+  {
+    id: 'naac-dir-c5-521',
+    title: 'Campus Placement Offer Letters & Higher Education Progression Dossier',
+    description: 'Appointment letters from recruiting partners and GATE/GRE admit & admission cards.',
+    schoolId: 'sch-tech',
+    schoolName: 'School of Technology & Computer Engineering',
+    programId: 'prog-cse',
+    programName: 'B.Tech Computer Science & Engineering',
+    academicYear: '2025-2026',
+    criterionId: 'crit-5',
+    criterionCode: 'Criterion 5',
+    keyIndicatorCode: '5.2',
+    metricCode: '5.2.1',
+    metricName: 'Percentage of Placement of Outgoing Students and Students Progressing to Higher Education',
+    metricType: 'QnM',
+    fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    fileName: 'Campus_Placement_Offer_Letters_And_Higher_Ed_2025_26.pdf',
+    fileSize: '9.2 MB',
+    uploadedBy: 'Prof. Anita Verma',
+    uploadedAt: '2026-10-31',
+    status: 'university_verified',
+    version: 'v1.0',
+    aiAutoFiled: true,
+    aiReason: 'Matched corporate placement offer letters and university admission letters for higher studies. Filed under Criterion 5 › KI 5.2 › Metric 5.2.1.',
+  },
+  {
+    id: 'naac-dir-c6-632',
+    title: 'Faculty Financial Support for International Conferences & Professional Bodies',
+    description: 'Reimbursement vouchers and travel grant approvals for IEEE/ACM conferences.',
+    schoolId: 'sch-tech',
+    schoolName: 'School of Technology & Computer Engineering',
+    programId: 'prog-cse',
+    programName: 'B.Tech Computer Science & Engineering',
+    academicYear: '2025-2026',
+    criterionId: 'crit-6',
+    criterionCode: 'Criterion 6',
+    keyIndicatorCode: '6.3',
+    metricCode: '6.3.2',
+    metricName: 'Percentage of Teachers Provided with Financial Support to Attend Conferences/Workshops',
+    metricType: 'QnM',
+    fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    fileName: 'Faculty_Conference_Travel_Grant_Sanction_Vouchers_2025.pdf',
+    fileSize: '3.6 MB',
+    uploadedBy: 'Dr. Rajesh Sharma',
+    uploadedAt: '2026-10-27',
+    status: 'approved_by_school',
+    version: 'v1.0',
+  },
+  {
+    id: 'naac-dir-c6-652',
+    title: 'IQAC Academic & Administrative Audit (AAA) & ISO 21001:2018 Certificate',
+    description: 'External peer team Academic & Administrative Audit report and NIRF participation submission.',
+    schoolId: 'sch-tech',
+    schoolName: 'School of Technology & Computer Engineering',
+    programId: 'prog-cse',
+    programName: 'B.Tech Computer Science & Engineering',
+    academicYear: '2025-2026',
+    criterionId: 'crit-6',
+    criterionCode: 'Criterion 6',
+    keyIndicatorCode: '6.5',
+    metricCode: '6.5.2',
+    metricName: 'Quality Assurance Initiatives of the Institution (AAA, NIRF, ISO Certification)',
+    metricType: 'QnM',
+    fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    fileName: 'IQAC_Academic_Administrative_Audit_And_ISO_Certificate.pdf',
+    fileSize: '4.4 MB',
+    uploadedBy: 'Dr. Vikram Malhotra',
+    uploadedAt: '2026-10-30',
+    status: 'university_verified',
+    version: 'v1.0',
+    aiAutoFiled: true,
+    aiReason: 'Detected Academic and Administrative Audit (AAA) report and ISO 21001:2018 quality certification. Mapped to Criterion 6 › KI 6.5 › Metric 6.5.2.',
+  },
+  {
+    id: 'naac-dir-c7-712',
+    title: '150 kWp Rooftop Solar Plant, Rainwater Harvesting & Green Campus Audit',
+    description: 'BEE-certified Energy Audit, Green Audit Certificate, and Divyangjan barrier-free facilities.',
+    schoolId: 'sch-tech',
+    schoolName: 'School of Technology & Computer Engineering',
+    programId: 'prog-cse',
+    programName: 'B.Tech Computer Science & Engineering',
+    academicYear: '2025-2026',
+    criterionId: 'crit-7',
+    criterionCode: 'Criterion 7',
+    keyIndicatorCode: '7.1',
+    metricCode: '7.1.2',
+    metricName: 'Facilities for Alternate Sources of Energy, Water Conservation & Green Campus',
+    metricType: 'QnM',
+    fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    fileName: 'Solar_Energy_And_Green_Campus_Audit_Certificate_2025.pdf',
+    fileSize: '6.0 MB',
+    uploadedBy: 'Dr. Vikram Malhotra',
+    uploadedAt: '2026-10-31',
+    status: 'university_verified',
+    version: 'v1.0',
+    aiAutoFiled: true,
+    aiReason: 'Identified rooftop solar plant commissioning report and Green/Energy Audit certificates. Filed under Criterion 7 › KI 7.1 › Metric 7.1.2.',
+  },
+  {
+    id: 'naac-dir-c7-721',
+    title: 'Institutional Best Practices: AI-Enabled OBE & Rural Tech Incubation',
+    description: 'Detailed documentation of two institutional Best Practices in NAAC SSR format.',
+    schoolId: 'sch-tech',
+    schoolName: 'School of Technology & Computer Engineering',
+    programId: 'prog-cse',
+    programName: 'B.Tech Computer Science & Engineering',
+    academicYear: '2025-2026',
+    criterionId: 'crit-7',
+    criterionCode: 'Criterion 7',
+    keyIndicatorCode: '7.2',
+    metricCode: '7.2.1',
+    metricName: 'Describe Two Best Practices Successfully Implemented by the Institution',
+    metricType: 'QlM',
+    fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    fileName: 'Institutional_Two_Best_Practices_SSR_Dossier_2025_26.pdf',
+    fileSize: '3.8 MB',
+    uploadedBy: 'Prof. Anita Verma',
+    uploadedAt: '2026-10-29',
+    status: 'university_verified',
+    version: 'v1.0',
+    aiAutoFiled: true,
+    aiReason: 'Matched NAAC SSR Best Practices format (Objectives, Context, Practice, Evidence of Success). Mapped to Criterion 7 › KI 7.2 › Metric 7.2.1.',
+  },
+];
+
+const NAAC_STORAGE_KEY = 'itm_naac_dms_documents';
+const NAAC_DELETED_IDS_KEY = 'itm_naac_deleted_doc_ids';
+
+const getDeletedDocIds = (): Set<string> => {
+  try {
+    const raw = localStorage.getItem(NAAC_DELETED_IDS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return new Set(parsed);
+    }
+  } catch {
+    // ignore
+  }
+  return new Set();
+};
+
+export const getStoredNaacDocuments = (): NaacEvidenceDocument[] => {
+  try {
+    const deletedIds = getDeletedDocIds();
+    const raw = localStorage.getItem(NAAC_STORAGE_KEY);
+    if (!raw) {
+      const initialFiltered = INITIAL_NAAC_DOCUMENTS.filter(d => !deletedIds.has(d.id));
+      localStorage.setItem(NAAC_STORAGE_KEY, JSON.stringify(initialFiltered));
+      return initialFiltered;
+    }
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      // Ensure all standard initial documents (except deleted ones) are present so newly added samples show up
+      let updated = false;
+      const validParsed = parsed.filter(
+        (d): d is NaacEvidenceDocument => Boolean(d && typeof d === 'object' && !deletedIds.has(d.id))
+      );
+      const parsedIds = new Set(validParsed.map(d => d?.id).filter(Boolean));
+      const merged = [...validParsed];
+      INITIAL_NAAC_DOCUMENTS.forEach(initDoc => {
+        if (initDoc?.id && !parsedIds.has(initDoc.id) && !deletedIds.has(initDoc.id)) {
+          merged.push(initDoc);
+          updated = true;
+        }
+      });
+      // Ensure coordinator-uploaded documents show Prof. Anita Verma (person's name without designation)
+      merged.forEach(d => {
+        if (!d) return;
+        if (
+          d.fileName?.toLowerCase().includes('trishna-saraf') || 
+          (Boolean(d.id?.startsWith('naac-doc-')) && d.uploadedBy === 'Prof. Priyanka Deshmukh') ||
+          d.uploadedBy === 'Prof. Anita Verma (Program Coordinator)' ||
+          d.uploadedBy === 'Program Coordinator'
+        ) {
+          d.uploadedBy = 'Prof. Anita Verma';
+          d.facultyName = 'Prof. Anita Verma';
+          d.facultyDesignation = 'Program Coordinator (B.Tech CSE)';
+          updated = true;
+        } else if (d.uploadedBy && d.uploadedBy.includes('(Program Coordinator)')) {
+          d.uploadedBy = d.uploadedBy.replace(/\s*\(Program Coordinator\)/gi, '').trim();
+          updated = true;
+        }
+      });
+      if (updated) {
+        localStorage.setItem(NAAC_STORAGE_KEY, JSON.stringify(merged));
+      }
+      return merged;
+    }
+    return INITIAL_NAAC_DOCUMENTS;
+  } catch {
+    return INITIAL_NAAC_DOCUMENTS;
+  }
+};
+
+export const saveAllNaacDocuments = (docs: NaacEvidenceDocument[]): void => {
+  try {
+    localStorage.setItem(NAAC_STORAGE_KEY, JSON.stringify(docs));
+    window.dispatchEvent(new Event('naac-dms-updated'));
+  } catch (err) {
+    console.warn('Direct localStorage save failed (likely quota limit), stripping large base64 URLs:', err);
+    try {
+      // Stripping oversized base64 data URLs ensures metadata is 100% saved without failing
+      const lightweightDocs = docs.map(d => ({
+        ...d,
+        fileUrl: (d.fileUrl && d.fileUrl.length > 50000) 
+          ? 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf' 
+          : (d.fileUrl || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf')
+      }));
+      localStorage.setItem(NAAC_STORAGE_KEY, JSON.stringify(lightweightDocs));
+      window.dispatchEvent(new Event('naac-dms-updated'));
+    } catch (innerErr) {
+      console.error('Critical quota error saving NAAC documents', innerErr);
+    }
+  }
+};
+
+export const addOrUpdateNaacDocument = (doc: Partial<NaacEvidenceDocument>): NaacEvidenceDocument => {
+  const current = getStoredNaacDocuments();
+  const existingIdx = doc?.id ? current.findIndex(d => d && d.id === doc.id) : -1;
+
+  let updatedDoc: NaacEvidenceDocument;
+
+  if (existingIdx >= 0) {
+    updatedDoc = {
+      ...current[existingIdx],
+      ...doc,
+      uploadedAt: doc.uploadedAt || new Date().toISOString(),
+    } as NaacEvidenceDocument;
+    current[existingIdx] = updatedDoc;
+  } else {
+    updatedDoc = {
+      id: doc.id || `naac-doc-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      title: doc.title || 'Untitled Evidence Document',
+      description: doc.description || '',
+      schoolId: doc.schoolId || 'sch-tech',
+      schoolName: doc.schoolName || 'School of Technology & Computer Engineering',
+      programId: doc.programId || 'prog-cse',
+      programName: doc.programName || 'B.Tech Computer Science & Engineering',
+      academicYear: doc.academicYear || '2025-2026',
+      criterionId: doc.criterionId || 'crit-1',
+      criterionCode: doc.criterionCode || 'Criterion 1',
+      metricCode: doc.metricCode || '1.1.1',
+      metricName: doc.metricName || 'Curricular Planning & Implementation',
+      metricType: doc.metricType || 'QnM',
+      fileUrl: doc.fileUrl || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+      fileName: doc.fileName || 'evidence_attachment.pdf',
+      fileSize: doc.fileSize || '1.5 MB',
+      uploadedBy: doc.uploadedBy || 'Program Coordinator',
+      uploadedAt: new Date().toISOString(),
+      status: doc.status || 'draft',
+      version: 'v1.0',
+      submittedByFacultyId: doc.submittedByFacultyId,
+      facultyName: doc.facultyName,
+      facultyDesignation: doc.facultyDesignation,
+      coordinatorReviewStatus: doc.coordinatorReviewStatus || 'pending_review',
+      coordinatorFeedback: doc.coordinatorFeedback,
+      compiledAt: doc.compiledAt,
+      keyIndicatorCode: doc.keyIndicatorCode,
+      aiReason: doc.aiReason,
+      aiAutoFiled: doc.aiAutoFiled,
+      cycleId: doc.cycleId,
+      isCompiledPdf: doc.isCompiledPdf,
+      compiledSourceFiles: doc.compiledSourceFiles,
+      naacPortalUrl: doc.naacPortalUrl,
+    };
+    current.unshift(updatedDoc);
+  }
+
+  saveAllNaacDocuments(current);
+  return updatedDoc;
+};
+
+/**
+ * Program Coordinator Action: Compile an individual faculty document into Department Dossier
+ */
+export const compileDocumentIntoDossier = (docId: string, coordinatorNotes?: string): NaacEvidenceDocument | undefined => {
+  const current = getStoredNaacDocuments();
+  const doc = current.find(d => d.id === docId || d.fileName === docId);
+  if (doc) {
+    doc.coordinatorReviewStatus = 'compiled';
+    doc.compiledAt = new Date().toISOString();
+    if (coordinatorNotes) {
+      doc.coordinatorFeedback = coordinatorNotes;
+    }
+    saveAllNaacDocuments(current);
+    return doc;
+  }
+  return undefined;
+};
+
+/**
+ * Program Coordinator Action: Batch compile multiple faculty documents into Department Dossier atomically
+ */
+export const compileBatchDocumentsIntoDossier = (
+  docIds: string[], 
+  coordinatorNotes?: string
+): NaacEvidenceDocument[] => {
+  const current = getStoredNaacDocuments();
+  const idSet = new Set(docIds.filter(Boolean));
+  let count = 0;
+  current.forEach(doc => {
+    if (doc && (idSet.has(doc.id) || (doc.fileName && idSet.has(doc.fileName)))) {
+      doc.coordinatorReviewStatus = 'compiled';
+      doc.compiledAt = new Date().toISOString();
+      if (!doc.programId) {
+        doc.programId = 'prog-cse';
+        doc.programName = 'B.Tech Computer Science & Engineering';
+      }
+      if (coordinatorNotes) {
+        doc.coordinatorFeedback = coordinatorNotes;
+      }
+      count++;
+    }
+  });
+  if (count > 0) {
+    saveAllNaacDocuments(current);
+  }
+  return current;
+};
+
+/**
+ * Program Coordinator Action: Request revision from faculty member with feedback (reverts status to 'draft' so it leaves repository and returns to faculty drawer)
+ */
+export const requestRevisionFromFaculty = (docId: string, feedback: string): void => {
+  const current = getStoredNaacDocuments();
+  const doc = current.find(d => d.id === docId || d.fileName === docId);
+  if (doc) {
+    doc.status = 'draft';
+    doc.coordinatorReviewStatus = 'changes_requested';
+    doc.coordinatorFeedback = feedback;
+    saveAllNaacDocuments(current);
+  }
+};
+
+/**
+ * Faculty Action: Replace / Re-upload revised evidence file in response to revision feedback
+ */
+export const replaceFacultyDocumentFile = (
+  docId: string, 
+  newFile: { fileName: string; fileSize: string; fileUrl: string }
+): NaacEvidenceDocument | undefined => {
+  const current = getStoredNaacDocuments();
+  const doc = current.find(d => d.id === docId);
+  if (doc) {
+    doc.fileName = newFile.fileName;
+    doc.fileSize = newFile.fileSize;
+    doc.fileUrl = newFile.fileUrl;
+    doc.version = doc.version === 'v1.0' ? 'v1.1' : 'v1.2';
+    doc.uploadedAt = new Date().toISOString().split('T')[0];
+    doc.status = 'draft';
+    doc.coordinatorReviewStatus = 'pending_review';
+    saveAllNaacDocuments(current);
+    return doc;
+  }
+  return undefined;
+};
+
+/**
+ * Faculty Action: Submit a single document to Program Coordinator (HOD)
+ */
+export const submitDocumentToProgram = (docId: string): NaacEvidenceDocument | undefined => {
+  const current = getStoredNaacDocuments();
+  const doc = current.find(d => d.id === docId);
+  if (doc) {
+    doc.status = 'submitted_to_program';
+    doc.coordinatorReviewStatus = 'pending_review';
+    doc.uploadedAt = new Date().toISOString();
+    saveAllNaacDocuments(current);
+    return doc;
+  }
+  return undefined;
+};
+
+/**
+ * Program Coordinator Action: Dispatch entire compiled department dossier to School Coordinator
+ */
+export const dispatchDepartmentDossierToSchool = (programId: string = 'prog-cse'): number => {
+  const current = getStoredNaacDocuments();
+  let count = 0;
+  current.forEach(doc => {
+    if (doc.programId === programId && (doc.coordinatorReviewStatus === 'compiled' || doc.status === 'draft')) {
+      doc.status = 'submitted_to_school';
+      doc.uploadedAt = new Date().toISOString();
+      count++;
+    }
+  });
+  if (count > 0) {
+    saveAllNaacDocuments(current);
+  }
+  return count;
+};
+
+/**
+ * Program Coordinator Action: Recall submitted dossier back to department draft compilation
+ */
+export const recallDepartmentDossierFromSchool = (programId: string = 'prog-cse'): number => {
+  const current = getStoredNaacDocuments();
+  let count = 0;
+  current.forEach(doc => {
+    if (doc.programId === programId && doc.status === 'submitted_to_school') {
+      doc.status = 'draft';
+      count++;
+    }
+  });
+  if (count > 0) {
+    saveAllNaacDocuments(current);
+  }
+  return count;
+};
+
+export const submitDocumentToSchool = (docId: string): void => {
+  const current = getStoredNaacDocuments();
+  const doc = current.find(d => d.id === docId);
+  if (doc) {
+    doc.status = 'submitted_to_school';
+    doc.coordinatorReviewStatus = 'compiled';
+    doc.uploadedAt = new Date().toISOString();
+    saveAllNaacDocuments(current);
+  }
+};
+
+export const submitSelectedDocumentsToSchool = (docIds: string[]): number => {
+  const current = getStoredNaacDocuments();
+  let count = 0;
+  current.forEach(doc => {
+    if (docIds.includes(doc.id)) {
+      doc.status = 'submitted_to_school';
+      doc.coordinatorReviewStatus = 'compiled';
+      doc.uploadedAt = new Date().toISOString();
+      count++;
+    }
+  });
+  if (count > 0) {
+    saveAllNaacDocuments(current);
+  }
+  return count;
+};
+
+/**
+ * Generic Batch Submission helper: atomically updates multiple documents in a single storage save & dispatch
+ */
+export const submitBatchNaacDocuments = (
+  docIds: string[],
+  nextStatus: NaacWorkflowStatus,
+  meta?: {
+    coordinatorReviewStatus?: 'pending_review' | 'compiled' | 'changes_requested';
+    schoolReviewedBy?: string;
+    schoolReviewedAt?: string;
+    universityVerifiedBy?: string;
+    universityVerifiedAt?: string;
+  }
+): number => {
+  const current = getStoredNaacDocuments();
+  let count = 0;
+  const idSet = new Set(docIds);
+  current.forEach(doc => {
+    if (doc && doc.id && idSet.has(doc.id)) {
+      doc.status = nextStatus;
+      doc.uploadedAt = new Date().toISOString();
+      if (meta?.coordinatorReviewStatus) {
+        doc.coordinatorReviewStatus = meta.coordinatorReviewStatus;
+      }
+      if (meta?.schoolReviewedBy) {
+        doc.schoolReviewedBy = meta.schoolReviewedBy;
+        doc.schoolReviewedAt = meta.schoolReviewedAt || new Date().toISOString();
+      }
+      if (meta?.universityVerifiedBy) {
+        doc.universityVerifiedBy = meta.universityVerifiedBy;
+        doc.universityVerifiedAt = meta.universityVerifiedAt || new Date().toISOString();
+      }
+      count++;
+    }
+  });
+  if (count > 0) {
+    saveAllNaacDocuments(current);
+  }
+  return count;
+};
+
+/**
+ * School Coordinator Action: Batch approve or request revision on multiple department submissions atomically
+ */
+export const reviewBatchSchoolDocuments = (
+  docIds: string[], 
+  approved: boolean, 
+  note: string, 
+  reviewerName: string = 'Dr. Rajesh Sharma (School Coordinator)'
+): NaacEvidenceDocument[] => {
+  const current = getStoredNaacDocuments();
+  const idSet = new Set(docIds.filter(Boolean));
+  let count = 0;
+  current.forEach(doc => {
+    if (doc && (idSet.has(doc.id) || (doc.fileName && idSet.has(doc.fileName)))) {
+      doc.status = approved ? 'approved_by_school' : 'changes_requested';
+      doc.schoolReviewNote = note;
+      doc.schoolReviewedBy = reviewerName;
+      doc.schoolReviewedAt = new Date().toISOString();
+      if (!doc.schoolId) {
+        doc.schoolId = 'sch-tech';
+        doc.schoolName = 'School of Technology & Computer Engineering';
+      }
+      count++;
+    }
+  });
+  if (count > 0) {
+    saveAllNaacDocuments(current);
+  }
+  return current;
+};
+
+export const reviewSchoolDocument = (
+  docId: string, 
+  approved: boolean, 
+  note: string, 
+  reviewerName: string = 'Dr. Rajesh Sharma'
+): NaacEvidenceDocument[] => {
+  return reviewBatchSchoolDocuments([docId], approved, note, reviewerName);
+};
+
+export const verifyUniversityDocument = (docId: string, verified: boolean, note: string, reviewerName: string = 'Dr. Vikram Malhotra'): void => {
+  const current = getStoredNaacDocuments();
+  const doc = current.find(d => d.id === docId);
+  if (doc) {
+    doc.status = verified ? 'university_verified' : 'changes_requested';
+    doc.universityReviewNote = note;
+    doc.universityVerifiedBy = reviewerName;
+    doc.universityVerifiedAt = new Date().toISOString();
+    saveAllNaacDocuments(current);
+  }
+};
+
+export const deleteNaacDocument = (docId: string): boolean => {
+  const current = getStoredNaacDocuments();
+  const filtered = current.filter(d => d.id !== docId);
+  try {
+    const deletedIds = getDeletedDocIds();
+    deletedIds.add(docId);
+    localStorage.setItem(NAAC_DELETED_IDS_KEY, JSON.stringify(Array.from(deletedIds)));
+  } catch {
+    // ignore
+  }
+  saveAllNaacDocuments(filtered);
+  return true;
+};
+
+/**
+ * Reset NAAC Demo: Sets all documents to 'draft' (so My Documents drawer has all documents as Draft with active checkboxes ready to submit), clears reviews, and restores default tracked doc IDs
+ */
+export const resetNaacDemoData = (): void => {
+  const current = getStoredNaacDocuments();
+  const resetDocs: NaacEvidenceDocument[] = current.map(doc => ({
+    ...doc,
+    status: 'draft' as NaacWorkflowStatus,
+    coordinatorReviewStatus: undefined,
+    coordinatorFeedback: undefined,
+    compiledAt: undefined,
+    schoolReviewNote: undefined,
+    schoolReviewedBy: undefined,
+    schoolReviewedAt: undefined,
+    universityReviewNote: undefined,
+    universityVerifiedBy: undefined,
+    universityVerifiedAt: undefined,
+  }));
+
+  saveAllNaacDocuments(resetDocs);
+
+  // Restore clean default seeds for coordinator doc ID lists
+  const defaultProgramDocIds = [
+    'naac-cse-fac-5',
+    'naac-cse-fac-5-b',
+    'naac-cse-fac-5-c',
+    'naac-cse-fac-5-d',
+    'naac-cse-fac-5-e',
+    'naac-cse-fac-1',
+    'naac-cse-fac-1-b',
+    'naac-cse-fac-3',
+    'naac-cse-fac-2',
+    'naac-cse-fac-4',
+  ];
+  try {
+    localStorage.setItem('naac_my_uploaded_doc_ids_prog_cse', JSON.stringify(defaultProgramDocIds));
+    localStorage.setItem('naac_my_uploaded_doc_ids_program', JSON.stringify(defaultProgramDocIds));
+    localStorage.setItem('naac_my_uploaded_doc_ids_school', JSON.stringify(['naac-doc-2', 'naac-cse-fac-5', 'naac-cse-fac-5-b', 'naac-cse-fac-3']));
+    localStorage.setItem('naac_my_uploaded_doc_ids_university', JSON.stringify(['naac-doc-4', 'naac-doc-2', 'naac-cse-fac-5']));
+  } catch (err) {
+    console.warn('Could not reset tracked doc IDs in localStorage', err);
+  }
+
+  window.dispatchEvent(new Event('naac-dms-updated'));
+  window.dispatchEvent(new Event('storage'));
+};
+
+// ============================================================================
+// CMS NAAC SSR CYCLES, MULTI-TENANT HIERARCHY MODES & ROLE SIMULATION (v2)
+// ============================================================================
+
+export interface NaacSsrCycle {
+  id: string;
+  cycleNumber: string; // e.g. 'NAAC Cycle 1', 'NAAC Cycle 2'
+  yearFrom: string;    // e.g. '2024-25'
+  yearTo: string;      // e.g. '2028-29'
+  status: 'Active' | 'Submitted' | 'Completed';
+  ssrReportUrl?: string;
+  ssrReportFileName?: string;
+  createdAt: string;
+}
+
+const NAAC_CYCLES_STORAGE_KEY = 'cms_naac_ssr_cycles_v2';
+
+export const DEFAULT_NAAC_CYCLES: NaacSsrCycle[] = [
+  {
+    id: 'cycle-3',
+    cycleNumber: 'NAAC Cycle 3',
+    yearFrom: '2021-22',
+    yearTo: '2025-26',
+    status: 'Active',
+    createdAt: '2026-10-26',
+  },
+  {
+    id: 'cycle-2',
+    cycleNumber: 'NAAC Cycle 2',
+    yearFrom: '2016-17',
+    yearTo: '2020-21',
+    status: 'Completed',
+    createdAt: '2021-05-15',
+  },
+  {
+    id: 'cycle-1',
+    cycleNumber: 'NAAC Cycle 1',
+    yearFrom: '2011-12',
+    yearTo: '2015-16',
+    status: 'Completed',
+    createdAt: '2016-04-10',
+  },
+];
+
+export const getStoredNaacCycles = (): NaacSsrCycle[] => {
+  try {
+    const raw = localStorage.getItem(NAAC_CYCLES_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {
+    // ignore
+  }
+  return DEFAULT_NAAC_CYCLES;
+};
+
+export const saveNaacCycles = (cycles: NaacSsrCycle[]): void => {
+  try {
+    localStorage.setItem(NAAC_CYCLES_STORAGE_KEY, JSON.stringify(cycles));
+    window.dispatchEvent(new Event('naac-cycles-updated'));
+  } catch {
+    // ignore
+  }
+};
+
+export type NaacHierarchyMode = 'university_schools' | 'college_departments' | 'direct_iqac';
+
+export interface NaacHierarchyConfig {
+  mode: NaacHierarchyMode;
+  label: string;
+  shortLabel: string;
+  description: string;
+  roles: Array<{
+    id: 'faculty' | 'program' | 'school' | 'university';
+    title: string;
+    personName: string;
+    unitLabel: string;
+    badgeColor: string;
+  }>;
+}
+
+export const HIERARCHY_CONFIGS: Record<NaacHierarchyMode, NaacHierarchyConfig> = {
+  university_schools: {
+    mode: 'university_schools',
+    label: 'University - colleges - programs',
+    shortLabel: 'University - colleges - programs',
+    description: 'University hierarchy where Faculty submit to Program Coordinators, who compile for College/School Coordinators, before Central University IQAC publishes to the website.',
+    roles: [
+      { id: 'faculty', title: 'Faculty Member', personName: 'Dr. Ramesh Gupta', unitLabel: 'B.Tech CSE', badgeColor: 'amber' },
+      { id: 'program', title: 'Program Coordinator', personName: 'Prof. Anita Verma', unitLabel: 'B.Tech CSE (HOD)', badgeColor: 'emerald' },
+      { id: 'school', title: 'College / School Coordinator', personName: 'Dr. Rajesh Sharma', unitLabel: 'School of Technology', badgeColor: 'blue' },
+      { id: 'university', title: 'University IQAC', personName: 'Dr. Vikram Malhotra', unitLabel: 'Central IQAC Directorate', badgeColor: 'purple' },
+    ],
+  },
+  college_departments: {
+    mode: 'college_departments',
+    label: 'College - program',
+    shortLabel: 'College - program',
+    description: 'College hierarchy where Faculty upload proofs, Program Coordinators verify submissions, and College IQAC approves & publishes to the website.',
+    roles: [
+      { id: 'faculty', title: 'Faculty Member', personName: 'Dr. Ramesh Gupta', unitLabel: 'Dept. of Computer Science', badgeColor: 'amber' },
+      { id: 'program', title: 'Program Coordinator', personName: 'Prof. Anita Verma', unitLabel: 'Dept. of Computer Science', badgeColor: 'emerald' },
+      { id: 'university', title: 'College IQAC', personName: 'Dr. Vikram Malhotra', unitLabel: 'College IQAC Cell', badgeColor: 'purple' },
+    ],
+  },
+  direct_iqac: {
+    mode: 'direct_iqac',
+    label: 'College',
+    shortLabel: 'College',
+    description: 'Streamlined hierarchy for colleges where Criterion In-charges upload directly for College IQAC verification and website publication.',
+    roles: [
+      { id: 'program', title: 'Criterion Coordinator', personName: 'Prof. Anita Verma', unitLabel: 'Criterion Lead', badgeColor: 'emerald' },
+      { id: 'university', title: 'College IQAC', personName: 'Dr. Vikram Malhotra', unitLabel: 'College IQAC', badgeColor: 'purple' },
+    ],
+  },
+};
+
+export const getTenantDefaultHierarchyMode = (tenantId?: string): NaacHierarchyMode => {
+  const tid = tenantId || localStorage.getItem('active_college_tenant_id') || 'elite-autonomous';
+  const savedOverride = localStorage.getItem(`naac_hierarchy_mode_${tid}`) as NaacHierarchyMode | null;
+  if (savedOverride && HIERARCHY_CONFIGS[savedOverride]) {
+    return savedOverride;
+  }
+  if (tid === 'elite-tech') return 'university_schools';
+  if (tid === 'elite-agri') return 'direct_iqac';
+  return 'college_departments';
+};
+
+export const setTenantHierarchyMode = (tenantId: string, mode: NaacHierarchyMode): void => {
+  localStorage.setItem(`naac_hierarchy_mode_${tenantId}`, mode);
+  // Ensure active role is valid for this hierarchy mode
+  const currentRole = getActiveNaacRole();
+  const validRoles = HIERARCHY_CONFIGS[mode].roles.map(r => r.id);
+  if (!validRoles.includes(currentRole)) {
+    setActiveNaacRole(validRoles[validRoles.length - 1]);
+  }
+  window.dispatchEvent(new Event('naac-hierarchy-changed'));
+};
+
+export type NaacSimRole = 'faculty' | 'program' | 'school' | 'university';
+
+export const getActiveNaacRole = (): NaacSimRole => {
+  const saved = localStorage.getItem('cms_naac_active_sim_role') as NaacSimRole | null;
+  if (saved && ['faculty', 'program', 'school', 'university'].includes(saved)) {
+    return saved;
+  }
+  return 'university';
+};
+
+export const setActiveNaacRole = (role: NaacSimRole): void => {
+  localStorage.setItem('cms_naac_active_sim_role', role);
+  window.dispatchEvent(new Event('naac-role-changed'));
+};
+
+// ============================================================================
+// EXTENDED PROFILE & DVV CLARIFICATION MODELS & STORAGE
+// ============================================================================
+
+export const SAMPLE_PDF_URL = 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf';
+
+export interface ExtendedProfileDocProof {
+  id: string;
+  fileName: string;
+  fileUrl: string;
+  fileSize: string;
+  uploadedAt: string;
+  verified: boolean;
+  verificationNote?: string;
+}
+
+export interface ExtendedProfileMetric {
+  id: string;
+  section: 'programs' | 'students' | 'teachers' | 'expenditure';
+  code: string; // '1.1', '1.2', '2.1', '2.2', '2.3', '3.1', '3.2', '4.1', '4.2'
+  title: string;
+  description: string;
+  unit: string;
+  isQuantitative: boolean;
+  years: {
+    year: string;
+    value: number;
+  }[];
+  total?: number;
+  average?: number;
+  documentProofs: ExtendedProfileDocProof[];
+}
+
+export const DEFAULT_EXTENDED_PROFILE_METRICS: ExtendedProfileMetric[] = [
+  // 1. PROGRAMS
+  {
+    id: 'ep-1.1',
+    section: 'programs',
+    code: '1.1',
+    title: 'Number of courses offered across all programs during the last five years',
+    description: 'Total approved courses (theory, practical, electives) offered across degree programs.',
+    unit: 'Courses',
+    isQuantitative: true,
+    years: [
+      { year: '2021-22', value: 420 },
+      { year: '2022-23', value: 435 },
+      { year: '2023-24', value: 450 },
+      { year: '2024-25', value: 465 },
+      { year: '2025-26', value: 480 },
+    ],
+    total: 2250,
+    average: 450,
+    documentProofs: [
+      {
+        id: 'ep-doc-1.1-1',
+        fileName: 'UGC_AICTE_Approved_Course_Catalog_Cycle3.pdf',
+        fileUrl: SAMPLE_PDF_URL,
+        fileSize: '1.8 MB',
+        uploadedAt: '2026-10-15',
+        verified: true,
+        verificationNote: 'Certified by Dean Academics & Principal',
+      },
+    ],
+  },
+  {
+    id: 'ep-1.2',
+    section: 'programs',
+    code: '1.2',
+    title: 'Number of programs offered during the last five years',
+    description: 'Degree-granting undergraduate, postgraduate, and doctoral degree programs.',
+    unit: 'Programs',
+    isQuantitative: true,
+    years: [
+      { year: '2021-22', value: 18 },
+      { year: '2022-23', value: 18 },
+      { year: '2023-24', value: 20 },
+      { year: '2024-25', value: 22 },
+      { year: '2025-26', value: 22 },
+    ],
+    total: 22,
+    average: 20,
+    documentProofs: [
+      {
+        id: 'ep-doc-1.2-1',
+        fileName: 'Academic_Council_Approved_Program_List.pdf',
+        fileUrl: SAMPLE_PDF_URL,
+        fileSize: '1.2 MB',
+        uploadedAt: '2026-10-18',
+        verified: true,
+        verificationNote: 'Affiliating University sanction order attached',
+      },
+    ],
+  },
+
+  // 2. STUDENTS
+  {
+    id: 'ep-2.1',
+    section: 'students',
+    code: '2.1',
+    title: 'Number of students year-wise during the last five years',
+    description: 'Total on-roll registered students across all programs and academic years.',
+    unit: 'Students',
+    isQuantitative: true,
+    years: [
+      { year: '2021-22', value: 2150 },
+      { year: '2022-23', value: 2280 },
+      { year: '2023-24', value: 2410 },
+      { year: '2024-25', value: 2520 },
+      { year: '2025-26', value: 2650 },
+    ],
+    total: 12010,
+    average: 2402,
+    documentProofs: [
+      {
+        id: 'ep-doc-2.1-1',
+        fileName: 'Certified_Enrollment_Roll_List_Registrar_Signed.pdf',
+        fileUrl: SAMPLE_PDF_URL,
+        fileSize: '3.4 MB',
+        uploadedAt: '2026-10-20',
+        verified: true,
+        verificationNote: 'Certified by Registrar with Official Seal',
+      },
+    ],
+  },
+  {
+    id: 'ep-2.2',
+    section: 'students',
+    code: '2.2',
+    title: 'Number of seats earmarked for reserved category as per GOI/State Govt rule',
+    description: 'Sanctioned intake seats reserved for SC, ST, OBC, Divyangjan, EWS categories.',
+    unit: 'Seats',
+    isQuantitative: true,
+    years: [
+      { year: '2021-22', value: 540 },
+      { year: '2022-23', value: 560 },
+      { year: '2023-24', value: 590 },
+      { year: '2024-25', value: 620 },
+      { year: '2025-26', value: 640 },
+    ],
+    total: 2950,
+    average: 590,
+    documentProofs: [
+      {
+        id: 'ep-doc-2.2-1',
+        fileName: 'State_Govt_Reservation_Sanction_Order.pdf',
+        fileUrl: SAMPLE_PDF_URL,
+        fileSize: '980 KB',
+        uploadedAt: '2026-10-22',
+        verified: true,
+        verificationNote: 'State Higher Education Dept quota roster certified',
+      },
+    ],
+  },
+  {
+    id: 'ep-2.3',
+    section: 'students',
+    code: '2.3',
+    title: 'Number of outgoing / final year students year-wise during the last five years',
+    description: 'Final year graduating candidates appearing for terminal examinations.',
+    unit: 'Students',
+    isQuantitative: true,
+    years: [
+      { year: '2021-22', value: 480 },
+      { year: '2022-23', value: 510 },
+      { year: '2023-24', value: 545 },
+      { year: '2024-25', value: 580 },
+      { year: '2025-26', value: 610 },
+    ],
+    total: 2725,
+    average: 545,
+    documentProofs: [
+      {
+        id: 'ep-doc-2.3-1',
+        fileName: 'Final_Year_Graduating_Students_List_CoE_Signed.pdf',
+        fileUrl: SAMPLE_PDF_URL,
+        fileSize: '2.1 MB',
+        uploadedAt: '2026-10-24',
+        verified: true,
+        verificationNote: 'Controller of Examinations authenticated roll list',
+      },
+    ],
+  },
+
+  // 3. TEACHERS
+  {
+    id: 'ep-3.1',
+    section: 'teachers',
+    code: '3.1',
+    title: 'Number of full-time teachers year-wise during the last five years',
+    description: 'Regular and full-time faculty members appointed on sanctioned posts.',
+    unit: 'Teachers',
+    isQuantitative: true,
+    years: [
+      { year: '2021-22', value: 108 },
+      { year: '2022-23', value: 112 },
+      { year: '2023-24', value: 118 },
+      { year: '2024-25', value: 122 },
+      { year: '2025-26', value: 126 },
+    ],
+    total: 586,
+    average: 117.2,
+    documentProofs: [
+      {
+        id: 'ep-doc-3.1-1',
+        fileName: 'Sanctioned_Faculty_Appointment_Letters_Principal_Signed.pdf',
+        fileUrl: SAMPLE_PDF_URL,
+        fileSize: '2.6 MB',
+        uploadedAt: '2026-10-25',
+        verified: true,
+        verificationNote: 'Signed by Principal with employee IDs and joining dates',
+      },
+    ],
+  },
+  {
+    id: 'ep-3.2',
+    section: 'teachers',
+    code: '3.2',
+    title: 'Number of sanctioned posts year-wise during the last five years',
+    description: 'Faculty posts sanctioned by Governing Body / Management / State Govt.',
+    unit: 'Posts',
+    isQuantitative: true,
+    years: [
+      { year: '2021-22', value: 115 },
+      { year: '2022-23', value: 118 },
+      { year: '2023-24', value: 122 },
+      { year: '2024-25', value: 125 },
+      { year: '2025-26', value: 130 },
+    ],
+    total: 610,
+    average: 122,
+    documentProofs: [
+      {
+        id: 'ep-doc-3.2-1',
+        fileName: 'Governing_Body_Sanctioned_Posts_Resolution.pdf',
+        fileUrl: SAMPLE_PDF_URL,
+        fileSize: '1.4 MB',
+        uploadedAt: '2026-10-26',
+        verified: true,
+        verificationNote: 'Board of Governors official minutes & sanction letters',
+      },
+    ],
+  },
+
+  // 4. INSTITUTION & EXPENDITURE
+  {
+    id: 'ep-4.1',
+    section: 'expenditure',
+    code: '4.1',
+    title: 'Number of eligible computers for academic purposes',
+    description: 'Working desktop and workstation PCs accessible to students in academic labs.',
+    unit: 'Computers',
+    isQuantitative: true,
+    years: [
+      { year: '2021-22', value: 450 },
+      { year: '2022-23', value: 500 },
+      { year: '2023-24', value: 560 },
+      { year: '2024-25', value: 620 },
+      { year: '2025-26', value: 700 },
+    ],
+    total: 700,
+    average: 566,
+    documentProofs: [
+      {
+        id: 'ep-doc-4.1-1',
+        fileName: 'IT_Asset_Register_Computers_Physical_Stock_Report.pdf',
+        fileUrl: SAMPLE_PDF_URL,
+        fileSize: '1.5 MB',
+        uploadedAt: '2026-10-28',
+        verified: true,
+        verificationNote: 'Stock verification committee report with MAC addresses',
+      },
+    ],
+  },
+  {
+    id: 'ep-4.2',
+    section: 'expenditure',
+    code: '4.2',
+    title: 'Total expenditure excluding salary year-wise during the last five years (INR in Lakhs)',
+    description: 'Operational, academic, library, lab equipment, maintenance and infrastructure expenses.',
+    unit: 'INR in Lakhs',
+    isQuantitative: true,
+    years: [
+      { year: '2021-22', value: 145.2 },
+      { year: '2022-23', value: 168.5 },
+      { year: '2023-24', value: 182.0 },
+      { year: '2024-25', value: 195.4 },
+      { year: '2025-26', value: 210.8 },
+    ],
+    total: 901.9,
+    average: 180.38,
+    documentProofs: [
+      {
+        id: 'ep-doc-4.2-1',
+        fileName: 'CA_Certified_Audited_Income_Expenditure_Statements_5Years.pdf',
+        fileUrl: SAMPLE_PDF_URL,
+        fileSize: '4.8 MB',
+        uploadedAt: '2026-10-30',
+        verified: true,
+        verificationNote: 'Chartered Accountant stamped with UDIN number',
+      },
+    ],
+  },
+];
+
+const EXTENDED_PROFILE_STORAGE_KEY_PREFIX = 'cms_naac_extended_profile_';
+
+export const getStoredExtendedProfile = (cycleId?: string): ExtendedProfileMetric[] => {
+  const cid = cycleId || 'default';
+  try {
+    const raw = localStorage.getItem(`${EXTENDED_PROFILE_STORAGE_KEY_PREFIX}${cid}`);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {
+    // ignore
+  }
+  return DEFAULT_EXTENDED_PROFILE_METRICS;
+};
+
+export const saveExtendedProfile = (cycleId: string, metrics: ExtendedProfileMetric[]): void => {
+  try {
+    localStorage.setItem(`${EXTENDED_PROFILE_STORAGE_KEY_PREFIX}${cycleId}`, JSON.stringify(metrics));
+    window.dispatchEvent(new Event('naac-extended-profile-updated'));
+  } catch {
+    // ignore
+  }
+};
+
+// ============================================================================
+// DVV CLARIFICATION MODELS & STORAGE
+// ============================================================================
+
+export interface NaacDvvQuery {
+  id: string;
+  cycleId: string;
+  queryNumber: string; // e.g. 'DVV-Q-01'
+  targetType: 'criterion_metric' | 'extended_profile';
+  targetCode: string; // e.g. 'Metric 2.1.2', 'Metric 3.1'
+  targetTitle: string;
+  naacQueryText: string;
+  naacQueryDate: string;
+  deadlineDate: string;
+  status: 'pending' | 'submitted' | 'accepted';
+  heiResponseText?: string;
+  heiResponseDate?: string;
+  supportingDocuments: {
+    id: string;
+    fileName: string;
+    fileUrl: string;
+    fileSize: string;
+    uploadedAt: string;
+  }[];
+}
+
+export const DEFAULT_DVV_QUERIES: NaacDvvQuery[] = [
+  {
+    id: 'dvv-1',
+    cycleId: 'cycle-3',
+    queryNumber: 'DVV-Q-01',
+    targetType: 'criterion_metric',
+    targetCode: 'Metric 2.1.2',
+    targetTitle: 'Average percentage of seats filled against seats reserved for various categories',
+    naacQueryText: 'Kindly provide year-wise certified list of students enrolled against reserved category seats signed by the Principal and Registrar for all 5 assessment years. Provide state government reservation quota notification.',
+    naacQueryDate: '2026-10-28',
+    deadlineDate: '2026-11-12',
+    status: 'submitted',
+    heiResponseText: 'Certified student enrollment list against reserved categories along with State Higher Education Department reservation roster attached.',
+    heiResponseDate: '2026-11-02',
+    supportingDocuments: [
+      {
+        id: 'dvv-doc-1',
+        fileName: 'Certified_Reserved_Students_List_DVV_Clarification.pdf',
+        fileUrl: SAMPLE_PDF_URL,
+        fileSize: '2.4 MB',
+        uploadedAt: '2026-11-02',
+      },
+    ],
+  },
+  {
+    id: 'dvv-2',
+    cycleId: 'cycle-3',
+    queryNumber: 'DVV-Q-02',
+    targetType: 'criterion_metric',
+    targetCode: 'Metric 3.1.1',
+    targetTitle: 'Grants received from government and non-governmental agencies for research projects',
+    naacQueryText: 'Provide sanction letters from funding agencies (DST, SERB, UGC, AICTE) showing grant amount disbursed, project title, and investigator names during the assessment period.',
+    naacQueryDate: '2026-10-29',
+    deadlineDate: '2026-11-13',
+    status: 'submitted',
+    heiResponseText: 'Official grant sanction orders from DST and AICTE with sanction numbers and bank statement transfer credits provided.',
+    heiResponseDate: '2026-11-03',
+    supportingDocuments: [
+      {
+        id: 'dvv-doc-2',
+        fileName: 'Research_Grants_Sanction_Orders_DVV_Clarification.pdf',
+        fileUrl: SAMPLE_PDF_URL,
+        fileSize: '3.1 MB',
+        uploadedAt: '2026-11-03',
+      },
+    ],
+  },
+  {
+    id: 'dvv-3',
+    cycleId: 'cycle-3',
+    queryNumber: 'DVV-Q-03',
+    targetType: 'extended_profile',
+    targetCode: 'Extended Profile 4.2',
+    targetTitle: 'Total expenditure excluding salary year-wise during the last five years (INR in Lakhs)',
+    naacQueryText: 'Audited income & expenditure statements show variation with SSR figure in 2023-24. Provide Chartered Accountant certificate highlighting specifically non-salary expenditure with UDIN.',
+    naacQueryDate: '2026-11-01',
+    deadlineDate: '2026-11-16',
+    status: 'pending',
+    heiResponseText: '',
+    supportingDocuments: [],
+  },
+  {
+    id: 'dvv-4',
+    cycleId: 'cycle-3',
+    queryNumber: 'DVV-Q-04',
+    targetType: 'criterion_metric',
+    targetCode: 'Metric 1.1.3',
+    targetTitle: 'Average percentage of courses having focus on employability/entrepreneurship/skill development',
+    naacQueryText: 'Provide Board of Studies (BoS) minutes approving syllabi and highlighted curriculum copies indicating employability mapping for 2024-25.',
+    naacQueryDate: '2026-11-02',
+    deadlineDate: '2026-11-17',
+    status: 'pending',
+    heiResponseText: '',
+    supportingDocuments: [],
+  },
+];
+
+const DVV_STORAGE_KEY_PREFIX = 'cms_naac_dvv_queries_';
+
+export const getStoredDvvQueries = (cycleId?: string): NaacDvvQuery[] => {
+  const cid = cycleId || 'default';
+  try {
+    const raw = localStorage.getItem(`${DVV_STORAGE_KEY_PREFIX}${cid}`);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {
+    // ignore
+  }
+  return DEFAULT_DVV_QUERIES;
+};
+
+export const saveDvvQueries = (cycleId: string, queries: NaacDvvQuery[]): void => {
+  try {
+    localStorage.setItem(`${DVV_STORAGE_KEY_PREFIX}${cycleId}`, JSON.stringify(queries));
+    window.dispatchEvent(new Event('naac-dvv-updated'));
+  } catch {
+    // ignore
+  }
+};
+
+
+

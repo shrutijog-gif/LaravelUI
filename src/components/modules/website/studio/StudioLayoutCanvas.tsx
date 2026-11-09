@@ -25,6 +25,12 @@ export const StudioLayoutCanvas: React.FC<StudioLayoutCanvasProps> = ({ config, 
     { id: 'table-3', name: 'Table 3: Modern Gradient Header', desc: 'Vibrant blue-indigo gradient header bar with bold column labels.' },
   ];
 
+  const listStyleOptions = [
+    { id: 'list-1', name: 'List 1: Chevron Links (»)', desc: 'Clean academic document text links with active click opening.' },
+    { id: 'list-2', name: 'List 2: Document Row Cards', desc: 'Separated rows with red PDF badge and Download action button.' },
+    { id: 'list-3', name: 'List 3: Numbered Index', desc: 'Numbered row listing for official circulars and reports.' },
+  ];
+
   return (
     <div className="space-y-6">
       {/* 1. View Mode Selection */}
@@ -34,9 +40,49 @@ export const StudioLayoutCanvas: React.FC<StudioLayoutCanvasProps> = ({ config, 
           Primary Storefront Display Mode
         </h4>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div
-            onClick={() => handleUpdate({ defaultView: 'card' })}
+            onClick={() => handleUpdate({ defaultView: 'table', cardStyle: 'table-1' })}
+            className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex items-start gap-3.5 ${
+              config.defaultView === 'table'
+                ? 'border-blue-600 bg-blue-50/40 shadow-xs'
+                : 'border-gray-200 hover:border-gray-300 bg-white'
+            }`}
+          >
+            <div className={`p-2.5 rounded-lg shrink-0 ${config.defaultView === 'table' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
+              <Table className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center justify-between">
+                <h5 className="font-bold text-sm text-gray-900">Table View</h5>
+                {config.defaultView === 'table' && <Check className="w-4 h-4 text-blue-600" />}
+              </div>
+              <p className="text-xs text-gray-500 mt-0.5">Structured data table rows with high-density columns.</p>
+            </div>
+          </div>
+
+          <div
+            onClick={() => handleUpdate({ defaultView: 'list', cardStyle: 'list-1' })}
+            className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex items-start gap-3.5 ${
+              config.defaultView === 'list'
+                ? 'border-blue-600 bg-blue-50/40 shadow-xs'
+                : 'border-gray-200 hover:border-gray-300 bg-white'
+            }`}
+          >
+            <div className={`p-2.5 rounded-lg shrink-0 ${config.defaultView === 'list' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
+              <Sliders className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center justify-between">
+                <h5 className="font-bold text-sm text-gray-900">List View</h5>
+                {config.defaultView === 'list' && <Check className="w-4 h-4 text-blue-600" />}
+              </div>
+              <p className="text-xs text-gray-500 mt-0.5">Clean link list rows optimized for document downloads.</p>
+            </div>
+          </div>
+
+          <div
+            onClick={() => handleUpdate({ defaultView: 'card', cardStyle: 'style-1' })}
             className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex items-start gap-3.5 ${
               config.defaultView === 'card'
                 ? 'border-blue-600 bg-blue-50/40 shadow-xs'
@@ -51,27 +97,7 @@ export const StudioLayoutCanvas: React.FC<StudioLayoutCanvasProps> = ({ config, 
                 <h5 className="font-bold text-sm text-gray-900">Card Grid View</h5>
                 {config.defaultView === 'card' && <Check className="w-4 h-4 text-blue-600" />}
               </div>
-              <p className="text-xs text-gray-500 mt-0.5">Renders items as visually rich responsive cards with images, tags, and action buttons.</p>
-            </div>
-          </div>
-
-          <div
-            onClick={() => handleUpdate({ defaultView: 'table' })}
-            className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex items-start gap-3.5 ${
-              config.defaultView === 'table'
-                ? 'border-blue-600 bg-blue-50/40 shadow-xs'
-                : 'border-gray-200 hover:border-gray-300 bg-white'
-            }`}
-          >
-            <div className={`p-2.5 rounded-lg shrink-0 ${config.defaultView === 'table' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
-              <Table className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center justify-between">
-                <h5 className="font-bold text-sm text-gray-900">Data Table View</h5>
-                {config.defaultView === 'table' && <Check className="w-4 h-4 text-blue-600" />}
-              </div>
-              <p className="text-xs text-gray-500 mt-0.5">Renders items in structured data table rows with high-density column sorting.</p>
+              <p className="text-xs text-gray-500 mt-0.5">Responsive card blocks with images and badges.</p>
             </div>
           </div>
         </div>
@@ -81,7 +107,7 @@ export const StudioLayoutCanvas: React.FC<StudioLayoutCanvasProps> = ({ config, 
       <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-2xs space-y-4">
         <h4 className="text-xs font-bold text-gray-800 uppercase tracking-wider flex items-center gap-1.5">
           <Sparkles className="w-4 h-4 text-blue-600" />
-          {config.defaultView === 'card' ? 'Card Style Presets' : 'Table Style Presets'}
+          {config.defaultView === 'card' ? 'Card Style Presets' : config.defaultView === 'list' ? 'List Style Presets' : 'Table Style Presets'}
         </h4>
 
         {config.defaultView === 'card' ? (
@@ -104,14 +130,14 @@ export const StudioLayoutCanvas: React.FC<StudioLayoutCanvasProps> = ({ config, 
               </div>
             ))}
           </div>
-        ) : (
+        ) : config.defaultView === 'list' ? (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {tableStyleOptions.map(style => (
+            {listStyleOptions.map(style => (
               <div
                 key={style.id}
-                onClick={() => handleUpdate({ tableStyle: style.id })}
+                onClick={() => handleUpdate({ cardStyle: style.id as any })}
                 className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-start justify-between ${
-                  config.tableStyle === style.id
+                  config.cardStyle === style.id
                     ? 'border-blue-600 bg-blue-50/50 ring-2 ring-blue-500/20'
                     : 'border-gray-200 hover:border-gray-300 bg-white'
                 }`}
@@ -120,7 +146,27 @@ export const StudioLayoutCanvas: React.FC<StudioLayoutCanvasProps> = ({ config, 
                   <h6 className="font-bold text-xs text-gray-900">{style.name}</h6>
                   <p className="text-[11px] text-gray-500 mt-0.5">{style.desc}</p>
                 </div>
-                {config.tableStyle === style.id && <Check className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />}
+                {config.cardStyle === style.id && <Check className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {tableStyleOptions.map(style => (
+              <div
+                key={style.id}
+                onClick={() => handleUpdate({ tableStyle: style.id, cardStyle: style.id })}
+                className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-start justify-between ${
+                  config.tableStyle === style.id || config.cardStyle === style.id
+                    ? 'border-blue-600 bg-blue-50/50 ring-2 ring-blue-500/20'
+                    : 'border-gray-200 hover:border-gray-300 bg-white'
+                }`}
+              >
+                <div>
+                  <h6 className="font-bold text-xs text-gray-900">{style.name}</h6>
+                  <p className="text-[11px] text-gray-500 mt-0.5">{style.desc}</p>
+                </div>
+                {(config.tableStyle === style.id || config.cardStyle === style.id) && <Check className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />}
               </div>
             ))}
           </div>
