@@ -1822,18 +1822,6 @@ Respond in JSON ONLY:
         )}
 
         <div className="flex items-center gap-2 sm:gap-3">
-
-          {role !== 'program' && role !== 'school' && role !== 'university' && !hideTopUploadButton && (
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="px-3.5 py-1.5 bg-[#0f2748] hover:bg-[#183963] text-white font-bold text-xs rounded-lg shadow-xs inline-flex items-center gap-1.5 cursor-pointer transition-colors"
-            >
-              <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-              <span>Upload Document</span>
-            </button>
-          )}
-
           {topBarLeftSlot && (
             <span className={`px-2.5 py-1 rounded font-mono text-xs font-semibold border ${
               role === 'program' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
@@ -1843,8 +1831,6 @@ Respond in JSON ONLY:
               AQAR {academicYear}
             </span>
           )}
-
-
         </div>
       </div>
 

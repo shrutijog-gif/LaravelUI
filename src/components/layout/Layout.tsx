@@ -52,7 +52,8 @@ export const Layout: React.FC<LayoutProps> = ({
   const [activeModuleLabel, setActiveModuleLabel] = useState<string>(() => {
     const initMod = getInitialModule();
     if (initMod === 'naac-quick-drop') return 'Quick Evidence Drop';
-    if (initMod === 'naac-ssr-cycle') return 'Cycle (SSR)';
+    if (initMod === 'naac-ssr-cycle') return 'NAAC Cycles';
+    if (initMod.startsWith('naac-cycle-')) return 'Cycle Workspace';
     if (initMod === 'naac-faculty') return 'Faculty Desk';
     if (initMod === 'naac-aqar-standalone') return 'AQAR';
     if (initMod === 'naac-school') return 'School Coordinator';
@@ -196,12 +197,20 @@ export const Layout: React.FC<LayoutProps> = ({
                 academicYear="2024-25"
                 initialDirectoryOpen={activeModuleId === 'naac-evidence-directory'}
                 onNavigateToDocumentList={() =>
-                  handleSelectMenuItem('naac-ssr-cycle', 'Cycle (SSR)')
+                  handleSelectMenuItem('naac-ssr-cycle', 'All Cycles')
                 }
               />
-            ) : activeModuleId === 'naac-ssr-cycle' || activeModuleId === 'naac-dms' || activeModuleId === 'naac-ssr' || activeModuleId === 'naac-dvv' ? (
+            ) : activeModuleId === 'naac-ssr-cycle' || activeModuleId === 'naac-dms' || activeModuleId === 'naac-ssr' || activeModuleId === 'naac-dvv' || activeModuleId.startsWith('naac-cycle-') ? (
               <NaacSsrCycleModule
                 mode="ssr"
+                initialCycleId={activeModuleId.startsWith('naac-cycle-') ? activeModuleId.replace('naac-cycle-', '') : null}
+                onSelectCycle={(cycleId) => {
+                  if (cycleId) {
+                    handleSelectMenuItem(`naac-cycle-${cycleId}`, `Cycle ${cycleId.replace('cycle-', '')}`);
+                  } else {
+                    handleSelectMenuItem('naac-ssr-cycle', 'All Cycles');
+                  }
+                }}
                 onNavigateToAllocation={() =>
                   handleSelectMenuItem('naac-criteria-allocation', 'Criteria Allocation')
                 }
@@ -215,7 +224,7 @@ export const Layout: React.FC<LayoutProps> = ({
               />
             ) : activeModuleId === 'naac-criteria-allocation' ? (
               <NaacCriteriaAllocation
-                onBackToCycles={() => handleSelectMenuItem('naac-ssr-cycle', 'Cycle (SSR)')}
+                onBackToCycles={() => handleSelectMenuItem('naac-ssr-cycle', 'All Cycles')}
               />
             ) : activeModuleId === 'naac-faculty' || activeModuleId.startsWith('faculty-') ? (
               <FacultyDesk initialTab={activeModuleId === 'faculty-evidence' ? 'my-evidence' : 'quick-upload'} />

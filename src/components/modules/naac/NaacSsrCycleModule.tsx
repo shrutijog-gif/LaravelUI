@@ -52,10 +52,14 @@ import {
 import { getActiveTenant, CollegeTenant } from '../../../data/tenantData';
 import { openFileInNewTab } from '../../../utils/fileHelper';
 import { NaacQuickUploadLanding } from './NaacQuickUploadLanding';
+import { ExtendedProfileWorkspace } from './ExtendedProfileWorkspace';
+import { DvvClarificationsWorkspace } from './DvvClarificationsWorkspace';
 
 interface NaacSsrCycleModuleProps {
   mode?: 'ssr' | 'aqar';
   onNavigateToAllocation?: () => void;
+  initialCycleId?: string | null;
+  onSelectCycle?: (cycleId: string | null) => void;
 }
 
 interface CmsVirtualFile {
@@ -146,6 +150,8 @@ const KEY_INDICATOR_WEIGHTAGES: Record<string, number> = {
 export const NaacSsrCycleModule: React.FC<NaacSsrCycleModuleProps> = ({
   mode = 'ssr',
   onNavigateToAllocation,
+  initialCycleId,
+  onSelectCycle,
 }) => {
   const [tenant, setTenant] = useState<CollegeTenant>(() => getActiveTenant());
   const [hierarchyMode, setHierarchyMode] = useState<NaacHierarchyMode>(() =>
@@ -156,8 +162,26 @@ export const NaacSsrCycleModule: React.FC<NaacSsrCycleModuleProps> = ({
   // Cycles & Navigation State
   // Screen 1: 'cycle-list' (2.png) -> Screen 2: 'cycle-overview' (4.png) -> Screen 3: 'criterion-detail' (5.png)
   const [cycles, setCycles] = useState<NaacSsrCycle[]>(() => getStoredNaacCycles());
-  const [selectedCycleId, setSelectedCycleId] = useState<string | null>(null);
+  const [selectedCycleId, setSelectedCycleId] = useState<string | null>(initialCycleId ?? null);
   const [selectedCriterionCode, setSelectedCriterionCode] = useState<string | null>(null);
+  const [cycleActiveTab, setCycleActiveTab] = useState<'quick_drop' | 'qif' | 'extended_profile' | 'dvv' | 'ssr_report'>('quick_drop');
+
+  useEffect(() => {
+    if (initialCycleId !== undefined) {
+      setSelectedCycleId(initialCycleId);
+      setSelectedCriterionCode(null);
+      setCycleActiveTab('quick_drop');
+    }
+  }, [initialCycleId]);
+
+  const handleChooseCycle = (cycleId: string | null) => {
+    setSelectedCycleId(cycleId);
+    setSelectedCriterionCode(null);
+    setCycleActiveTab('quick_drop');
+    if (onSelectCycle) {
+      onSelectCycle(cycleId);
+    }
+  };
 
   // Initiate / Edit Cycle Drawer State (3.png)
   const [isCycleDrawerOpen, setIsCycleDrawerOpen] = useState<boolean>(false);
@@ -301,6 +325,9 @@ export const NaacSsrCycleModule: React.FC<NaacSsrCycleModuleProps> = ({
     const updated = cycles.filter((c) => c.id !== id);
     setCycles(updated);
     saveNaacCycles(updated);
+    if (selectedCycleId === id) {
+      handleChooseCycle(null);
+    }
     showToast('Cycle removed.');
   };
 
@@ -609,7 +636,7 @@ export const NaacSsrCycleModule: React.FC<NaacSsrCycleModuleProps> = ({
                   className="bg-white rounded-xl border border-gray-200/90 px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xs hover:border-blue-300 transition-all"
                 >
                   <div
-                    onClick={() => setSelectedCycleId(cycle.id)}
+                    onClick={() => handleChooseCycle(cycle.id)}
                     className="flex flex-wrap items-center gap-3 cursor-pointer group"
                   >
                     <span className="text-sm sm:text-base font-bold text-gray-900 group-hover:text-blue-700 transition-colors">
@@ -644,7 +671,7 @@ export const NaacSsrCycleModule: React.FC<NaacSsrCycleModuleProps> = ({
                       <Pencil className="w-4 h-4" />
                     </button>
                     <button
-                      onClick={() => setSelectedCycleId(cycle.id)}
+                      onClick={() => handleChooseCycle(cycle.id)}
                       className="p-2 rounded-lg border border-blue-200 bg-blue-50/50 hover:bg-blue-100 text-blue-700 transition-colors cursor-pointer"
                       title="Open SSR Criteria & AI Quick Upload"
                     >
@@ -672,37 +699,107 @@ export const NaacSsrCycleModule: React.FC<NaacSsrCycleModuleProps> = ({
         <div className="space-y-5">
           {/* Breadcrumb matching 4.png / 5.png */}
           <div className="flex items-center justify-between flex-wrap gap-2">
-            <div className="flex items-center gap-2 text-xs font-semibold text-gray-600">
+            <div className="flex items-center gap-2 text-xs font-semibold text-gray-600 flex-wrap">
               <button
-                onClick={() => setSelectedCycleId(null)}
+                onClick={() => handleChooseCycle(null)}
                 className="hover:text-blue-600 flex items-center gap-1 cursor-pointer"
               >
                 <Home className="w-3.5 h-3.5 text-gray-500" />
               </button>
               <span>/</span>
               <button
-                onClick={() => setSelectedCycleId(null)}
+                onClick={() => handleChooseCycle(null)}
                 className="hover:text-blue-600 underline cursor-pointer"
               >
                SSR
               </button>
               <span>/</span>
-              <span className="text-gray-900 font-bold">
+              <button
+                onClick={() => setCycleActiveTab('quick_drop')}
+                className="hover:text-blue-600 underline cursor-pointer"
+              >
                 {selectedCycle.cycleNumber} ({selectedCycle.yearFrom} to {selectedCycle.yearTo})
+              </button>
+              <span>/</span>
+              <span className="text-gray-900 font-bold">
+                {cycleActiveTab === 'quick_drop'
+                  ? 'Quick Evidence Drop'
+                  : cycleActiveTab === 'qif'
+                  ? 'Key Indicator Framework'
+                  : cycleActiveTab === 'extended_profile'
+                  ? 'Extended Profile'
+                  : cycleActiveTab === 'dvv'
+                  ? 'DVV'
+                  : 'SSR Report'}
               </span>
             </div>
+          </div>
+
+          {/* Main 5 Cycle Workspace Tabs (Single Line, No Extra Background) */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 flex-nowrap">
+            <button
+              onClick={() => setCycleActiveTab('quick_drop')}
+              className={`whitespace-nowrap px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
+                cycleActiveTab === 'quick_drop'
+                  ? 'bg-blue-600 text-white shadow-xs font-bold'
+                  : 'bg-white text-gray-700 hover:text-gray-900 hover:bg-gray-50 border border-gray-200/90 font-medium shadow-2xs'
+              }`}
+            >
+              <Sparkles className={`w-3.5 h-3.5 ${cycleActiveTab === 'quick_drop' ? 'text-amber-300' : 'text-blue-600'}`} />
+              <span>Quick Evidence Drop</span>
+            </button>
 
             <button
-              onClick={() => setIsAiBarExpanded((prev) => !prev)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-bold transition-colors cursor-pointer"
+              onClick={() => setCycleActiveTab('qif')}
+              className={`whitespace-nowrap px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
+                cycleActiveTab === 'qif'
+                  ? 'bg-blue-600 text-white shadow-xs font-bold'
+                  : 'bg-white text-gray-700 hover:text-gray-900 hover:bg-gray-50 border border-gray-200/90 font-medium shadow-2xs'
+              }`}
             >
-              <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
-              <span>{isAiBarExpanded ? 'Hide AI Quick Upload Bar' : 'Show AI Quick Upload Bar'}</span>
+              <Layers className="w-3.5 h-3.5" />
+              <span>Key Indicator Framework</span>
+            </button>
+
+            <button
+              onClick={() => setCycleActiveTab('extended_profile')}
+              className={`whitespace-nowrap px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
+                cycleActiveTab === 'extended_profile'
+                  ? 'bg-blue-600 text-white shadow-xs font-bold'
+                  : 'bg-white text-gray-700 hover:text-gray-900 hover:bg-gray-50 border border-gray-200/90 font-medium shadow-2xs'
+              }`}
+            >
+              <Building2 className="w-3.5 h-3.5" />
+              <span>Extended Profile</span>
+            </button>
+
+            <button
+              onClick={() => setCycleActiveTab('dvv')}
+              className={`whitespace-nowrap px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
+                cycleActiveTab === 'dvv'
+                  ? 'bg-blue-600 text-white shadow-xs font-bold'
+                  : 'bg-white text-gray-700 hover:text-gray-900 hover:bg-gray-50 border border-gray-200/90 font-medium shadow-2xs'
+              }`}
+            >
+              <AlertCircle className="w-3.5 h-3.5" />
+              <span>DVV</span>
+            </button>
+
+            <button
+              onClick={() => setCycleActiveTab('ssr_report')}
+              className={`whitespace-nowrap px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
+                cycleActiveTab === 'ssr_report'
+                  ? 'bg-blue-600 text-white shadow-xs font-bold'
+                  : 'bg-white text-gray-700 hover:text-gray-900 hover:bg-gray-50 border border-gray-200/90 font-medium shadow-2xs'
+              }`}
+            >
+              <FileText className="w-3.5 h-3.5" />
+              <span>SSR Report</span>
             </button>
           </div>
 
-          {/* ✨ AI QUICK UPLOAD BAR (Auto-classifies into Criteria 1-7 & Metrics) */}
-          {isAiBarExpanded && (
+          {/* TAB 1: Quick Evidence Drop */}
+          {cycleActiveTab === 'quick_drop' && (
             <NaacQuickUploadLanding
               academicYear={selectedCycle.yearFrom}
               role={activeRole}
@@ -731,174 +828,213 @@ export const NaacSsrCycleModule: React.FC<NaacSsrCycleModuleProps> = ({
               onNavigateToDocumentList={(critCode) => {
                 if (critCode) {
                   setSelectedCriterionCode(critCode);
+                } else {
+                  setCycleActiveTab('qif');
                 }
               }}
             />
           )}
 
-          {/* Main SSR White Container matching 4.png */}
-          <div className="bg-white rounded-xl border border-gray-200 p-5 sm:p-6 shadow-2xs space-y-6">
-            {/* Collapsible "▼ SSR" Header */}
-            <button
-              onClick={() => setIsSsrSectionOpen((prev) => !prev)}
-              className="flex items-center gap-2 text-base font-bold text-gray-900 cursor-pointer"
-            >
-              {isSsrSectionOpen ? (
-                <ChevronDown className="w-4 h-4 text-gray-700" />
-              ) : (
-                <ChevronRight className="w-4 h-4 text-gray-700" />
-              )}
-              <span>SSR</span>
-            </button>
+          {/* TAB 1: Key Indicator Framework (Criteria 1 to 7) */}
+          {cycleActiveTab === 'qif' && (
+            <div className="bg-white rounded-xl border border-gray-200 p-5 sm:p-6 shadow-2xs space-y-6">
+              {/* Gray Banner: Quality Indicator Framework (Criterias) */}
+              <div className="bg-[#f3f4f6] py-3.5 px-4 text-center rounded-xl border border-gray-200/80">
+                <h4 className="text-xs sm:text-sm font-bold text-gray-900">
+                  Quality Indicator Framework (Criterias 1 to 7)
+                </h4>
+                <p className="text-[11px] text-gray-500 mt-0.5">
+                  Click any criterion to view key indicators, quantitative metrics, and manage evidence documents.
+                </p>
+              </div>
 
-            {isSsrSectionOpen && (
-              <>
-                {/* Top 2 Cards matching 4.png: Extended Profile & SSR Report */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                  {/* Extended Profile Card */}
-                  <div className="border border-gray-200 rounded-lg p-5 flex flex-col justify-between min-h-[135px] bg-white">
-                    <div>
-                      <h3 className="text-base font-bold text-gray-900 mb-3">
-                        Extended Profile
-                      </h3>
-                    </div>
-                    <div>
-                      <button
-                        onClick={() => setSelectedCriterionCode('Criterion 1')}
-                        className="px-4 py-2 rounded-lg border border-blue-600 text-blue-600 hover:bg-blue-50 text-xs font-semibold transition-colors cursor-pointer"
-                      >
-                        Start adding documents
-                      </button>
-                    </div>
-                  </div>
+              {/* 3-Column Grid of Criteria 1 to 7 matching 4.png */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {NAAC_CRITERIA_SUMMARY.map((crit, idx) => {
+                  const critDocs = documents.filter((d) => d.criterionCode === crit.code);
+                  const publishedCount = critDocs.filter(
+                    (d) => d.status === 'university_verified'
+                  ).length;
+                  const pendingCount = critDocs.filter(
+                    (d) => d.status !== 'university_verified' && d.status !== 'draft'
+                  ).length;
 
-                  {/* SSR Report Card */}
-                  <div className="border border-gray-200 rounded-lg p-5 flex flex-col justify-between min-h-[135px] bg-white">
-                    <div>
-                      <h3 className="text-base font-bold text-gray-900 mb-1">SSR Report</h3>
-                      <p className="text-xs text-gray-400 mb-3">
-                        {selectedCycle.ssrReportFileName
-                          ? `Uploaded: ${selectedCycle.ssrReportFileName}`
-                          : 'SSR Report not added'}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <input
-                        ref={ssrReportInputRef}
-                        type="file"
-                        accept=".pdf"
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (!file) return;
-                          const updated = cycles.map((c) =>
-                            c.id === selectedCycle.id
-                              ? {
-                                  ...c,
-                                  ssrReportFileName: file.name,
-                                  ssrReportUrl:
-                                    'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
-                                }
-                              : c
-                          );
-                          setCycles(updated);
-                          saveNaacCycles(updated);
-                          showToast(`Uploaded Master SSR Report: ${file.name}`);
-                        }}
-                      />
-                      <button
-                        onClick={() => ssrReportInputRef.current?.click()}
-                        className="px-4 py-2 rounded-lg bg-[#1d4ed8] hover:bg-blue-800 text-white text-xs font-semibold transition-colors cursor-pointer"
-                      >
-                        Upload Report
-                      </button>
-                      {selectedCycle.ssrReportUrl && (
-                        <button
-                          onClick={() => openFileInNewTab(selectedCycle.ssrReportUrl!)}
-                          className="px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-semibold flex items-center gap-1 cursor-pointer"
-                        >
-                          <ExternalLink className="w-3.5 h-3.5" />
-                          <span>View</span>
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
+                  return (
+                    <div
+                      key={crit.id}
+                      className="border border-gray-200 rounded-lg p-5 bg-white hover:border-blue-300 transition-all flex items-start gap-4 justify-between"
+                    >
+                      <div className="flex items-start gap-3.5 w-full">
+                        {/* Criterion Book/Badge Icon */}
+                        <div className="w-11 h-11 rounded-xl bg-blue-50 border border-blue-100 text-blue-700 flex flex-col items-center justify-center shrink-0 mt-1">
+                          <BookOpen className="w-4 h-4" />
+                          <span className="text-[10px] font-black leading-none mt-0.5">
+                            C-{idx + 1}
+                          </span>
+                        </div>
 
-                {/* Gray Banner: Quality Indicator Framework (Criterias) matching 4.png */}
-                <div className="bg-[#f3f4f6] py-3.5 px-4 text-center rounded-md">
-                  <h4 className="text-xs sm:text-sm font-bold text-gray-900">
-                    Quality Indicator Framework (Criterias)
-                  </h4>
-                </div>
+                        <div className="flex-1 min-w-0">
+                          <span className="block text-xs text-gray-400 font-medium mb-0.5">
+                            Criterion-{idx + 1}
+                          </span>
+                          <h5 className="text-sm font-bold text-gray-900 leading-snug mb-2">
+                            {crit.name}
+                          </h5>
 
-                {/* 3-Column Grid of Criteria 1 to 7 matching 4.png */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                  {NAAC_CRITERIA_SUMMARY.map((crit, idx) => {
-                    const critDocs = documents.filter((d) => d.criterionCode === crit.code);
-                    const publishedCount = critDocs.filter(
-                      (d) => d.status === 'university_verified'
-                    ).length;
-                    const pendingCount = critDocs.filter(
-                      (d) => d.status !== 'university_verified' && d.status !== 'draft'
-                    ).length;
-
-                    return (
-                      <div
-                        key={crit.id}
-                        className="border border-gray-200 rounded-lg p-5 bg-white hover:border-blue-300 transition-all flex items-start gap-4 justify-between"
-                      >
-                        <div className="flex items-start gap-3.5 w-full">
-                          {/* Criterion Book/Badge Icon */}
-                          <div className="w-11 h-11 rounded-xl bg-blue-50 border border-blue-100 text-blue-700 flex flex-col items-center justify-center shrink-0 mt-1">
-                            <BookOpen className="w-4 h-4" />
-                            <span className="text-[10px] font-black leading-none mt-0.5">
-                              C-{idx + 1}
+                          {/* Subtle hierarchy status pills */}
+                          <div className="flex flex-wrap items-center gap-1.5 mb-3.5">
+                            <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-gray-100 text-gray-700">
+                              {critDocs.length} Docs
                             </span>
-                          </div>
-
-                          <div className="flex-1 min-w-0">
-                            <span className="block text-xs text-gray-400 font-medium mb-0.5">
-                              Criterion-{idx + 1}
-                            </span>
-                            <h5 className="text-sm font-bold text-gray-900 leading-snug mb-2">
-                              {crit.name}
-                            </h5>
-
-                            {/* Subtle hierarchy status pills */}
-                            <div className="flex flex-wrap items-center gap-1.5 mb-3.5">
-                              <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-gray-100 text-gray-700">
-                                {critDocs.length} Docs
+                            {pendingCount > 0 && (
+                              <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">
+                                {pendingCount} In Review
                               </span>
-                              {pendingCount > 0 && (
-                                <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">
-                                  {pendingCount} In Review
-                                </span>
-                              )}
-                              {publishedCount > 0 && (
-                                <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                  {publishedCount} Published
-                                </span>
-                              )}
-                            </div>
-
-                            <button
-                              onClick={() => setSelectedCriterionCode(crit.code)}
-                              className="px-4 py-1.5 rounded-lg border border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white text-xs font-semibold transition-colors cursor-pointer"
-                            >
-                              {critDocs.length > 0
-                                ? 'Manage documents'
-                                : 'Start adding documents'}
-                            </button>
+                            )}
+                            {publishedCount > 0 && (
+                              <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                {publishedCount} Published
+                              </span>
+                            )}
                           </div>
+
+                          <button
+                            onClick={() => setSelectedCriterionCode(crit.code)}
+                            className="px-4 py-1.5 rounded-lg border border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white text-xs font-semibold transition-colors cursor-pointer"
+                          >
+                            {critDocs.length > 0
+                              ? 'Manage documents'
+                              : 'Start adding documents'}
+                          </button>
                         </div>
                       </div>
-                    );
-                  })}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: Extended Profile */}
+          {cycleActiveTab === 'extended_profile' && (
+            <ExtendedProfileWorkspace
+              cycleId={selectedCycle.id}
+              cycleNumber={selectedCycle.cycleNumber}
+              yearFrom={selectedCycle.yearFrom}
+              yearTo={selectedCycle.yearTo}
+            />
+          )}
+
+          {/* TAB 4: DVV */}
+          {cycleActiveTab === 'dvv' && (
+            <DvvClarificationsWorkspace
+              cycleId={selectedCycle.id}
+              cycleNumber={selectedCycle.cycleNumber}
+              yearFrom={selectedCycle.yearFrom}
+              yearTo={selectedCycle.yearTo}
+            />
+          )}
+
+          {/* TAB 5: SSR Report */}
+          {cycleActiveTab === 'ssr_report' && (
+            <div className="bg-white rounded-2xl border border-gray-200/90 p-6 sm:p-8 shadow-2xs space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-gray-100">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-200 text-blue-700 flex items-center justify-center shrink-0">
+                    <FileText className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800 text-[11px] font-bold">
+                        {selectedCycle.cycleNumber}
+                      </span>
+                      <span className="text-xs text-gray-500 font-semibold">
+                        {selectedCycle.yearFrom} to {selectedCycle.yearTo}
+                      </span>
+                    </div>
+                    <h3 className="text-lg font-bold text-gray-900">
+                      Master Self-Study Report (SSR)
+                    </h3>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      The authoritative institutional SSR document submitted to NAAC for peer team assessment.
+                    </p>
+                  </div>
                 </div>
-              </>
-            )}
-          </div>
+
+                <div className="flex items-center gap-2.5 shrink-0 self-end sm:self-auto">
+                  <input
+                    ref={ssrReportInputRef}
+                    type="file"
+                    accept=".pdf"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const updated = cycles.map((c) =>
+                        c.id === selectedCycle.id
+                          ? {
+                              ...c,
+                              ssrReportFileName: file.name,
+                              ssrReportUrl:
+                                'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+                            }
+                          : c
+                      );
+                      setCycles(updated);
+                      saveNaacCycles(updated);
+                      showToast(`Uploaded Master SSR Report: ${file.name}`);
+                    }}
+                  />
+                  <button
+                    onClick={() => ssrReportInputRef.current?.click()}
+                    className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer shadow-xs"
+                  >
+                    <Upload className="w-4 h-4" />
+                    <span>{selectedCycle.ssrReportFileName ? 'Replace SSR Report' : 'Upload SSR Report'}</span>
+                  </button>
+                  {selectedCycle.ssrReportUrl && (
+                    <button
+                      onClick={() => openFileInNewTab(selectedCycle.ssrReportUrl!)}
+                      className="px-4 py-2.5 rounded-xl border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer"
+                    >
+                      <ExternalLink className="w-4 h-4 text-blue-600" />
+                      <span>View Document</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {selectedCycle.ssrReportFileName ? (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-5 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold text-emerald-950 truncate">
+                        {selectedCycle.ssrReportFileName}
+                      </div>
+                      <div className="text-[11px] text-emerald-700 mt-0.5">
+                        Active Master SSR Report linked to {selectedCycle.cycleNumber} • Verified for Accreditation
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => openFileInNewTab(selectedCycle.ssrReportUrl!)}
+                    className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-colors cursor-pointer shrink-0"
+                  >
+                    Open PDF
+                  </button>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50/60 p-8 text-center space-y-2">
+                  <FileText className="w-8 h-8 text-gray-400 mx-auto" />
+                  <div className="text-xs font-bold text-gray-700">No SSR Report Document Uploaded</div>
+                  <p className="text-[11px] text-gray-500 max-w-md mx-auto">
+                    Click "Upload SSR Report" to attach the official compiled PDF of the Self-Study Report for this cycle.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -912,7 +1048,7 @@ export const NaacSsrCycleModule: React.FC<NaacSsrCycleModuleProps> = ({
             <button
               onClick={() => {
                 setSelectedCriterionCode(null);
-                setSelectedCycleId(null);
+                handleChooseCycle(null);
               }}
               className="hover:text-blue-600 cursor-pointer"
             >
@@ -922,7 +1058,7 @@ export const NaacSsrCycleModule: React.FC<NaacSsrCycleModuleProps> = ({
             <button
               onClick={() => {
                 setSelectedCriterionCode(null);
-                setSelectedCycleId(null);
+                handleChooseCycle(null);
               }}
               className="hover:text-blue-600 underline cursor-pointer"
             >

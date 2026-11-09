@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { MenuItem } from '../../types/navigation';
 import { getActiveTenant, CollegeTenant } from '../../data/tenantData';
+import { getStoredNaacCycles, NaacSsrCycle } from '../../data/naacDmsData';
 
 export interface SidebarProps {
   activeItem: string;
@@ -131,7 +132,7 @@ export const superadminMenuItems: MenuItem[] = [
     icon: 'circle',
     children: [
       { id: 'naac-quick-drop', label: 'Quick Evidence Drop' },
-      { id: 'naac-ssr-cycle', label: 'Cycle (SSR)' },
+      { id: 'naac-ssr-cycle', label: 'NAAC Cycles' },
       { id: 'naac-aqar', label: 'AQAR' },
       { id: 'naac-criteria-allocation', label: 'Criteria Allocation' },
     ],
@@ -208,7 +209,7 @@ export const getCollegeAdminMenuItems = (): MenuItem[] => {
       children: [
         { id: 'naac-quick-drop', label: 'Quick Evidence Drop' },
         { id: 'naac-evidence-directory', label: 'Evidence Directory' },
-        { id: 'naac-ssr-cycle', label: 'Cycle (SSR)' },
+        { id: 'naac-ssr-cycle', label: 'NAAC Cycles' },
         { id: 'naac-aqar', label: 'AQAR' },
         { id: 'naac-criteria-allocation', label: 'Criteria Allocation' },
       ],
@@ -328,13 +329,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentTenant, setCurrentTenant] = useState<CollegeTenant>(getActiveTenant());
+  const [cycles, setCycles] = useState<NaacSsrCycle[]>(() => getStoredNaacCycles());
 
   useEffect(() => {
     const handleTenantChange = () => {
       setCurrentTenant(getActiveTenant());
     };
+    const handleCyclesChange = () => {
+      setCycles(getStoredNaacCycles());
+    };
+
     window.addEventListener('tenant-changed', handleTenantChange);
-    return () => window.removeEventListener('tenant-changed', handleTenantChange);
+    window.addEventListener('naac-cycles-updated', handleCyclesChange);
+    window.addEventListener('storage', handleCyclesChange);
+
+    return () => {
+      window.removeEventListener('tenant-changed', handleTenantChange);
+      window.removeEventListener('naac-cycles-updated', handleCyclesChange);
+      window.removeEventListener('storage', handleCyclesChange);
+    };
   }, []);
 
   const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({
@@ -356,7 +369,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const isNaacUniversity = portalType === 'naac-university';
 
   const isSuperAdmin = portalRole === 'superadmin';
-  const menuList = isNaacFaculty
+
+  const getNaacChildren = (cyclesList: NaacSsrCycle[]): MenuItem[] => [
+    { id: 'naac-quick-drop', label: 'Quick Evidence Drop' },
+    { id: 'naac-evidence-directory', label: 'Evidence Directory' },
+    { id: 'naac-ssr-cycle', label: 'NAAC Cycles' },
+    ...cyclesList.map((c) => {
+      const cleanNum = c.cycleNumber.replace('NAAC ', '');
+      const startYr = c.yearFrom ? c.yearFrom.split('-')[0] : '';
+      const endYr = c.yearTo ? (c.yearTo.length > 2 ? c.yearTo.slice(-2) : c.yearTo) : '';
+      const yearLabel = startYr && endYr ? ` (${startYr}-${endYr})` : '';
+      return {
+        id: `naac-cycle-${c.id}`,
+        label: `${cleanNum}${yearLabel}`,
+        isIndent: true,
+      };
+    }),
+    { id: 'naac-aqar', label: 'AQAR' },
+    { id: 'naac-criteria-allocation', label: 'Criteria Allocation' },
+  ];
+
+  const rawMenuList = isNaacFaculty
     ? facultyMenuItems
     : isNaacProgram
     ? programCoordinatorMenuItems
@@ -367,6 +400,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
     : isSuperAdmin
     ? superadminMenuItems
     : getCollegeAdminMenuItems();
+
+  const menuList = rawMenuList.map((item) => {
+    if (item.id === 'naac-dms') {
+      return {
+        ...item,
+        children: getNaacChildren(cycles),
+      };
+    }
+    return item;
+  });
 
   const sidebarBg = isNaacFaculty || isNaacProgram || isNaacSchool || isNaacUniversity || isSuperAdmin
     ? 'bg-[#0f172a] border-r border-slate-800 text-white'
@@ -553,8 +596,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onClick={() => {
                   if (hasChildren) {
                     toggleSubmenu(item.id);
-                    if (item.id === 'naac-dms') {
-                      handleItemClick('naac-aqar', 'AQAR');
+                    if (item.id === 'naac-dms' && !activeItem.startsWith('naac-')) {
+                      handleItemClick('naac-ssr-cycle', 'All Cycles');
                     }
                   } else {
                     handleItemClick(item.id, item.label);
@@ -599,14 +642,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       <button
                         key={child.id}
                         onClick={() => handleItemClick(child.id, child.label)}
-                        className={`w-full text-left px-3 py-2 rounded-md text-xs font-medium flex items-center gap-2 transition-colors cursor-pointer ${
+                        className={`w-full text-left px-3 py-1.5 rounded-md text-xs font-medium flex items-center justify-between gap-2 transition-colors cursor-pointer ${
                           isChildActive
                             ? 'bg-white/20 text-white font-semibold'
                             : 'text-white/80 hover:text-white hover:bg-white/10'
-                        }`}
+                        } ${child.isIndent ? 'pl-5 text-[11px]' : ''}`}
                       >
-                        <span className="w-1.5 h-1.5 rounded-full bg-white/70 inline-block shrink-0"></span>
-                        <span className="truncate">{child.label}</span>
+                        <div className="flex items-center gap-2 min-w-0">
+                          {child.isIndent ? (
+                            <span className="text-white/50 text-[11px] font-mono shrink-0 select-none">↳</span>
+                          ) : (
+                            <span className="w-1.5 h-1.5 rounded-full bg-white/70 inline-block shrink-0"></span>
+                          )}
+                          <span className="truncate">{child.label}</span>
+                        </div>
+                        {child.badge && (
+                          <span className="px-1.5 py-0.5 text-[9px] font-bold rounded-sm bg-emerald-400/25 text-emerald-200 border border-emerald-400/30 uppercase tracking-wider shrink-0">
+                            {child.badge}
+                          </span>
+                        )}
                       </button>
                     );
                   })}
