@@ -697,111 +697,104 @@ export const NaacSsrCycleModule: React.FC<NaacSsrCycleModuleProps> = ({
           SCREEN 2 (4.png): INSIDE A CYCLE -> AI BAR + EXTENDED PROFILE + CRITERIA 1-7
       =================================================================== */}
       {selectedCycleId && !selectedCriterionCode && selectedCycle && (
-        <div className="space-y-5">
-          {/* Breadcrumb matching 4.png / 5.png */}
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <div className="flex items-center gap-2 text-xs font-semibold text-gray-600 flex-wrap">
+        <div className="min-h-[calc(100vh-8.5rem)] flex flex-col">
+          {/* Breadcrumb without redundant duplicate tab title */}
+          <div className="flex items-center justify-between flex-wrap gap-2 mb-5 sm:mb-6">
+            <div className="flex items-center gap-2 text-xs font-semibold text-gray-500 flex-wrap">
               <button
                 onClick={() => handleChooseCycle(null)}
                 className="hover:text-blue-600 flex items-center gap-1 cursor-pointer"
               >
-                <Home className="w-3.5 h-3.5 text-gray-500" />
+                <Home className="w-3.5 h-3.5 text-gray-400" />
               </button>
               <span>/</span>
               <button
                 onClick={() => handleChooseCycle(null)}
                 className="hover:text-blue-600 underline cursor-pointer"
               >
-               SSR
+                SSR
               </button>
               <span>/</span>
-              <button
-                onClick={() => setCycleActiveTab('quick_drop')}
-                className="hover:text-blue-600 underline cursor-pointer"
-              >
+              <span className="text-gray-700 font-bold">
                 {selectedCycle.cycleNumber} ({selectedCycle.yearFrom} to {selectedCycle.yearTo})
-              </button>
-              <span>/</span>
-              <span className="text-gray-900 font-bold">
-                {cycleActiveTab === 'quick_drop'
-                  ? 'Quick Evidence Drop'
-                  : cycleActiveTab === 'qif'
-                  ? 'Key Indicator Framework'
-                  : cycleActiveTab === 'extended_profile'
-                  ? 'Extended Profile'
-                  : cycleActiveTab === 'dvv'
-                  ? 'DVV'
-                  : 'SSR Report'}
               </span>
             </div>
           </div>
 
-          {/* Main 5 Cycle Workspace Tabs (Single Line, No Extra Background) */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 flex-nowrap">
-            <button
-              onClick={() => setCycleActiveTab('quick_drop')}
-              className={`whitespace-nowrap px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
-                cycleActiveTab === 'quick_drop'
-                  ? 'bg-blue-600 text-white shadow-xs font-bold'
-                  : 'bg-white text-gray-700 hover:text-gray-900 hover:bg-gray-50 border border-gray-200/90 font-medium shadow-2xs'
-              }`}
-            >
-              <Sparkles className={`w-3.5 h-3.5 ${cycleActiveTab === 'quick_drop' ? 'text-amber-300' : 'text-blue-600'}`} />
-              <span>Quick Evidence Drop</span>
-            </button>
+          {/* Main 5 Cycle Workspace Tabs (Ultra-Clean Minimal Underline Bar - GitHub/Linear Style) */}
+          <div className="border-b border-gray-200/90 mb-6">
+            <nav className="flex items-center gap-7 sm:gap-8 overflow-x-auto -mb-px flex-nowrap" aria-label="Cycle Tabs">
+              <button
+                type="button"
+                onClick={() => setCycleActiveTab('quick_drop')}
+                className={`group inline-flex items-center gap-2 pb-3 pt-1 border-b-2 text-xs sm:text-sm whitespace-nowrap transition-all cursor-pointer ${
+                  cycleActiveTab === 'quick_drop'
+                    ? 'border-blue-600 text-blue-600 font-bold'
+                    : 'border-transparent text-gray-500 hover:text-gray-900 hover:border-gray-300 font-medium'
+                }`}
+              >
+                <Sparkles className={`w-4 h-4 transition-colors ${cycleActiveTab === 'quick_drop' ? 'text-amber-500 fill-amber-400' : 'text-gray-400 group-hover:text-gray-600'}`} />
+                <span>Quick Evidence Drop</span>
+              </button>
 
-            <button
-              onClick={() => setCycleActiveTab('qif')}
-              className={`whitespace-nowrap px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
-                cycleActiveTab === 'qif'
-                  ? 'bg-blue-600 text-white shadow-xs font-bold'
-                  : 'bg-white text-gray-700 hover:text-gray-900 hover:bg-gray-50 border border-gray-200/90 font-medium shadow-2xs'
-              }`}
-            >
-              <Layers className="w-3.5 h-3.5" />
-              <span>Key Indicator Framework</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => setCycleActiveTab('qif')}
+                className={`group inline-flex items-center gap-2 pb-3 pt-1 border-b-2 text-xs sm:text-sm whitespace-nowrap transition-all cursor-pointer ${
+                  cycleActiveTab === 'qif'
+                    ? 'border-blue-600 text-blue-600 font-bold'
+                    : 'border-transparent text-gray-500 hover:text-gray-900 hover:border-gray-300 font-medium'
+                }`}
+              >
+                <Layers className={`w-4 h-4 transition-colors ${cycleActiveTab === 'qif' ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'}`} />
+                <span>Key Indicator Framework</span>
+              </button>
 
-            <button
-              onClick={() => setCycleActiveTab('extended_profile')}
-              className={`whitespace-nowrap px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
-                cycleActiveTab === 'extended_profile'
-                  ? 'bg-blue-600 text-white shadow-xs font-bold'
-                  : 'bg-white text-gray-700 hover:text-gray-900 hover:bg-gray-50 border border-gray-200/90 font-medium shadow-2xs'
-              }`}
-            >
-              <Building2 className="w-3.5 h-3.5" />
-              <span>Extended Profile</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => setCycleActiveTab('extended_profile')}
+                className={`group inline-flex items-center gap-2 pb-3 pt-1 border-b-2 text-xs sm:text-sm whitespace-nowrap transition-all cursor-pointer ${
+                  cycleActiveTab === 'extended_profile'
+                    ? 'border-blue-600 text-blue-600 font-bold'
+                    : 'border-transparent text-gray-500 hover:text-gray-900 hover:border-gray-300 font-medium'
+                }`}
+              >
+                <Building2 className={`w-4 h-4 transition-colors ${cycleActiveTab === 'extended_profile' ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'}`} />
+                <span>Extended Profile</span>
+              </button>
 
-            <button
-              onClick={() => setCycleActiveTab('dvv')}
-              className={`whitespace-nowrap px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
-                cycleActiveTab === 'dvv'
-                  ? 'bg-blue-600 text-white shadow-xs font-bold'
-                  : 'bg-white text-gray-700 hover:text-gray-900 hover:bg-gray-50 border border-gray-200/90 font-medium shadow-2xs'
-              }`}
-            >
-              <AlertCircle className="w-3.5 h-3.5" />
-              <span>DVV</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => setCycleActiveTab('dvv')}
+                className={`group inline-flex items-center gap-2 pb-3 pt-1 border-b-2 text-xs sm:text-sm whitespace-nowrap transition-all cursor-pointer ${
+                  cycleActiveTab === 'dvv'
+                    ? 'border-blue-600 text-blue-600 font-bold'
+                    : 'border-transparent text-gray-500 hover:text-gray-900 hover:border-gray-300 font-medium'
+                }`}
+              >
+                <AlertCircle className={`w-4 h-4 transition-colors ${cycleActiveTab === 'dvv' ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'}`} />
+                <span>DVV</span>
+              </button>
 
-            <button
-              onClick={() => setCycleActiveTab('ssr_report')}
-              className={`whitespace-nowrap px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
-                cycleActiveTab === 'ssr_report'
-                  ? 'bg-blue-600 text-white shadow-xs font-bold'
-                  : 'bg-white text-gray-700 hover:text-gray-900 hover:bg-gray-50 border border-gray-200/90 font-medium shadow-2xs'
-              }`}
-            >
-              <FileText className="w-3.5 h-3.5" />
-              <span>SSR Report</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => setCycleActiveTab('ssr_report')}
+                className={`group inline-flex items-center gap-2 pb-3 pt-1 border-b-2 text-xs sm:text-sm whitespace-nowrap transition-all cursor-pointer ${
+                  cycleActiveTab === 'ssr_report'
+                    ? 'border-blue-600 text-blue-600 font-bold'
+                    : 'border-transparent text-gray-500 hover:text-gray-900 hover:border-gray-300 font-medium'
+                }`}
+              >
+                <FileText className={`w-4 h-4 transition-colors ${cycleActiveTab === 'ssr_report' ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'}`} />
+                <span>SSR Report</span>
+              </button>
+            </nav>
           </div>
 
           {/* TAB 1: Quick Evidence Drop */}
           {cycleActiveTab === 'quick_drop' && (
-            <NaacQuickUploadLanding
+            <div className="flex-1 flex flex-col justify-center my-auto w-full">
+              <NaacQuickUploadLanding
               academicYear={selectedCycle.yearFrom}
               role={activeRole}
               uploaderName={activeRoleMeta.personName}
@@ -834,6 +827,7 @@ export const NaacSsrCycleModule: React.FC<NaacSsrCycleModuleProps> = ({
                 }
               }}
             />
+            </div>
           )}
 
           {/* TAB 2: Key Indicator Framework (Drop-enabled Directory Table) */}

@@ -1485,7 +1485,7 @@ Respond in JSON ONLY:
   });
 
   return (
-    <div className="space-y-6 animate-in fade-in pb-12">
+    <div className={`animate-in fade-in ${isDirectoryViewOpen ? 'space-y-6 pb-12' : 'flex-1 flex flex-col justify-center my-auto w-full'}`}>
       {/* Toast Notification */}
       {successToast && (
         <div className="fixed top-20 right-6 z-50 bg-emerald-50 border border-emerald-300 text-emerald-950 px-4 py-3 rounded-xl shadow-xl flex items-center justify-between text-xs font-semibold gap-3 animate-in fade-in slide-in-from-top-2">
@@ -2842,7 +2842,7 @@ Respond in JSON ONLY:
         </div>
       ) : (
       /* Center Uncluttered Experience */
-      <div className="flex flex-col items-center justify-center min-h-[62vh] sm:min-h-[68vh] max-w-5xl w-full mx-auto px-4 text-center pt-8 sm:pt-14 pb-8">
+      <div className="flex flex-col items-center justify-center w-full max-w-4xl mx-auto px-4 text-center my-auto py-2 sm:py-4">
         {/* Bold Heading */}
         <div className="mb-4">
           <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-[#0f2748]">
