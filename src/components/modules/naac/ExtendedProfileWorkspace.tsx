@@ -15,7 +15,8 @@ import {
   ChevronLeft,
   X,
   Save,
-  Check
+  Check,
+  ClipboardList
 } from 'lucide-react';
 import { 
   ExtendedProfileMetric, 
@@ -24,6 +25,54 @@ import {
   SAMPLE_PDF_URL 
 } from '../../../data/naacDmsData';
 import { openFileInNewTab } from '../../../utils/fileHelper';
+
+const NAAC_SUGGESTED_DOCS_BY_METRIC: Record<string, string[]> = {
+  '1.1': [
+    'Affiliating University approval / syllabus order mentioning approved courses',
+    'Board of Studies (BoS) & Academic Council course sanction orders',
+    'Consolidated 5-year list of approved courses signed by the Principal / Dean',
+  ],
+  '1.2': [
+    'Statutory regulatory body approval letters (UGC, AICTE, BCI, PCI, etc.)',
+    'Affiliating University permanent / temporary affiliation notifications',
+    'Certified list of degree programs offered across the 5 assessment years',
+  ],
+  '2.1': [
+    'Certified student enrollment roll list signed by Registrar / Principal with seal',
+    'State Higher Education Directorate / Affiliating University approved admission roster',
+    'Year-wise summary table of total enrolled students across all programs',
+  ],
+  '2.2': [
+    'State / Central Government reservation quota roster & policy order',
+    'Sanctioned intake letters with category-wise seat breakup (SC, ST, OBC, EWS)',
+    'Certified list of admitted students against reserved categories signed by Principal',
+  ],
+  '2.3': [
+    'Controller of Examinations (CoE) / University authenticated graduation list',
+    'Final year terminal examination appearance list certified by Principal',
+    'Annual examination result gazette / notification for outgoing candidates',
+  ],
+  '3.1': [
+    'Official faculty appointment letters with joining reports & designations',
+    'Year-wise certified list of full-time teachers for all 5 years signed by Principal',
+    'Affiliating University approval / endorsement letters of appointed teachers',
+  ],
+  '3.2': [
+    'Governing Body / Board of Management official sanctioned post resolution',
+    'State Govt grant-in-aid sanctioned staff cadre strength order',
+    'Cadre-wise sanctioned posts breakdown statement signed by Competent Authority',
+  ],
+  '4.1': [
+    'IT Asset Register & physical stock verification report (with MAC / IP addresses)',
+    'Purchase bills & invoices of computers allocated for student academic use',
+    'Lab-wise computer distribution list certified by Principal & IT Head',
+  ],
+  '4.2': [
+    'Audited Income & Expenditure Statements for all 5 years signed by CA with UDIN',
+    'Statement showing expenditure excluding salary certified by Finance Officer / CA',
+    'Extract of budget allocation & audit balance sheets highlighting operational expenses',
+  ],
+};
 
 interface ExtendedProfileWorkspaceProps {
   cycleId: string;
@@ -139,9 +188,6 @@ export const ExtendedProfileWorkspace: React.FC<ExtendedProfileWorkspaceProps> =
     showToast('Evidence document removed');
   };
 
-  // Overall completion count
-  const totalProofsCount = metrics.reduce((acc, m) => acc + m.documentProofs.length, 0);
-
   return (
     <div className="space-y-6">
       {/* Toast Notification */}
@@ -161,36 +207,6 @@ export const ExtendedProfileWorkspace: React.FC<ExtendedProfileWorkspaceProps> =
           </div>
         </div>
       )}
-
-      {/* Top Banner & Overview */}
-      <div className="bg-linear-to-r from-blue-900 via-indigo-900 to-slate-900 rounded-2xl p-6 text-white shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-5">
-        <div>
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className="px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-200 border border-blue-400/30 text-[11px] font-bold uppercase tracking-wider">
-              {cycleNumber} ({yearFrom} to {yearTo})
-            </span>
-            <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-200 border border-emerald-400/30 text-[11px] font-bold">
-              Baseline Institutional Profile
-            </span>
-          </div>
-          <h2 className="text-xl sm:text-2xl font-bold tracking-tight">
-            Extended Institutional Profile
-          </h2>
-          <p className="text-xs sm:text-sm text-blue-100/80 mt-1 max-w-2xl">
-            NAAC mandatory baseline quantitative metrics for the 5-year assessment cycle. All numbers and supporting institutional documents submitted here serve as the foundation for DVV verification.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3 bg-white/10 backdrop-blur-xs px-4 py-3 rounded-xl border border-white/10 shrink-0 self-start md:self-auto">
-          <div className="text-right">
-            <div className="text-lg font-black text-white">{totalProofsCount} Proofs</div>
-            <div className="text-[11px] text-blue-200">9 of 9 Metrics Complete</div>
-          </div>
-          <div className="w-10 h-10 rounded-lg bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-300">
-            <Check className="w-5 h-5 stroke-[2.5]" />
-          </div>
-        </div>
-      </div>
 
       {/* 4 Section Navigation Tabs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -251,7 +267,6 @@ export const ExtendedProfileWorkspace: React.FC<ExtendedProfileWorkspaceProps> =
                     <h3 className="text-sm sm:text-base font-bold text-gray-900 leading-snug">
                       {metric.title}
                     </h3>
-                    <p className="text-xs text-gray-500 mt-0.5">{metric.description}</p>
                   </div>
                 </div>
 
@@ -314,91 +329,144 @@ export const ExtendedProfileWorkspace: React.FC<ExtendedProfileWorkspaceProps> =
                   </table>
                 </div>
 
-                {/* Supporting Institutional Proofs Container */}
-                <div className="mt-5 pt-4 border-t border-gray-100">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <FileText className="w-4 h-4 text-gray-600" />
-                      <span className="text-xs font-bold text-gray-800 uppercase tracking-wider">
-                        Mandatory Institutional Evidence Proofs ({metric.documentProofs.length})
-                      </span>
+                {/* Supporting Proofs: Left Suggestions / Right Actual Documents */}
+                <div className="mt-5 pt-4 border-t border-gray-100 grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
+                  {/* Left Column: Suggestions / NAAC Mandated Proofs (5 cols on lg) */}
+                  <div className="lg:col-span-5 flex flex-col">
+                    {/* Left Header Outside */}
+                    <div className="flex items-center gap-2 h-8 mb-2.5">
+                      <ClipboardList className="w-4 h-4 text-blue-700 shrink-0" />
+                      <h4 className="text-xs font-bold text-gray-800 uppercase tracking-wider">
+                        Suggested Supporting Proofs
+                      </h4>
                     </div>
 
-                    <div>
-                      <input
-                        type="file"
-                        accept=".pdf"
-                        className="hidden"
-                        ref={(el) => (fileInputRefs.current[metric.id] = el)}
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) handleFileUpload(metric.id, file);
-                        }}
-                      />
-                      <button
-                        onClick={() => fileInputRefs.current[metric.id]?.click()}
-                        className="px-3 py-1.5 rounded-lg border border-dashed border-blue-400 bg-blue-50/40 hover:bg-blue-100 text-blue-700 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>Upload Institutional Proof</span>
-                      </button>
+                    {/* Left Content Box */}
+                    <div className="bg-slate-50/70 border border-slate-200/90 rounded-xl p-4 flex flex-col justify-between flex-1 min-h-[160px] shadow-2xs">
+                      <div>
+                        <p className="text-[11px] text-slate-500 mb-3 leading-relaxed">
+                          NAAC standard documents expected by DVV partner for Metric {metric.code}:
+                        </p>
+                        <ul className="space-y-2.5">
+                          {(NAAC_SUGGESTED_DOCS_BY_METRIC[metric.code] || [
+                            'Official institutional order signed by Principal',
+                            'Competent authority certified summary statement',
+                          ]).map((item, idx) => (
+                            <li key={idx} className="flex items-start gap-2 text-xs text-slate-700">
+                              <span className="w-1.5 h-1.5 rounded-full bg-blue-600 mt-1.5 shrink-0" />
+                              <span className="leading-snug">{item}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      <div className="mt-4 pt-3 border-t border-slate-200/80 flex items-center justify-between text-[11px] text-slate-500">
+                        <span className="font-semibold text-blue-900">Standard: Affiliated Colleges</span>
+                        <span className="italic text-slate-400">PDF format</span>
+                      </div>
                     </div>
                   </div>
 
-                  {metric.documentProofs.length === 0 ? (
-                    <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/50 p-4 text-center text-xs text-gray-500">
-                      No document proof uploaded yet. Click "Upload Institutional Proof" to attach official approval letters or certified roll lists.
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {metric.documentProofs.map((proof) => (
-                        <div
-                          key={proof.id}
-                          className="border border-gray-200 rounded-xl p-3.5 bg-white hover:border-blue-300 transition-all flex items-start justify-between gap-3 shadow-2xs"
-                        >
-                          <div className="flex items-start gap-2.5 min-w-0">
-                            <div className="w-9 h-9 rounded-lg bg-rose-50 border border-rose-100 text-rose-600 flex items-center justify-center shrink-0 mt-0.5">
-                              <FileText className="w-4 h-4" />
-                            </div>
-                            <div className="min-w-0">
-                              <div className="text-xs font-bold text-gray-900 truncate" title={proof.fileName}>
-                                {proof.fileName}
-                              </div>
-                              <div className="flex items-center gap-2 text-[11px] text-gray-500 mt-0.5">
-                                <span>{proof.fileSize}</span>
-                                <span>•</span>
-                                <span>{proof.uploadedAt}</span>
-                              </div>
-                              {proof.verificationNote && (
-                                <div className="flex items-center gap-1 text-[10px] text-emerald-700 font-semibold mt-1">
-                                  <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
-                                  <span className="truncate">{proof.verificationNote}</span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
+                  {/* Right Column: Actual Documents in Key Indicator Framework Style (7 cols on lg) */}
+                  <div className="lg:col-span-7 flex flex-col">
+                    {/* Right Header Outside */}
+                    <div className="flex items-center justify-between h-8 mb-2.5 flex-wrap gap-2">
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-gray-600 shrink-0" />
+                        <span className="text-xs font-bold text-gray-800 uppercase tracking-wider">
+                          Uploaded Evidence Proofs ({metric.documentProofs.length})
+                        </span>
+                      </div>
 
-                          <div className="flex items-center gap-1 shrink-0">
-                            <button
-                              onClick={() => openFileInNewTab(proof.fileUrl)}
-                              className="px-2.5 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-                              title="View Document in New Tab"
-                            >
-                              <ExternalLink className="w-3.5 h-3.5" />
-                              <span className="hidden sm:inline">View</span>
-                            </button>
-                            <button
-                              onClick={() => handleRemoveProof(metric.id, proof.id)}
-                              className="p-1.5 rounded-lg border border-gray-200 hover:bg-rose-50 hover:border-rose-200 text-gray-400 hover:text-rose-600 transition-colors cursor-pointer"
-                              title="Delete Document"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
+                      <div>
+                        <input
+                          type="file"
+                          accept=".pdf"
+                          className="hidden"
+                          ref={(el) => (fileInputRefs.current[metric.id] = el)}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleFileUpload(metric.id, file);
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => fileInputRefs.current[metric.id]?.click()}
+                          className="px-3 py-1.5 bg-[#1d4ed8] hover:bg-blue-800 text-white rounded-md text-xs font-bold inline-flex items-center gap-1.5 shadow-xs cursor-pointer transition-all hover:shadow active:scale-95"
+                        >
+                          <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                          <span>Upload Institutional Proof</span>
+                        </button>
+                      </div>
                     </div>
-                  )}
+
+                    {/* Right Continuous Table Rows Box */}
+                    <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-2xs divide-y divide-slate-100 flex-1 min-h-[160px] flex flex-col">
+                      {metric.documentProofs.length === 0 ? (
+                        <div className="p-8 text-center text-xs text-slate-400 bg-slate-50/30 flex-1 flex items-center justify-center">
+                          No evidence document filed yet for Metric {metric.code}. Click <strong className="text-blue-700 font-semibold mx-1">"Upload Institutional Proof"</strong> to attach approved lists or certified orders.
+                        </div>
+                      ) : (
+                        metric.documentProofs.map((proof) => (
+                          <div
+                            key={proof.id}
+                            className="flex items-center justify-between px-3.5 py-2.5 hover:bg-slate-50/80 transition-colors gap-3"
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                              {/* Metric Number Badge */}
+                              <span
+                                className="font-mono text-[11px] font-bold text-blue-700 bg-blue-50/80 border border-blue-200/90 px-2 py-0.5 rounded shadow-2xs shrink-0"
+                                title={`Metric ${metric.code}`}
+                              >
+                                {metric.code}
+                              </span>
+
+                              <FileText className="w-3.5 h-3.5 shrink-0 text-blue-600" />
+
+                              {/* Filename with distinct link styling */}
+                              <span
+                                onClick={() => openFileInNewTab(proof.fileUrl)}
+                                className="font-medium text-slate-800 hover:text-blue-700 hover:underline cursor-pointer truncate max-w-xs text-xs"
+                                title={proof.fileName}
+                              >
+                                {proof.fileName}
+                              </span>
+
+                              {/* File Size badge */}
+                              <span className="text-[10px] text-slate-400 font-normal shrink-0">
+                                ({proof.fileSize})
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-3 shrink-0 text-xs">
+                              <div className="text-[11px] text-slate-400 hidden xl:block">
+                                {proof.uploadedAt}
+                              </div>
+
+                              <div className="flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => openFileInNewTab(proof.fileUrl)}
+                                  className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg cursor-pointer transition-colors"
+                                  title="Open Document in New Tab"
+                                >
+                                  <ExternalLink className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveProof(metric.id, proof.id)}
+                                  className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer transition-colors"
+                                  title="Delete Document"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

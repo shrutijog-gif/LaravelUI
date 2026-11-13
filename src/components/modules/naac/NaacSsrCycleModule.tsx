@@ -885,11 +885,9 @@ export const NaacSsrCycleModule: React.FC<NaacSsrCycleModuleProps> = ({
                       </span>
                     </div>
                     <h3 className="text-lg font-bold text-gray-900">
-                      Master Self-Study Report (SSR)
+                       Self-Study Report (SSR)
                     </h3>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      The authoritative institutional SSR document submitted to NAAC for peer team assessment.
-                    </p>
+ 
                   </div>
                 </div>
 
@@ -917,27 +915,20 @@ export const NaacSsrCycleModule: React.FC<NaacSsrCycleModuleProps> = ({
                       showToast(`Uploaded Master SSR Report: ${file.name}`);
                     }}
                   />
-                  <button
-                    onClick={() => ssrReportInputRef.current?.click()}
-                    className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer shadow-xs"
-                  >
-                    <Upload className="w-4 h-4" />
-                    <span>{selectedCycle.ssrReportFileName ? 'Replace SSR Report' : 'Upload SSR Report'}</span>
-                  </button>
-                  {selectedCycle.ssrReportUrl && (
+                  {!selectedCycle.ssrReportFileName && (
                     <button
-                      onClick={() => openFileInNewTab(selectedCycle.ssrReportUrl!)}
-                      className="px-4 py-2.5 rounded-xl border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer"
+                      onClick={() => ssrReportInputRef.current?.click()}
+                      className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer shadow-xs"
                     >
-                      <ExternalLink className="w-4 h-4 text-blue-600" />
-                      <span>View Document</span>
+                      <Upload className="w-4 h-4" />
+                      <span>Upload SSR Report</span>
                     </button>
                   )}
                 </div>
               </div>
 
               {selectedCycle.ssrReportFileName ? (
-                <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-5 flex items-center justify-between gap-4">
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4 sm:p-5 flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3 min-w-0">
                     <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
                     <div className="min-w-0">
@@ -949,12 +940,34 @@ export const NaacSsrCycleModule: React.FC<NaacSsrCycleModuleProps> = ({
                       </div>
                     </div>
                   </div>
-                  <button
-                    onClick={() => openFileInNewTab(selectedCycle.ssrReportUrl!)}
-                    className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-colors cursor-pointer shrink-0"
-                  >
-                    Open PDF
-                  </button>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => openFileInNewTab(selectedCycle.ssrReportUrl!)}
+                      className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-colors cursor-pointer shrink-0 flex items-center gap-1.5"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span>Open PDF</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        const docName = selectedCycle.ssrReportFileName || 'SSR Report';
+                        if (window.confirm(`Are you sure you want to remove "${docName}" from ${selectedCycle.cycleNumber}?`)) {
+                          const updated = cycles.map((c) =>
+                            c.id === selectedCycle.id
+                              ? { ...c, ssrReportFileName: undefined, ssrReportUrl: undefined }
+                              : c
+                          );
+                          setCycles(updated);
+                          saveNaacCycles(updated);
+                          showToast(`Removed SSR Report: ${docName}`);
+                        }
+                      }}
+                      className="p-1.5 rounded-lg border border-emerald-300 hover:bg-rose-50 hover:border-rose-300 text-emerald-800 hover:text-rose-600 transition-colors cursor-pointer"
+                      title="Remove Document"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50/60 p-8 text-center space-y-2">
@@ -963,6 +976,13 @@ export const NaacSsrCycleModule: React.FC<NaacSsrCycleModuleProps> = ({
                   <p className="text-[11px] text-gray-500 max-w-md mx-auto">
                     Click "Upload SSR Report" to attach the official compiled PDF of the Self-Study Report for this cycle.
                   </p>
+                  <button
+                    onClick={() => ssrReportInputRef.current?.click()}
+                    className="mt-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold inline-flex items-center gap-2 transition-colors cursor-pointer shadow-xs"
+                  >
+                    <Upload className="w-4 h-4" />
+                    <span>Upload SSR Report</span>
+                  </button>
                 </div>
               )}
             </div>
