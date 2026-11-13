@@ -89,7 +89,7 @@ export const DesignImporterView: React.FC<DesignImporterViewProps> = ({ onNaviga
 
   // OpenAI API Key state (stored in localStorage)
   const [openaiKey, setOpenaiKey] = useState(() => {
-    return localStorage.getItem('openai_api_key') || '';
+    return localStorage.getItem('openai_api_key') || (import.meta.env?.VITE_OPENAI_API_KEY as string) || '';
   });
   const [showOpenaiKey, setShowOpenaiKey] = useState(false);
   const [openaiStatus, setOpenaiStatus] = useState<'idle' | 'testing' | 'valid' | 'invalid'>('idle');

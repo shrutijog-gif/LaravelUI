@@ -73,10 +73,11 @@ export const QifEvidenceDirectoryTable: React.FC<QifEvidenceDirectoryTableProps>
   const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
 
   // Drag and drop states
-  const [isTopDropDragging, setIsTopDropDragging] = useState(false);
   const [dragOverCrit, setDragOverCrit] = useState<string | null>(null);
   const [dragOverKi, setDragOverKi] = useState<string | null>(null);
   const [dragOverMetric, setDragOverMetric] = useState<string | null>(null);
+  const [dragCursorPos, setDragCursorPos] = useState<{ x: number; y: number } | null>(null);
+  const [recentlyAddedDocIds, setRecentlyAddedDocIds] = useState<string[]>([]);
 
   // Popover states
   const [openCompiledPopoverId, setOpenCompiledPopoverId] = useState<string | null>(null);
@@ -103,6 +104,39 @@ export const QifEvidenceDirectoryTable: React.FC<QifEvidenceDirectoryTableProps>
     metric: string;
     aiReason?: string;
   } | null>(null);
+
+  // Upload Evidence Document Modal State
+  const [uploadModalState, setUploadModalState] = useState<{
+    crit: string;
+    ki: string;
+    metric: string;
+    file: File | null;
+  } | null>(null);
+  const [isModalDropDragging, setIsModalDropDragging] = useState(false);
+  const modalFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const openUploadModal = (targetCrit?: string, targetKi?: string, targetMetric?: string) => {
+    const finalCrit = targetCrit || (criterionFilter !== 'ALL' ? criterionFilter : 'Criterion 1');
+    const kis = KEY_INDICATORS.filter(
+      (k) => k.criterionCode.toLowerCase() === finalCrit.toLowerCase()
+    );
+    const finalKi = targetKi || kis[0]?.code || '1.1';
+    const metrics = NAAC_METRICS_LIST.filter(
+      (m) => m.criterionCode.toLowerCase() === finalCrit.toLowerCase()
+    );
+    const finalMetric =
+      targetMetric ||
+      metrics.find((m) => m.code.startsWith(finalKi))?.code ||
+      metrics[0]?.code ||
+      '1.1.1';
+
+    setUploadModalState({
+      crit: finalCrit,
+      ki: finalKi,
+      metric: finalMetric,
+      file: null,
+    });
+  };
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [uploadTargetTarget, setUploadTargetTarget] = useState<{ crit: string; ki: string; metric: string } | null>(null);
@@ -164,8 +198,9 @@ export const QifEvidenceDirectoryTable: React.FC<QifEvidenceDirectoryTableProps>
       const parts = canonicalMetric.split('.');
       const kiCode = parts.length >= 2 ? `${parts[0]}.${parts[1]}` : '1.1';
 
+      const newDocId = `naac-qif-doc-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
       const newDoc: Partial<NaacEvidenceDocument> = {
-        id: `naac-qif-doc-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        id: newDocId,
         title: file.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' '),
         description: `Evidence document filed to ${canonicalCrit} › KI ${kiCode} › Metric ${canonicalMetric}`,
         fileName: file.name,
@@ -186,6 +221,10 @@ export const QifEvidenceDirectoryTable: React.FC<QifEvidenceDirectoryTableProps>
 
       addOrUpdateNaacDocument(newDoc);
       refreshDocuments();
+      setRecentlyAddedDocIds((prev) => [...prev, newDocId]);
+      setTimeout(() => {
+        setRecentlyAddedDocIds((prev) => prev.filter((id) => id !== newDocId));
+      }, 4500);
       setExpandedCrits((prev) => ({ ...prev, [critObj.code]: true }));
       setExpandedKis((prev) => ({ ...prev, [kiCode]: true }));
       setExpandedMetrics((prev) => ({ ...prev, [canonicalMetric]: true }));
@@ -211,17 +250,6 @@ export const QifEvidenceDirectoryTable: React.FC<QifEvidenceDirectoryTableProps>
   };
 
   // Drop handlers
-  const handleTopDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsTopDropDragging(false);
-    const files = Array.from(e.dataTransfer.files).filter((f) => f.name.toLowerCase().endsWith('.pdf'));
-    if (files.length === 0) return;
-    const targetCrit = criterionFilter !== 'ALL' ? criterionFilter : 'Criterion 1';
-    const matchingMetric = NAAC_METRICS_LIST.find(
-      (m) => m.criterionCode.toLowerCase() === targetCrit.toLowerCase()
-    )?.code || '1.1.1';
-    handleFilesSelected(files, targetCrit, undefined, matchingMetric);
-  };
 
   const handleCritDrop = (e: React.DragEvent, critCode: string) => {
     e.preventDefault();
@@ -249,6 +277,7 @@ export const QifEvidenceDirectoryTable: React.FC<QifEvidenceDirectoryTableProps>
     e.preventDefault();
     e.stopPropagation();
     setDragOverMetric(null);
+    setDragCursorPos(null);
     const files = Array.from(e.dataTransfer.files).filter((f) => f.name.toLowerCase().endsWith('.pdf'));
     if (files.length === 0) return;
     handleFilesSelected(files, critCode, kiCode, metricCode);
@@ -341,59 +370,6 @@ export const QifEvidenceDirectoryTable: React.FC<QifEvidenceDirectoryTableProps>
         </div>
       )}
 
-      {/* Sleek Top Drag & Drop Strip with Direct Upload Action & Gap Metric Summary */}
-      <div
-        onDragOver={(e) => {
-          e.preventDefault();
-          setIsTopDropDragging(true);
-        }}
-        onDragLeave={() => setIsTopDropDragging(false)}
-        onDrop={handleTopDrop}
-        className={`rounded-xl border-2 border-dashed p-3 sm:p-4 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-          isTopDropDragging
-            ? 'border-blue-600 bg-blue-50/90 shadow-md scale-[1.005]'
-            : 'border-blue-200/90 bg-linear-to-r from-blue-50/50 via-indigo-50/20 to-slate-50/50 hover:border-blue-400'
-        }`}
-      >
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-9 h-9 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
-            <Upload className="w-4 h-4" />
-          </div>
-          <div className="min-w-0">
-            <div className="text-xs sm:text-sm font-bold text-gray-900 flex items-center gap-2 flex-wrap">
-              <span>Drop any evidence PDF here, or onto any Metric row below</span>
-              <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 text-[10px] font-bold">
-                Hierarchical Tree
-              </span>
-              <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
-                {totalCoveredInScope}/{totalMetricsInScope} Metrics Filed ({coveragePercent}%)
-              </span>
-            </div>
-            <p className="text-[11px] text-gray-500 mt-0.5 truncate">
-              Target Cycle: <strong className="text-blue-700 font-semibold">{cycleNumber} ({yearFrom} to {yearTo})</strong> &bull; Clear differentiation between Key Indicators, Metrics, and Attached Files.
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
-          <button
-            type="button"
-            onClick={() => {
-              setUploadTargetTarget({
-                crit: criterionFilter !== 'ALL' ? criterionFilter : 'Criterion 1',
-                ki: '1.1',
-                metric: '1.1.1'
-              });
-              fileInputRef.current?.click();
-            }}
-            className="px-3.5 py-1.5 bg-[#1d4ed8] hover:bg-blue-800 text-white text-xs font-bold rounded-lg shadow-2xs cursor-pointer inline-flex items-center gap-1.5 transition-colors"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Upload Document</span>
-          </button>
-        </div>
-      </div>
-
       {/* Main Hierarchy Card matching Filed NAAC Evidence Directory (Flat continuous table) */}
       <div className="bg-white border border-gray-200/90 rounded-xl overflow-hidden shadow-2xs">
         {/* Search, Expand/Collapse, Empty Metric Toggle & Criterion Filter Bar */}
@@ -477,6 +453,17 @@ export const QifEvidenceDirectoryTable: React.FC<QifEvidenceDirectoryTableProps>
             <span className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-xs font-bold whitespace-nowrap shrink-0">
               {filteredDocuments.length} Documents
             </span>
+
+            {/* Direct Upload Document Button */}
+            <button
+              type="button"
+              onClick={() => openUploadModal()}
+              className="px-3.5 py-1.5 bg-[#1d4ed8] hover:bg-blue-800 text-white text-xs font-bold rounded-lg shadow-2xs cursor-pointer inline-flex items-center gap-1.5 transition-all hover:shadow active:scale-95 shrink-0"
+              title="Upload and file new evidence document"
+            >
+              <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+              <span>Upload Document</span>
+            </button>
           </div>
         </div>
 
@@ -795,28 +782,85 @@ export const QifEvidenceDirectoryTable: React.FC<QifEvidenceDirectoryTableProps>
 
                                   const isThisMetricDragOver = dragOverMetric === metric.code;
 
-                                  // Sort documents for this metric: compiled PDFs pinned first
-                                  const sortedMetricDocs = [...metricDocs].sort((a, b) => {
-                                    if (a.isCompiledPdf && !b.isCompiledPdf) return -1;
-                                    if (!a.isCompiledPdf && b.isCompiledPdf) return 1;
-                                    return (a.fileName || a.title).localeCompare(b.fileName || b.title);
-                                  });
+                                  // Sort documents for this metric: Newly added first approach
+                                   const sortedMetricDocs = [...metricDocs].sort((a, b) => {
+                                     // 1. Newly dropped / uploaded files appear first at the top
+                                     const aIsRecent = recentlyAddedDocIds.includes(a.id);
+                                     const bIsRecent = recentlyAddedDocIds.includes(b.id);
+                                     if (aIsRecent && !bIsRecent) return -1;
+                                     if (!aIsRecent && bIsRecent) return 1;
+
+                                     // 2. Compiled master PDFs next
+                                     if (a.isCompiledPdf && !b.isCompiledPdf) return -1;
+                                     if (!a.isCompiledPdf && b.isCompiledPdf) return 1;
+
+                                     // 3. Newest uploaded date first
+                                     const dateA = a.uploadedAt || '';
+                                     const dateB = b.uploadedAt || '';
+                                     if (dateA !== dateB) {
+                                       return dateB.localeCompare(dateA);
+                                     }
+
+                                     // 4. Alphabetical fallback
+                                     return (a.fileName || a.title).localeCompare(b.fileName || b.title);
+                                   });
 
                                   return (
-                                    <div key={`metric-section-${metric.code}`} className="bg-white">
+                                    <div
+                                      key={`metric-section-${metric.code}`}
+                                      onDragEnter={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setDragOverMetric(metric.code);
+                                        setDragCursorPos({ x: e.clientX, y: e.clientY });
+                                      }}
+                                      onDragOver={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        if (dragOverMetric !== metric.code) {
+                                          setDragOverMetric(metric.code);
+                                        }
+                                        setDragCursorPos({ x: e.clientX, y: e.clientY });
+                                      }}
+                                      className="relative bg-white"
+                                    >
+                                      {/* Smooth, Flicker-Free Full Metric Drop Overlay (With Center Confirmation Card) */}
+                                      {isThisMetricDragOver && (
+                                        <div
+                                          onDragOver={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            setDragCursorPos({ x: e.clientX, y: e.clientY });
+                                          }}
+                                          onDragLeave={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            setDragOverMetric(null);
+                                            setDragCursorPos(null);
+                                          }}
+                                          onDrop={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            setDragOverMetric(null);
+                                            setDragCursorPos(null);
+                                            handleMetricDrop(e, crit.code, kiCode, metric.code);
+                                          }}
+                                          className="absolute inset-0 z-30 bg-blue-50/90 border-2 border-dashed border-blue-500 rounded-lg flex items-center justify-center p-4 text-blue-950 pointer-events-auto select-none shadow-md backdrop-blur-[1px]"
+                                        >
+                                          {/* Center of the area confirmation card */}
+                                          <div className="px-5 py-3 rounded-xl bg-white border-2 border-blue-500 shadow-xl flex items-center gap-3 text-blue-950 pointer-events-none">
+                                            <Upload className="w-5 h-5 text-blue-700 animate-bounce" />
+                                            <span className="text-xs sm:text-sm font-bold">
+                                              Drop file here to attach to Metric {metric.code}
+                                            </span>
+                                            <span className="text-[11px] font-semibold text-blue-800 bg-blue-50 border border-blue-300 px-2.5 py-0.5 rounded shadow-2xs">
+                                              Release to Upload
+                                            </span>
+                                          </div>
+                                        </div>
+                                      )}
                                       {/* TIER 3: METRIC SUB-HEADER (Distinct Slate/Gray Bar at pl-12) */}
                                       <div
-                                        onDragOver={(e) => {
-                                          e.preventDefault();
-                                          e.stopPropagation();
-                                          setDragOverMetric(metric.code);
-                                        }}
-                                        onDragLeave={(e) => {
-                                          e.preventDefault();
-                                          e.stopPropagation();
-                                          setDragOverMetric(null);
-                                        }}
-                                        onDrop={(e) => handleMetricDrop(e, crit.code, kiCode, metric.code)}
                                         onClick={() => {
                                           if (metricDocs.length > 0) {
                                             setExpandedMetrics((prev) => ({
@@ -897,23 +941,14 @@ export const QifEvidenceDirectoryTable: React.FC<QifEvidenceDirectoryTableProps>
                                         </div>
 
                                         <div className="flex items-center gap-2 shrink-0">
-                                          {isThisMetricDragOver && (
-                                            <span className="text-[11px] text-blue-700 font-bold animate-pulse">
-                                              Release to upload!
-                                            </span>
-                                          )}
+                                          
 
                                           {/* Direct Add button */}
                                           <button
                                             type="button"
                                             onClick={(e) => {
                                               e.stopPropagation();
-                                              setUploadTargetTarget({
-                                                crit: crit.code,
-                                                ki: kiCode,
-                                                metric: metric.code,
-                                              });
-                                              fileInputRef.current?.click();
+                                              openUploadModal(crit.code, kiCode, metric.code);
                                             }}
                                             className="px-2.5 py-1 bg-[#1d4ed8] hover:bg-blue-800 text-white rounded-md text-[11px] font-bold inline-flex items-center gap-1 shadow-xs cursor-pointer transition-all hover:shadow active:scale-95 shrink-0"
                                             title={`Upload evidence specifically for Metric ${metric.code}`}
@@ -959,11 +994,12 @@ export const QifEvidenceDirectoryTable: React.FC<QifEvidenceDirectoryTableProps>
                                         </div>
                                       </div>
 
-                                      {/* TIER 4: DOCUMENTS (With VS Code Tree Guide Line) */}
+                                      {/* TIER 4: DOCUMENTS (Droppable Zone with VS Code Tree Guide Line) */}
                                       {isMetricExpanded && sortedMetricDocs.length > 0 && (
-                                        <div className="relative bg-white divide-y divide-gray-100">
+                                        <div className="relative divide-y divide-gray-100 bg-white">
                                           {/* Subtle VS Code Vertical Tree Guide Line */}
                                           <div className="absolute left-[3.25rem] top-0 bottom-0 w-px bg-slate-300 pointer-events-none" />
+
 
                                           {sortedMetricDocs.map((doc) => {
                                               const isAiUploaded = Boolean(
@@ -973,16 +1009,19 @@ export const QifEvidenceDirectoryTable: React.FC<QifEvidenceDirectoryTableProps>
                                               const isCompiledPopoverOpen =
                                                 openCompiledPopoverId === doc.id;
                                               const isDocChecked = selectedDocIds.includes(doc.id);
+                                              const isRecentlyAdded = recentlyAddedDocIds.includes(doc.id);
 
                                               return (
                                                 <div
                                                   key={doc.id}
-                                                  className={`pl-16 pr-4 py-2 flex items-center justify-between gap-3 hover:bg-blue-50/30 transition-colors text-xs ${
-                                                    doc.isCompiledPdf
-                                                      ? 'bg-blue-50/40'
+                                                  className={`pl-16 pr-4 py-2 flex items-center justify-between gap-3 text-xs transition-all duration-1000 ${
+                                                    isRecentlyAdded
+                                                      ? 'bg-emerald-50/90 border-y border-emerald-300 ring-1 ring-emerald-400'
+                                                      : doc.isCompiledPdf
+                                                      ? 'bg-blue-50/40 hover:bg-blue-50/60'
                                                       : isDocChecked
-                                                      ? 'bg-blue-50/25'
-                                                      : ''
+                                                      ? 'bg-blue-50/25 hover:bg-blue-50/40'
+                                                      : 'bg-white hover:bg-blue-50/30'
                                                   }`}
                                                 >
                                                   {/* Tree Connector + Checkbox + File Format Badge + Filename + Size */}
@@ -1022,6 +1061,13 @@ export const QifEvidenceDirectoryTable: React.FC<QifEvidenceDirectoryTableProps>
                                                     >
                                                       {doc.fileName || doc.title}
                                                     </span>
+
+                                                    {isRecentlyAdded && (
+                                                      <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-bold animate-pulse inline-flex items-center gap-1 shrink-0">
+                                                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                                        <span>Just Added</span>
+                                                      </span>
+                                                    )}
 
                                                     {/* File Size badge */}
                                                     <span className="text-[10px] text-slate-400 font-normal shrink-0">
@@ -1704,6 +1750,274 @@ export const QifEvidenceDirectoryTable: React.FC<QifEvidenceDirectoryTableProps>
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Upload Evidence Document Popup Modal */}
+      {uploadModalState && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 max-w-lg w-full overflow-hidden animate-in zoom-in-95 text-left">
+            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-slate-50">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-[#1d4ed8] text-white flex items-center justify-center shrink-0 shadow-2xs">
+                  <Upload className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900">
+                    Upload NAAC Evidence Document
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    File evidence under Criterion, Key Indicator, and Metric
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setUploadModalState(null)}
+                className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg cursor-pointer transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              {/* Criterion Selection */}
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">
+                  1. Target Criterion
+                </label>
+                <select
+                  value={uploadModalState.crit}
+                  onChange={(e) => {
+                    const nextCrit = toCanonicalCrit(e.target.value);
+                    const kis = KEY_INDICATORS.filter(
+                      (k) => k.criterionCode.toLowerCase() === nextCrit.toLowerCase()
+                    );
+                    const nextKi = kis[0]?.code || '1.1';
+                    const metrics = NAAC_METRICS_LIST.filter(
+                      (m) => m.criterionCode.toLowerCase() === nextCrit.toLowerCase()
+                    );
+                    const nextMetric =
+                      metrics.find((m) => m.code.startsWith(nextKi))?.code ||
+                      metrics[0]?.code ||
+                      '1.1.1';
+                    setUploadModalState({
+                      ...uploadModalState,
+                      crit: nextCrit,
+                      ki: nextKi,
+                      metric: nextMetric,
+                    });
+                  }}
+                  className="w-full text-xs font-semibold px-3 py-2 border border-gray-300 rounded-xl bg-white text-gray-900 outline-none focus:border-blue-500 cursor-pointer"
+                >
+                  {NAAC_CRITERIA_SUMMARY.map((c) => (
+                    <option key={c.code} value={c.code}>
+                      {c.code}: {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Key Indicator Selection */}
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">
+                  2. Key Indicator (KI)
+                </label>
+                <select
+                  value={uploadModalState.ki}
+                  onChange={(e) => {
+                    const nextKi = toCanonicalKi(e.target.value);
+                    const metrics = NAAC_METRICS_LIST.filter(
+                      (m) =>
+                        m.criterionCode.toLowerCase() ===
+                        uploadModalState.crit.toLowerCase()
+                    );
+                    const nextMetric =
+                      metrics.find((m) => m.code.startsWith(nextKi))?.code ||
+                      metrics[0]?.code ||
+                      '1.1.1';
+                    setUploadModalState({
+                      ...uploadModalState,
+                      ki: nextKi,
+                      metric: nextMetric,
+                    });
+                  }}
+                  className="w-full text-xs font-semibold px-3 py-2 border border-gray-300 rounded-xl bg-white text-gray-900 outline-none focus:border-blue-500 cursor-pointer"
+                >
+                  {KEY_INDICATORS.filter(
+                    (k) =>
+                      k.criterionCode.toLowerCase() ===
+                      uploadModalState.crit.toLowerCase()
+                  ).map((ki) => (
+                    <option key={ki.code} value={ki.code}>
+                      KI {ki.code}: {ki.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Metric Selection */}
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">
+                  3. Metric
+                </label>
+                <select
+                  value={uploadModalState.metric}
+                  onChange={(e) => {
+                    const nextMetric = toCanonicalMetric(e.target.value);
+                    const parts = nextMetric.split('.');
+                    const parentKi =
+                      parts.length >= 2
+                        ? `${parts[0]}.${parts[1]}`
+                        : uploadModalState.ki;
+                    setUploadModalState({
+                      ...uploadModalState,
+                      ki: parentKi,
+                      metric: nextMetric,
+                    });
+                  }}
+                  className="w-full text-xs font-semibold px-3 py-2 border border-gray-300 rounded-xl bg-white text-gray-900 outline-none focus:border-blue-500 cursor-pointer"
+                >
+                  {NAAC_METRICS_LIST.filter(
+                    (m) =>
+                      m.criterionCode.toLowerCase() ===
+                      uploadModalState.crit.toLowerCase()
+                  ).map((m) => (
+                    <option key={m.code} value={m.code}>
+                      Metric {m.code} ({m.metricType}) — {m.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* File Attachment Area */}
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">
+                  4. Select Evidence File (PDF)
+                </label>
+                <input
+                  ref={modalFileInputRef}
+                  type="file"
+                  accept=".pdf"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] || null;
+                    if (file) {
+                      setUploadModalState((prev) => (prev ? { ...prev, file } : null));
+                    }
+                    if (modalFileInputRef.current) modalFileInputRef.current.value = '';
+                  }}
+                />
+
+                {!uploadModalState.file ? (
+                  <div
+                    onClick={() => modalFileInputRef.current?.click()}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setIsModalDropDragging(true);
+                    }}
+                    onDragLeave={() => setIsModalDropDragging(false)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setIsModalDropDragging(false);
+                      const file = Array.from(e.dataTransfer.files).find((f) =>
+                        f.name.toLowerCase().endsWith('.pdf')
+                      );
+                      if (file) {
+                        setUploadModalState((prev) => (prev ? { ...prev, file } : null));
+                      }
+                    }}
+                    className={`border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-2 ${
+                      isModalDropDragging
+                        ? 'border-blue-600 bg-blue-50/80 shadow-inner'
+                        : 'border-gray-300 hover:border-blue-500 hover:bg-blue-50/40 bg-gray-50/50'
+                    }`}
+                  >
+                    <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center">
+                      <Upload className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-gray-800">
+                        Click to browse or drop your PDF here
+                      </p>
+                      <p className="text-[11px] text-gray-500 mt-0.5">
+                        Accepts standard PDF documents up to 25 MB
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="border border-blue-200 bg-blue-50/70 rounded-xl p-3 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-8 h-8 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center shrink-0">
+                        <FileText className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-gray-900 truncate">
+                          {uploadModalState.file.name}
+                        </p>
+                        <p className="text-[11px] text-gray-500">
+                          {(uploadModalState.file.size / (1024 * 1024)).toFixed(2)} MB &bull; Ready to file
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setUploadModalState((prev) => (prev ? { ...prev, file: null } : null))
+                      }
+                      className="p-1 text-gray-400 hover:text-rose-600 rounded-md hover:bg-rose-50 transition-colors cursor-pointer"
+                      title="Remove file"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="px-5 py-3.5 bg-gray-50 border-t border-gray-100 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setUploadModalState(null)}
+                className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-gray-600 hover:bg-gray-200 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!uploadModalState.file}
+                onClick={() => {
+                  if (!uploadModalState.file) return;
+                  processAndSaveFile(
+                    uploadModalState.file,
+                    uploadModalState.crit,
+                    uploadModalState.metric
+                  );
+                  setUploadModalState(null);
+                }}
+                className="px-4 py-1.5 rounded-lg text-xs font-bold text-white bg-[#1d4ed8] hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed shadow-2xs cursor-pointer inline-flex items-center gap-1.5 transition-all"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                <span>Upload &amp; File Evidence</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Floating Cursor Drop Tooltip (Follows mouse directly under the document being held) */}
+      {dragOverMetric && dragCursorPos && (
+        <div
+          style={{
+            position: 'fixed',
+            left: dragCursorPos.x + 16,
+            top: dragCursorPos.y + 24,
+            pointerEvents: 'none',
+            zIndex: 9999,
+          }}
+          className="px-3 py-1.5 rounded-lg bg-slate-900/95 text-white text-xs font-bold shadow-2xl border border-blue-400 flex items-center gap-2 select-none pointer-events-none animate-in fade-in zoom-in-95 duration-100"
+        >
+          <Upload className="w-3.5 h-3.5 text-blue-400 animate-bounce shrink-0" />
+          <span>Dropping into Metric {dragOverMetric}</span>
         </div>
       )}
     </div>

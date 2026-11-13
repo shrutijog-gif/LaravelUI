@@ -1,23 +1,22 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  AlertCircle, 
-  CheckCircle2, 
-  Clock, 
   FileText, 
   Upload, 
   ExternalLink, 
-  Send, 
   Trash2, 
   Plus, 
   X, 
   Search,
-  MessageSquare,
-  ShieldCheck
+  CheckCircle2,
+  Filter
 } from 'lucide-react';
 import { 
-  NaacDvvQuery, 
-  getStoredDvvQueries, 
-  saveDvvQueries, 
+  DvvClarificationDocument,
+  getStoredDvvDocuments,
+  saveDvvDocuments,
+  NAAC_CRITERIA_SUMMARY,
+  KEY_INDICATORS,
+  NAAC_METRICS_LIST,
   SAMPLE_PDF_URL 
 } from '../../../data/naacDmsData';
 import { openFileInNewTab } from '../../../utils/fileHelper';
@@ -35,16 +34,24 @@ export const DvvClarificationsWorkspace: React.FC<DvvClarificationsWorkspaceProp
   yearFrom,
   yearTo,
 }) => {
-  const [queries, setQueries] = useState<NaacDvvQuery[]>(() =>
-    getStoredDvvQueries(cycleId)
+  const [documents, setDocuments] = useState<DvvClarificationDocument[]>(() =>
+    getStoredDvvDocuments(cycleId)
   );
-  const [activeFilter, setActiveFilter] = useState<'all' | 'pending' | 'submitted'>('all');
+
+  // Upload Box State
+  const [selectedCrit, setSelectedCrit] = useState('Criterion 2');
+  const [selectedKi, setSelectedKi] = useState('2.1');
+  const [selectedMetric, setSelectedMetric] = useState('2.1.2');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Filter & Search State
   const [searchQuery, setSearchQuery] = useState('');
+  const [criterionFilter, setCriterionFilter] = useState('ALL');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   useEffect(() => {
-    setQueries(getStoredDvvQueries(cycleId));
+    setDocuments(getStoredDvvDocuments(cycleId));
   }, [cycleId]);
 
   const showToast = (msg: string) => {
@@ -52,97 +59,82 @@ export const DvvClarificationsWorkspace: React.FC<DvvClarificationsWorkspaceProp
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  const pendingCount = queries.filter((q) => q.status === 'pending').length;
-  const submittedCount = queries.filter((q) => q.status === 'submitted' || q.status === 'accepted').length;
+  // Upload handler
+  const handleUploadDocument = () => {
+    if (!selectedFile) {
+      showToast('Please select a PDF document to upload.');
+      return;
+    }
 
-  const filteredQueries = queries.filter((q) => {
-    if (activeFilter === 'pending' && q.status !== 'pending') return false;
-    if (activeFilter === 'submitted' && q.status === 'pending') return false;
+    const metricObj = NAAC_METRICS_LIST.find((m) => m.code === selectedMetric);
+    const metricTitle = metricObj ? metricObj.name : `Metric ${selectedMetric} Clarification`;
+    const currentDate = new Date().toISOString().split('T')[0];
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = (e.target?.result as string) || SAMPLE_PDF_URL;
+      const newDoc: DvvClarificationDocument = {
+        id: `dvv-doc-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        cycleId,
+        criterionCode: selectedCrit,
+        keyIndicatorCode: selectedKi,
+        metricCode: selectedMetric,
+        metricTitle,
+        fileName: selectedFile.name,
+        fileUrl: dataUrl,
+        fileSize: `${Math.max(0.4, Number((selectedFile.size / (1024 * 1024)).toFixed(1)))} MB`,
+        uploadedAt: currentDate,
+        uploadedBy: 'Accreditation Coordinator',
+      };
+
+      const updated = [newDoc, ...documents];
+      setDocuments(updated);
+      saveDvvDocuments(cycleId, updated);
+      showToast(`Uploaded DVV clarification document for Metric ${selectedMetric}!`);
+      setSelectedFile(null);
+    };
+    reader.readAsDataURL(selectedFile);
+  };
+
+  // Delete handler
+  const handleDeleteDocument = (id: string, name: string) => {
+    if (window.confirm(`Are you sure you want to remove "${name}" from DVV clarifications?`)) {
+      const updated = documents.filter((d) => d.id !== id);
+      setDocuments(updated);
+      saveDvvDocuments(cycleId, updated);
+      showToast(`Removed ${name}`);
+    }
+  };
+
+  // Filtered documents
+  const filteredDocuments = documents.filter((d) => {
+    if (criterionFilter !== 'ALL' && d.criterionCode !== criterionFilter) {
+      return false;
+    }
     if (searchQuery.trim()) {
-      const qText = `${q.targetCode} ${q.targetTitle} ${q.naacQueryText}`.toLowerCase();
-      return qText.includes(searchQuery.toLowerCase());
+      const q = searchQuery.toLowerCase();
+      const matchName = d.fileName.toLowerCase().includes(q);
+      const matchMetric = d.metricCode.toLowerCase().includes(q);
+      const matchTitle = (d.metricTitle || '').toLowerCase().includes(q);
+      return matchName || matchMetric || matchTitle;
     }
     return true;
   });
 
-  // Handle Response Text Change
-  const handleResponseTextChange = (id: string, text: string) => {
-    const updated = queries.map((q) => (q.id === id ? { ...q, heiResponseText: text } : q));
-    setQueries(updated);
-    saveDvvQueries(cycleId, updated);
-  };
+  // Available KIs for chosen Criterion
+  const availableKis = KEY_INDICATORS.filter(
+    (k) => k.criterionCode.toLowerCase() === selectedCrit.toLowerCase()
+  );
 
-  // Upload DVV Proof Document
-  const handleUploadDvvDocument = (queryId: string, file: File) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const dataUrl = (e.target?.result as string) || SAMPLE_PDF_URL;
-      const newDoc = {
-        id: `dvv-doc-${Date.now()}`,
-        fileName: file.name,
-        fileUrl: dataUrl,
-        fileSize: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
-        uploadedAt: new Date().toISOString().split('T')[0],
-      };
-
-      const updated = queries.map((q) =>
-        q.id === queryId
-          ? {
-              ...q,
-              supportingDocuments: [...q.supportingDocuments, newDoc],
-            }
-          : q
-      );
-
-      setQueries(updated);
-      saveDvvQueries(cycleId, updated);
-      showToast(`Attached DVV evidence: ${file.name}`);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  // Remove DVV document
-  const handleRemoveDvvDocument = (queryId: string, docId: string) => {
-    const updated = queries.map((q) =>
-      q.id === queryId
-        ? {
-            ...q,
-            supportingDocuments: q.supportingDocuments.filter((d) => d.id !== docId),
-          }
-        : q
-    );
-    setQueries(updated);
-    saveDvvQueries(cycleId, updated);
-    showToast('Evidence document removed');
-  };
-
-  // Submit response to NAAC
-  const handleSubmitResponseToNaac = (id: string) => {
-    const targetQuery = queries.find((q) => q.id === id);
-    if (!targetQuery) return;
-
-    if (!targetQuery.heiResponseText?.trim() && targetQuery.supportingDocuments.length === 0) {
-      showToast('Please provide a response remark or attach supporting evidence before submitting.');
-      return;
-    }
-
-    const updated = queries.map((q) =>
-      q.id === id
-        ? {
-            ...q,
-            status: 'submitted' as const,
-            heiResponseDate: new Date().toISOString().split('T')[0],
-          }
-        : q
-    );
-
-    setQueries(updated);
-    saveDvvQueries(cycleId, updated);
-    showToast(`Clarification response for ${targetQuery.targetCode} submitted to NAAC DVV`);
-  };
+  // Available Metrics for chosen Criterion & KI
+  const availableMetrics = NAAC_METRICS_LIST.filter(
+    (m) =>
+      m.criterionCode.toLowerCase() === selectedCrit.toLowerCase() &&
+      m.code.startsWith(selectedKi)
+  );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-left">
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed top-5 right-5 z-50">
@@ -161,263 +153,273 @@ export const DvvClarificationsWorkspace: React.FC<DvvClarificationsWorkspaceProp
         </div>
       )}
 
-      {/* Top Banner & Overview */}
-      <div className="bg-linear-to-r from-slate-900 via-indigo-950 to-blue-950 rounded-2xl p-6 text-white shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-5">
-        <div>
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/30 text-[11px] font-bold uppercase tracking-wider">
-              {cycleNumber} ({yearFrom} to {yearTo})
-            </span>
-            <span className="px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-200 border border-blue-400/30 text-[11px] font-bold">
-              NAAC Partner Evaluation
-            </span>
+      {/* Top Inline Box: Select Criteria, Key Indicator, Metric & Upload */}
+      <div className="bg-white border border-gray-200/90 rounded-2xl p-5 shadow-2xs space-y-4">
+        <div className="flex items-center justify-between border-b border-gray-100 pb-3 flex-wrap gap-2">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-[#1d4ed8] text-white flex items-center justify-center shrink-0 shadow-2xs">
+              <Upload className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-gray-900">
+                Upload DVV Clarification Document
+              </h3>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Select target Criterion, Key Indicator, and Metric to attach revised clarification evidence.
+              </p>
+            </div>
           </div>
-          <h2 className="text-xl sm:text-2xl font-bold tracking-tight">
-            Data Validation & Verification (DVV) Clarifications
-          </h2>
-          <p className="text-xs sm:text-sm text-slate-300/90 mt-1 max-w-2xl">
-            Official clarification queries raised by NAAC's DVV verification partner. Upload revised metrics, supporting certificates, and official response letters within the 15-day compliance window.
-          </p>
+          <span className="text-[11px] font-semibold text-blue-800 bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded-full">
+            {cycleNumber} ({yearFrom} to {yearTo})
+          </span>
         </div>
 
-        <div className="flex items-center gap-4 bg-white/10 backdrop-blur-xs px-5 py-3.5 rounded-xl border border-white/10 shrink-0 self-start md:self-auto">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3.5 items-end">
+          {/* Criterion Dropdown */}
           <div>
-            <div className="text-lg font-black text-amber-300">{pendingCount} Pending</div>
-            <div className="text-[11px] text-slate-300">Action Required</div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">
+              1. Criterion
+            </label>
+            <select
+              value={selectedCrit}
+              onChange={(e) => {
+                const nextCrit = e.target.value;
+                setSelectedCrit(nextCrit);
+                const kis = KEY_INDICATORS.filter(
+                  (k) => k.criterionCode.toLowerCase() === nextCrit.toLowerCase()
+                );
+                const nextKi = kis[0]?.code || '1.1';
+                setSelectedKi(nextKi);
+                const mets = NAAC_METRICS_LIST.filter(
+                  (m) =>
+                    m.criterionCode.toLowerCase() === nextCrit.toLowerCase() &&
+                    m.code.startsWith(nextKi)
+                );
+                setSelectedMetric(mets[0]?.code || '1.1.1');
+              }}
+              className="w-full text-xs font-semibold px-3 py-2 border border-gray-300 rounded-xl bg-white text-gray-900 outline-none focus:border-blue-500 cursor-pointer shadow-2xs"
+            >
+              {NAAC_CRITERIA_SUMMARY.map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.code}: {c.name}
+                </option>
+              ))}
+            </select>
           </div>
-          <div className="h-8 w-px bg-white/20"></div>
+
+          {/* Key Indicator Dropdown */}
           <div>
-            <div className="text-lg font-black text-emerald-300">{submittedCount} Submitted</div>
-            <div className="text-[11px] text-slate-300">Awaiting NAAC Review</div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">
+              2. Key Indicator (KI)
+            </label>
+            <select
+              value={selectedKi}
+              onChange={(e) => {
+                const nextKi = e.target.value;
+                setSelectedKi(nextKi);
+                const mets = NAAC_METRICS_LIST.filter(
+                  (m) =>
+                    m.criterionCode.toLowerCase() === selectedCrit.toLowerCase() &&
+                    m.code.startsWith(nextKi)
+                );
+                setSelectedMetric(mets[0]?.code || `${nextKi}.1`);
+              }}
+              className="w-full text-xs font-semibold px-3 py-2 border border-gray-300 rounded-xl bg-white text-gray-900 outline-none focus:border-blue-500 cursor-pointer shadow-2xs"
+            >
+              {availableKis.map((ki) => (
+                <option key={ki.code} value={ki.code}>
+                  KI {ki.code}: {ki.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Metric Dropdown */}
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">
+              3. Metric
+            </label>
+            <select
+              value={selectedMetric}
+              onChange={(e) => setSelectedMetric(e.target.value)}
+              className="w-full text-xs font-semibold px-3 py-2 border border-gray-300 rounded-xl bg-white text-gray-900 outline-none focus:border-blue-500 cursor-pointer shadow-2xs"
+            >
+              {availableMetrics.map((m) => (
+                <option key={m.code} value={m.code}>
+                  Metric {m.code} ({m.metricType}) — {m.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* File Picker & Upload CTA */}
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">
+              4. Evidence Document (PDF)
+            </label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0] || null;
+                setSelectedFile(file);
+                if (fileInputRef.current) fileInputRef.current.value = '';
+              }}
+            />
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className={`flex-1 text-xs font-semibold px-3 py-2 border rounded-xl flex items-center justify-between gap-1.5 cursor-pointer truncate ${
+                  selectedFile
+                    ? 'border-blue-400 bg-blue-50/70 text-blue-900 font-bold'
+                    : 'border-dashed border-gray-300 hover:border-blue-500 bg-gray-50 text-gray-600'
+                }`}
+              >
+                <span className="truncate">
+                  {selectedFile ? selectedFile.name : 'Choose PDF file...'}
+                </span>
+                {selectedFile && (
+                  <span
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedFile(null);
+                    }}
+                    className="text-gray-400 hover:text-rose-600 p-0.5 rounded cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </span>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleUploadDocument}
+                disabled={!selectedFile}
+                className="px-4 py-2 bg-[#1d4ed8] hover:bg-blue-800 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold rounded-xl shadow-2xs cursor-pointer inline-flex items-center gap-1.5 transition-all hover:shadow active:scale-95 shrink-0"
+              >
+                <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                <span>Upload</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Controls: Search and Filter Tabs */}
+      {/* Filter Toolbar & Document Count */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-1.5 bg-gray-100/80 p-1 rounded-xl border border-gray-200">
-          <button
-            onClick={() => setActiveFilter('all')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-              activeFilter === 'all'
-                ? 'bg-white text-gray-900 shadow-xs'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            All Queries ({queries.length})
-          </button>
-          <button
-            onClick={() => setActiveFilter('pending')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-              activeFilter === 'pending'
-                ? 'bg-white text-amber-700 shadow-xs'
-                : 'text-gray-600 hover:text-amber-700'
-            }`}
-          >
-            <Clock className="w-3.5 h-3.5 text-amber-500" />
-            <span>Pending Action ({pendingCount})</span>
-          </button>
-          <button
-            onClick={() => setActiveFilter('submitted')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-              activeFilter === 'submitted'
-                ? 'bg-white text-emerald-700 shadow-xs'
-                : 'text-gray-600 hover:text-emerald-700'
-            }`}
-          >
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-            <span>Submitted ({submittedCount})</span>
-          </button>
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Criterion Filter Dropdown */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-gray-600 whitespace-nowrap">
+              Filter Criterion:
+            </span>
+            <select
+              value={criterionFilter}
+              onChange={(e) => setCriterionFilter(e.target.value)}
+              className="px-3 py-1.5 text-xs font-semibold bg-white border border-gray-200 rounded-xl outline-none focus:border-blue-500 cursor-pointer text-gray-900 shadow-2xs"
+            >
+              <option value="ALL">All Criteria (1–7)</option>
+              {NAAC_CRITERIA_SUMMARY.map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.code}: {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <span className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-xs font-bold whitespace-nowrap shrink-0">
+            {filteredDocuments.length} DVV Documents
+          </span>
         </div>
 
+        {/* Search Input */}
         <div className="relative max-w-xs w-full">
-          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Search queries or metrics..."
+            placeholder="Search by file name or metric..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-white border border-gray-200 rounded-xl pl-9 pr-3.5 py-1.5 text-xs text-gray-800 placeholder-gray-400 outline-none focus:border-blue-500 shadow-2xs"
+            className="w-full bg-white border border-gray-200 rounded-xl pl-8 pr-3.5 py-1.5 text-xs text-gray-800 placeholder-gray-400 outline-none focus:border-blue-500 shadow-2xs"
           />
         </div>
       </div>
 
-      {/* Query Cards List */}
-      <div className="space-y-5">
-        {filteredQueries.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-gray-200 p-8 text-center text-gray-500 text-xs">
-            No DVV queries match the selected filter.
+      {/* Uploaded Documents List - Key Indicator Framework Continuous Table Style */}
+      <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-2xs divide-y divide-slate-100">
+        {filteredDocuments.length === 0 ? (
+          <div className="p-8 text-center text-xs text-slate-400 bg-slate-50/30">
+            No DVV clarification documents uploaded yet for the selected filter. Select Criterion, Key Indicator, and Metric above to attach files.
           </div>
         ) : (
-          filteredQueries.map((q) => {
-            const isPending = q.status === 'pending';
+          filteredDocuments.map((doc) => (
+            <div
+              key={doc.id}
+              className="flex items-center justify-between px-4 py-2.5 hover:bg-slate-50/80 transition-colors gap-3"
+            >
+              <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                {/* Metric Number Badge */}
+                <span
+                  className="font-mono text-[11px] font-bold text-blue-700 bg-blue-50/80 border border-blue-200/90 px-2 py-0.5 rounded shadow-2xs shrink-0"
+                  title={`Metric ${doc.metricCode}`}
+                >
+                  {doc.metricCode}
+                </span>
 
-            return (
-              <div
-                key={q.id}
-                className={`bg-white rounded-2xl border shadow-2xs overflow-hidden transition-all ${
-                  isPending
-                    ? 'border-amber-300 ring-2 ring-amber-400/10'
-                    : 'border-gray-200/90'
-                }`}
-              >
-                {/* Query Header */}
-                <div className="px-5 py-4 border-b border-gray-100 bg-gray-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="flex items-center gap-2.5 flex-wrap">
-                    <span className="px-2.5 py-1 rounded-lg bg-slate-900 text-white font-black text-xs">
-                      {q.queryNumber}
-                    </span>
-                    <span className="px-2.5 py-1 rounded-lg bg-blue-100 text-blue-900 font-bold text-xs">
-                      {q.targetCode}
-                    </span>
-                    <span className="text-xs font-bold text-gray-800">{q.targetTitle}</span>
-                  </div>
+                <FileText className="w-3.5 h-3.5 shrink-0 text-blue-600" />
 
-                  <div className="flex items-center gap-2.5 self-end sm:self-auto shrink-0">
-                    <div className="flex items-center gap-1.5 text-[11px] font-semibold text-gray-600 bg-white px-2.5 py-1 rounded-md border border-gray-200">
-                      <Clock className="w-3.5 h-3.5 text-amber-500" />
-                      <span>Due: {q.deadlineDate}</span>
-                    </div>
+                {/* Filename with distinct link styling */}
+                <span
+                  onClick={() => openFileInNewTab(doc.fileUrl)}
+                  className="font-medium text-slate-800 hover:text-blue-700 hover:underline cursor-pointer truncate max-w-md text-xs"
+                  title={doc.fileName}
+                >
+                  {doc.fileName}
+                </span>
 
-                    {isPending ? (
-                      <span className="px-2.5 py-1 rounded-md text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
-                        Pending Clarification
-                      </span>
-                    ) : (
-                      <span className="px-2.5 py-1 rounded-md text-[11px] font-bold bg-emerald-100 text-emerald-900 border border-emerald-300 flex items-center gap-1">
-                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                        <span>Submitted on {q.heiResponseDate}</span>
-                      </span>
-                    )}
-                  </div>
+                {/* Metric Title subtitle */}
+                <span className="text-[11px] text-slate-500 truncate max-w-xs hidden lg:inline" title={doc.metricTitle}>
+                  • {doc.metricTitle}
+                </span>
+
+                {/* File Size badge */}
+                <span className="text-[10px] text-slate-400 font-normal shrink-0">
+                  ({doc.fileSize})
+                </span>
+              </div>
+
+              <div className="flex items-center gap-4 shrink-0 text-xs">
+                <div className="text-[11px] text-slate-400 hidden sm:block">
+                  {doc.uploadedBy || 'Accreditation Coordinator'} &bull; {doc.uploadedAt}
                 </div>
 
-                <div className="p-5 space-y-4">
-                  {/* NAAC Query Box */}
-                  <div className="bg-amber-50/60 border border-amber-200/80 rounded-xl p-4 text-xs text-amber-950">
-                    <div className="flex items-center gap-2 font-bold text-amber-900 mb-1">
-                      <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-                      <span>NAAC DVV Evaluation Query (Received {q.naacQueryDate}):</span>
-                    </div>
-                    <p className="leading-relaxed pl-6">{q.naacQueryText}</p>
-                  </div>
-
-                  {/* HEI Response Remarks */}
-                  <div>
-                    <label className="block text-xs font-bold text-gray-800 mb-1.5 flex items-center gap-1.5">
-                      <MessageSquare className="w-3.5 h-3.5 text-blue-600" />
-                      <span>HEI Clarification Response / Remarks:</span>
-                    </label>
-                    <textarea
-                      rows={3}
-                      value={q.heiResponseText || ''}
-                      onChange={(e) => handleResponseTextChange(q.id, e.target.value)}
-                      placeholder="Type your official clarification explanation here. Reference the attached documents and year-wise verification..."
-                      className="w-full bg-white border border-gray-300 rounded-xl p-3 text-xs text-gray-800 placeholder-gray-400 outline-none focus:border-blue-600 transition-all"
-                    />
-                  </div>
-
-                  {/* Supporting Documents List */}
-                  <div>
-                    <div className="flex items-center justify-between mb-2.5">
-                      <span className="text-xs font-bold text-gray-800 uppercase tracking-wider flex items-center gap-1.5">
-                        <FileText className="w-3.5 h-3.5 text-gray-600" />
-                        <span>Clarification Supporting Documents ({q.supportingDocuments.length})</span>
-                      </span>
-
-                      <div>
-                        <input
-                          type="file"
-                          accept=".pdf,.xlsx,.xls,.doc,.docx"
-                          className="hidden"
-                          ref={(el) => (fileInputRefs.current[q.id] = el)}
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) handleUploadDvvDocument(q.id, file);
-                          }}
-                        />
-                        <button
-                          onClick={() => fileInputRefs.current[q.id]?.click()}
-                          className="px-3 py-1.5 rounded-lg border border-dashed border-blue-400 bg-blue-50/40 hover:bg-blue-100 text-blue-700 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                          <span>Attach Document Proof</span>
-                        </button>
-                      </div>
-                    </div>
-
-                    {q.supportingDocuments.length === 0 ? (
-                      <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/50 p-3.5 text-center text-xs text-gray-500">
-                        No clarification documents attached yet. Click "Attach Document Proof" to upload signed letters or revised spreadsheets.
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {q.supportingDocuments.map((doc) => (
-                          <div
-                            key={doc.id}
-                            className="border border-gray-200 rounded-xl p-3 bg-white hover:border-blue-300 transition-all flex items-center justify-between gap-3 shadow-2xs"
-                          >
-                            <div className="flex items-center gap-2.5 min-w-0">
-                              <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-100 text-blue-600 flex items-center justify-center shrink-0">
-                                <FileText className="w-4 h-4" />
-                              </div>
-                              <div className="min-w-0">
-                                <div className="text-xs font-bold text-gray-900 truncate" title={doc.fileName}>
-                                  {doc.fileName}
-                                </div>
-                                <div className="text-[10px] text-gray-500">
-                                  {doc.fileSize} • Uploaded {doc.uploadedAt}
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-1 shrink-0">
-                              <button
-                                onClick={() => openFileInNewTab(doc.fileUrl)}
-                                className="px-2.5 py-1 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-                              >
-                                <ExternalLink className="w-3.5 h-3.5" />
-                                <span>View</span>
-                              </button>
-                              <button
-                                onClick={() => handleRemoveDvvDocument(q.id, doc.id)}
-                                className="p-1 rounded-lg border border-gray-200 hover:bg-rose-50 hover:border-rose-200 text-gray-400 hover:text-rose-600 transition-colors cursor-pointer"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Bottom Action Footer */}
-                  <div className="pt-3 border-t border-gray-100 flex items-center justify-between">
-                    <div className="text-[11px] text-gray-500 flex items-center gap-1">
-                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>HEI Submissions are cryptographically time-stamped and logged.</span>
-                    </div>
-
-                    <button
-                      onClick={() => handleSubmitResponseToNaac(q.id)}
-                      className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
-                        isPending
-                          ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-xs'
-                          : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                      }`}
-                    >
-                      <Send className="w-3.5 h-3.5" />
-                      <span>{isPending ? 'Submit Clarification to NAAC' : 'Update & Re-Submit Response'}</span>
-                    </button>
-                  </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => openFileInNewTab(doc.fileUrl)}
+                    className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg cursor-pointer transition-colors"
+                    title="Open Document in New Tab"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteDocument(doc.id, doc.fileName)}
+                    className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer transition-colors"
+                    title="Delete Document"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               </div>
-            );
-          })
+            </div>
+          ))
         )}
       </div>
     </div>
   );
 };
-

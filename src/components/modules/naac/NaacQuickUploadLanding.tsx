@@ -411,7 +411,7 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
     });
     setIsManageCyclesModalOpen(true);
   };
-  const [openaiKey, setOpenaiKey] = useState<string>(() => localStorage.getItem('openai_api_key') || '');
+  const [openaiKey, setOpenaiKey] = useState<string>(() => localStorage.getItem('openai_api_key') || (import.meta.env?.VITE_OPENAI_API_KEY as string) || '');
   const [showOpenaiKey, setShowOpenaiKey] = useState<boolean>(false);
   const [isAiProcessing, setIsAiProcessing] = useState<boolean>(false);
 

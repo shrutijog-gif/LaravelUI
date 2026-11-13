@@ -2383,7 +2383,6 @@ export const DEFAULT_EXTENDED_PROFILE_METRICS: ExtendedProfileMetric[] = [
         fileSize: '1.5 MB',
         uploadedAt: '2026-10-28',
         verified: true,
-        verificationNote: 'Stock verification committee report with MAC addresses',
       },
     ],
   },
@@ -2446,6 +2445,88 @@ export const saveExtendedProfile = (cycleId: string, metrics: ExtendedProfileMet
 // ============================================================================
 // DVV CLARIFICATION MODELS & STORAGE
 // ============================================================================
+
+export interface DvvClarificationDocument {
+  id: string;
+  cycleId: string;
+  criterionCode: string;
+  keyIndicatorCode?: string;
+  metricCode: string;
+  metricTitle: string;
+  fileName: string;
+  fileUrl: string;
+  fileSize: string;
+  uploadedAt: string;
+  uploadedBy?: string;
+  remarks?: string;
+}
+
+export const DEFAULT_DVV_DOCUMENTS: DvvClarificationDocument[] = [
+  {
+    id: 'dvv-doc-1',
+    cycleId: 'cycle-3',
+    criterionCode: 'Criterion 2',
+    keyIndicatorCode: '2.1',
+    metricCode: '2.1.2',
+    metricTitle: 'Average percentage of seats filled against seats reserved for various categories',
+    fileName: 'Certified_Reserved_Students_List_DVV_Clarification.pdf',
+    fileUrl: SAMPLE_PDF_URL,
+    fileSize: '2.4 MB',
+    uploadedAt: '2026-11-02',
+    uploadedBy: 'Accreditation Coordinator',
+  },
+  {
+    id: 'dvv-doc-2',
+    cycleId: 'cycle-3',
+    criterionCode: 'Criterion 3',
+    keyIndicatorCode: '3.1',
+    metricCode: '3.1.1',
+    metricTitle: 'Grants received from government and non-governmental agencies for research projects',
+    fileName: 'Research_Grants_Sanction_Orders_DVV_Clarification.pdf',
+    fileUrl: SAMPLE_PDF_URL,
+    fileSize: '3.1 MB',
+    uploadedAt: '2026-11-03',
+    uploadedBy: 'Accreditation Coordinator',
+  },
+  {
+    id: 'dvv-doc-3',
+    cycleId: 'cycle-3',
+    criterionCode: 'Criterion 1',
+    keyIndicatorCode: '1.1',
+    metricCode: '1.1.3',
+    metricTitle: 'Average percentage of courses having focus on employability/entrepreneurship/skill development',
+    fileName: 'BoS_Employability_Curriculum_Mapping_DVV_Response.pdf',
+    fileUrl: SAMPLE_PDF_URL,
+    fileSize: '1.8 MB',
+    uploadedAt: '2026-11-05',
+    uploadedBy: 'Accreditation Coordinator',
+  },
+];
+
+const DVV_DOCUMENTS_STORAGE_KEY_PREFIX = 'cms_naac_dvv_docs_';
+
+export const getStoredDvvDocuments = (cycleId?: string): DvvClarificationDocument[] => {
+  const cid = cycleId || 'default';
+  try {
+    const raw = localStorage.getItem(`${DVV_DOCUMENTS_STORAGE_KEY_PREFIX}${cid}`);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {
+    // ignore
+  }
+  return DEFAULT_DVV_DOCUMENTS;
+};
+
+export const saveDvvDocuments = (cycleId: string, docs: DvvClarificationDocument[]): void => {
+  try {
+    localStorage.setItem(`${DVV_DOCUMENTS_STORAGE_KEY_PREFIX}${cycleId}`, JSON.stringify(docs));
+    window.dispatchEvent(new Event('naac-dvv-docs-updated'));
+  } catch {
+    // ignore
+  }
+};
 
 export interface NaacDvvQuery {
   id: string;
