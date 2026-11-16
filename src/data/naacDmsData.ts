@@ -90,6 +90,20 @@ export interface NaacEvidenceDocument {
   aiReason?: string;
   aiAutoFiled?: boolean;
   cycleId?: string;
+  // NAAC Readiness Audit & Document Nature (Pahade Sir Framework)
+  docNature?: 'supporting_doc' | 'ground_proof';
+  readinessScore?: string;
+  readinessPassed?: boolean;
+  readinessChecks?: {
+    signature?: boolean;
+    stamp?: boolean;
+    date?: boolean;
+    time?: boolean;
+    letterhead?: boolean;
+    cycleYear?: boolean;
+    geotag?: boolean;
+    notes?: string;
+  };
   // Compiled Single PDF Metadata for NAAC Portal Submission
   isCompiledPdf?: boolean;
   compiledSourceFiles?: string[];

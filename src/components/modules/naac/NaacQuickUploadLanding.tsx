@@ -113,7 +113,7 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
   // Form State
   const [documentTitle, setDocumentTitle] = useState<string>('');
   const [documentDescription, setDocumentDescription] = useState<string>('');
-  const [uploadedFile, setUploadedFile] = useState<{ name: string; size: string; dataUrl: string } | null>(null);
+  const [uploadedFile, setUploadedFile] = useState<{ name: string; size: string; dataUrl: string; extractedText?: string } | null>(null);
   const [uploadedFilesBatch, setUploadedFilesBatch] = useState<
     Array<{
       docId: string;
@@ -126,11 +126,44 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
       reason?: string;
       source?: 'openai' | 'rule-engine';
       isManualEdit?: boolean;
+      docNature?: 'supporting_doc' | 'ground_proof';
+      extractedText?: string;
+      auditChecks?: {
+        signature?: boolean;
+        stamp?: boolean;
+        date?: boolean;
+        time?: boolean;
+        letterhead?: boolean;
+        cycleYear?: boolean;
+        geotag?: boolean;
+        notes?: string;
+      };
     }>
   >([]);
   const [activeDocId, setActiveDocId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successToast, setSuccessToast] = useState<string | null>(null);
+
+  // NAAC Readiness Audit Configuration & Popover (Pahade Sir Framework)
+  const [auditConfig, setAuditConfig] = useState<{
+    enabled: boolean;
+    checkSignature: boolean;
+    checkStamp: boolean;
+    checkDate: boolean;
+    checkTime: boolean;
+    checkLetterhead: boolean;
+    checkCycleYear?: boolean;
+    checkGeotag?: boolean;
+  }>({
+    enabled: true,
+    checkSignature: true,
+    checkStamp: true,
+    checkDate: true,
+    checkTime: true,
+    checkLetterhead: true,
+  });
+  const [activeAuditPopoverId, setActiveAuditPopoverId] = useState<string | null>(null);
+  const [isApplyChecksOpen, setIsApplyChecksOpen] = useState<boolean>(false);
 
   // Google Bar & AI Mode state
   const [isAiMode, setIsAiMode] = useState<boolean>(true);
@@ -356,6 +389,18 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
     ki: string;
     metric: string;
     aiReason?: string;
+    docNature?: 'supporting_doc' | 'ground_proof';
+    extractedText?: string;
+    auditChecks?: {
+      signature?: boolean;
+      stamp?: boolean;
+      date?: boolean;
+      time?: boolean;
+      letterhead?: boolean;
+      cycleYear?: boolean;
+      geotag?: boolean;
+      notes?: string;
+    };
   } | null>(null);
   const [openAiReasonDocId, setOpenAiReasonDocId] = useState<string | null>(null);
   const [expandedDirectoryCrits, setExpandedDirectoryCrits] = useState<Record<string, boolean>>({
@@ -616,9 +661,19 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
     );
   };
 
-  // Smart AI Metric Suggestion based on file name
-  const getAiSuggestion = (filename: string): { crit: string; keyIndicator: string; metric: string; reason: string; source: 'rule-engine' } => {
-    const lower = filename.toLowerCase();
+  // Smart AI Metric Suggestion based on file name & extracted document content
+  const getAiSuggestion = (filename: string, docText?: string): { crit: string; keyIndicator: string; metric: string; reason: string; source: 'rule-engine' } => {
+    const isLorem = docText ? /lorem\s+ipsum/i.test(docText) : false;
+    if (isLorem) {
+      return { 
+        crit: 'Criterion 6', 
+        keyIndicator: '6.5', 
+        metric: '6.5.1', 
+        reason: 'The document contains placeholder text (Lorem Ipsum) with no valid institutional or academic NAAC evidence. Please verify before filing.',
+        source: 'rule-engine' 
+      };
+    }
+    const lower = (filename + (docText ? ' ' + docText.slice(0, 1000) : '')).toLowerCase();
     if (lower.includes('syllabus') || lower.includes('curriculum') || lower.includes('lesson') || lower.includes('timetable')) {
       return { 
         crit: 'Criterion 1', 
@@ -799,6 +854,281 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
     };
   };
 
+  // Pahade Sir NAAC Framework: Document Nature Distinction (Supporting Doc vs Ground Proof)
+  const detectDocNature = (filename: string): 'supporting_doc' | 'ground_proof' => {
+    const lower = filename.toLowerCase();
+    const isImage = /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(filename);
+    if (
+      isImage ||
+      lower.includes('photo') ||
+      lower.includes('pic') ||
+      lower.includes('snap') ||
+      lower.includes('attendance') ||
+      lower.includes('sheet') ||
+      lower.includes('certificate') ||
+      lower.includes('receipt') ||
+      lower.includes('bill') ||
+      lower.includes('voucher')
+    ) {
+      return 'ground_proof';
+    }
+    return 'supporting_doc';
+  };
+
+  // Extract actual document text content from uploaded files (txt, csv, md, json, docx, pdf) for genuine RAG analysis
+  const extractDocumentText = async (file: File): Promise<string> => {
+    const name = file.name.toLowerCase();
+
+    // 1. Plain text / structured text
+    if (
+      name.endsWith('.txt') ||
+      name.endsWith('.csv') ||
+      name.endsWith('.md') ||
+      name.endsWith('.json') ||
+      name.endsWith('.html') ||
+      name.endsWith('.xml') ||
+      name.endsWith('.rtf')
+    ) {
+      try {
+        const text = await file.text();
+        return text.slice(0, 8000);
+      } catch {
+        return '';
+      }
+    }
+
+    // 2. Word .docx (ZIP archive containing word/document.xml)
+    if (name.endsWith('.docx')) {
+      try {
+        const buffer = await file.arrayBuffer();
+        const bytes = new Uint8Array(buffer);
+        const view = new DataView(buffer);
+        let offset = 0;
+        while (offset < bytes.length - 30) {
+          if (view.getUint32(offset, true) === 0x04034b50) {
+            const compMethod = view.getUint16(offset + 8, true);
+            const compSize = view.getUint32(offset + 18, true);
+            const nameLen = view.getUint16(offset + 26, true);
+            const extraLen = view.getUint16(offset + 28, true);
+            const nameBytes = bytes.subarray(offset + 30, offset + 30 + nameLen);
+            const entryName = new TextDecoder().decode(nameBytes);
+            const dataStart = offset + 30 + nameLen + extraLen;
+            if (entryName === 'word/document.xml') {
+              const compData = bytes.subarray(dataStart, dataStart + compSize);
+              let xml = '';
+              if (compMethod === 8 && typeof DecompressionStream !== 'undefined') {
+                const ds = new DecompressionStream('deflate-raw');
+                const writer = ds.writable.getWriter();
+                writer.write(compData);
+                writer.close();
+                const decompressed = await new Response(ds.readable).arrayBuffer();
+                xml = new TextDecoder().decode(decompressed);
+              } else {
+                xml = new TextDecoder().decode(compData);
+              }
+              return xml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 8000);
+            }
+            offset = dataStart + Math.max(1, compSize);
+          } else {
+            offset++;
+          }
+        }
+      } catch (err) {
+        console.warn('Docx text extraction error:', err);
+      }
+    }
+
+    // 3. PDF Files (Extract literal text tokens)
+    if (name.endsWith('.pdf')) {
+      try {
+        const buffer = await file.arrayBuffer();
+        const raw = new TextDecoder('latin1').decode(new Uint8Array(buffer));
+        const matches: string[] = [];
+        const tjRegex = /\(([^)]{2,})\)\s*Tj/g;
+        let match: RegExpExecArray | null;
+        while ((match = tjRegex.exec(raw)) !== null && matches.length < 250) {
+          matches.push(match[1]);
+        }
+        if (matches.length > 5) {
+          return matches.join(' ').replace(/\s+/g, ' ').trim().slice(0, 8000);
+        }
+      } catch (err) {
+        console.warn('PDF text extraction error:', err);
+      }
+    }
+
+    return '';
+  };
+
+  // Pahade Sir NAAC Framework: Evaluates Compliance Checks (Signature, Stamp, Date, Time, Letterhead)
+  const evaluateDocAudit = (
+    filename: string,
+    nature: 'supporting_doc' | 'ground_proof',
+    customChecks?: {
+      signature?: boolean;
+      stamp?: boolean;
+      date?: boolean;
+      time?: boolean;
+      letterhead?: boolean;
+      cycleYear?: boolean;
+      geotag?: boolean;
+      notes?: string;
+    },
+    config = auditConfig,
+    docText?: string
+  ) => {
+    const isImage = /\.(jpg|jpeg|png|webp|gif)$/i.test(filename);
+    const lower = filename.toLowerCase();
+    const isLorem = docText ? /lorem\s+ipsum/i.test(docText) : false;
+
+    // 1. Signature: Detect authorized institutional signatures
+    let sig = false;
+    if (customChecks?.signature !== undefined) {
+      sig = customChecks.signature;
+    } else if (docText) {
+      sig = !isLorem && /(sign(ed|ature)?|principal|dean|hod|director|registrar|authorized|faculty|convenor|coordinator|sd\/-)\b/i.test(docText);
+    } else {
+      sig = lower.includes('signed') || lower.includes('sign');
+    }
+
+    // 2. Stamp: Official institutional stamp / rubber seal
+    let stamp = false;
+    if (customChecks?.stamp !== undefined) {
+      stamp = customChecks.stamp;
+    } else if (docText) {
+      stamp = !isLorem && /(stamp(ed)?|seal|official\s+seal|rubber\s+stamp|approved\s+by)\b/i.test(docText);
+    } else {
+      stamp = lower.includes('stamp') || lower.includes('seal');
+    }
+
+    // 3. Date: Explicit document date or 2021-2026 cycle year
+    const hasOutdatedYear = /20(10|11|12|13|14|15|16|17|18|19|20)\b/.test(lower) || (docText ? /20(10|11|12|13|14|15|16|17|18|19|20)\b/.test(docText) : false);
+    const hasValidDate = /(\b\d{1,2}[-/.]([01]?\d|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[-/.](20\d{2}|\d{2})\b)|\b20(2[1-6])\b|(date|dated)\s*[:.-]?\s*\d/i.test(docText || '');
+    let date = false;
+    if (customChecks?.date !== undefined) {
+      date = customChecks.date;
+    } else if (customChecks?.cycleYear !== undefined) {
+      date = customChecks.cycleYear;
+    } else if (docText) {
+      date = !isLorem && hasValidDate && !hasOutdatedYear;
+    } else {
+      date = !hasOutdatedYear && (/\b20(2[1-6])\b/.test(lower) || lower.includes('date') || lower.includes('report') || lower.includes('annual'));
+    }
+
+    // 4. Time: Event timestamp, hour:minute, AM/PM, or photo timestamp
+    const hasTimeClue = lower.includes('time') || lower.includes('am') || lower.includes('pm') || lower.includes('hrs');
+    let time = false;
+    if (customChecks?.time !== undefined) {
+      time = customChecks.time;
+    } else if (customChecks?.geotag !== undefined) {
+      time = customChecks.geotag;
+    } else if (docText) {
+      time = !isLorem && /(\b\d{1,2}:\d{2}(:\d{2})?\s*(am|pm|hrs|hours|ist)?\b|time\s*[:.-]\s*\d|\b(am|pm)\b)/i.test(docText);
+    } else {
+      time = hasTimeClue || isImage;
+    }
+
+    // 5. Letterhead: Official college / university / institutional letterhead
+    let letterhead = false;
+    if (customChecks?.letterhead !== undefined) {
+      letterhead = customChecks.letterhead;
+    } else if (docText) {
+      letterhead = !isLorem && /(college|university|institute|academy|faculty|department|iqac|letterhead|campus)\b/i.test(docText);
+    } else {
+      letterhead = lower.includes('letterhead') || lower.includes('circular') || lower.includes('report') || (!isLorem && nature === 'supporting_doc');
+    }
+
+    let activeChecks = 0;
+    let passedChecks = 0;
+
+    if (config.checkSignature) {
+      activeChecks++;
+      if (sig) passedChecks++;
+    }
+    if (config.checkStamp) {
+      activeChecks++;
+      if (stamp) passedChecks++;
+    }
+    if (config.checkDate) {
+      activeChecks++;
+      if (date) passedChecks++;
+    }
+    if (config.checkTime) {
+      activeChecks++;
+      if (time) passedChecks++;
+    }
+    if (config.checkLetterhead) {
+      activeChecks++;
+      if (letterhead) passedChecks++;
+    }
+
+    const total = activeChecks;
+    const isReady = activeChecks > 0 && passedChecks === total;
+
+    return {
+      signature: sig,
+      stamp,
+      date,
+      time,
+      letterhead,
+      cycleYear: date,
+      geotag: time,
+      score: passedChecks,
+      totalChecks: total,
+      isReady,
+      notes: customChecks?.notes,
+    };
+  };
+
+  const toggleItemDocNature = (docId: string) => {
+    setUploadedFilesBatch((prev) =>
+      prev.map((item) => {
+        if (item.docId === docId) {
+          const currentNature = item.docNature || detectDocNature(item.name);
+          const nextNature = currentNature === 'ground_proof' ? 'supporting_doc' : 'ground_proof';
+          return {
+            ...item,
+            docNature: nextNature,
+            isManualEdit: true,
+          };
+        }
+        return item;
+      })
+    );
+  };
+
+  const toggleItemAuditCheck = (
+    docId: string,
+    checkKey: 'signature' | 'stamp' | 'date' | 'time' | 'letterhead' | 'cycleYear' | 'geotag'
+  ) => {
+    setUploadedFilesBatch((prev) =>
+      prev.map((item) => {
+        if (item.docId === docId) {
+          const nature = item.docNature || detectDocNature(item.name);
+          const currentAudit = evaluateDocAudit(item.name, nature, item.auditChecks, auditConfig, item.extractedText);
+          const currentVal = currentAudit[checkKey];
+          const updatedChecks = {
+            ...item.auditChecks,
+            signature: currentAudit.signature,
+            stamp: currentAudit.stamp,
+            date: currentAudit.date,
+            time: currentAudit.time,
+            letterhead: currentAudit.letterhead,
+            cycleYear: currentAudit.cycleYear,
+            geotag: currentAudit.geotag,
+            [checkKey]: !currentVal,
+          };
+          return {
+            ...item,
+            auditChecks: updatedChecks,
+            isManualEdit: true,
+          };
+        }
+        return item;
+      })
+    );
+  };
+
   const [aiSuggestion, setAiSuggestion] = useState<{ 
     crit: string; 
     keyIndicator: string; 
@@ -813,7 +1143,8 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
     key: string,
     fileDataUrl?: string,
     targetDocId?: string,
-    updateActiveUi: boolean = true
+    updateActiveUi: boolean = true,
+    fileText?: string
   ) => {
     try {
       setIsAiProcessing(true);
@@ -829,13 +1160,29 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
         fileDataUrl.startsWith('data:image/gif')
       ));
 
+      const isLorem = fileText ? /lorem\s+ipsum/i.test(fileText) : false;
+
       const prompt = `You are a Senior NAAC (National Assessment and Accreditation Council) Accreditation Assessor and Quality Assurance Specialist.
 
 TASK:
-Classify this uploaded academic evidence file into the single most appropriate NAAC AQAR Criterion, Key Indicator, and Metric.
+Analyze this uploaded academic evidence file and classify it into the single most appropriate NAAC AQAR Criterion, Key Indicator, and Metric.
 File name: "${filename}"
 
-${isImage ? 'NOTE: An image of the evidence document or event photograph is attached. INSPECT THE VISUAL CONTENTS CAREFULLY (read all visible text, banners, certificates, posters, Red Cross / NSS / university logos, doctors/donors, and context) to identify what institutional event or record this represents.' : 'Analyze the filename, extension, and institutional context.'}
+${fileText ? `ACTUAL DOCUMENT TEXT CONTENT (Extracted via RAG):
+"""
+${fileText.slice(0, 3500)}
+"""` : (isImage ? 'NOTE: An image of the evidence document or event photograph is attached. INSPECT THE VISUAL CONTENTS CAREFULLY (read all visible text, banners, certificates, posters, Red Cross / NSS / university logos, doctors/donors, and context) to identify what institutional event or record this represents.' : 'Analyze the filename, extension, and institutional context.')}
+
+CRITICAL RULES FOR REASONING & ACCURACY:
+1. STRICT CONTENT-BASED REASONING:
+   - Base your classification and reasoning ENTIRELY on the actual document text or image content provided above.
+   - If the text is filler/placeholder dummy text (e.g. "Lorem ipsum dolor sit amet..."), or contains no verifiable college records, you MUST state in "reason": "The document contains placeholder text (Lorem Ipsum) with no valid institutional or academic NAAC evidence." DO NOT fabricate or assume NSS/health drives!
+2. AUDIT COMPLIANCE CHECKS (Must be STRICT):
+   - "signatureDetected": true ONLY IF an actual institutional signature, official stamp, or designated authority (Principal, HoD, Registrar, Dean) is present. If it is dummy text, Lorem Ipsum, or unsigned, you MUST return false.
+   - "cycleYearMatch": true ONLY IF an academic year or date between 2021 and 2026 is mentioned in the document. If missing or outside 2021-2026, return false.
+   - "letterheadDetected": true ONLY IF official college/university letterhead or department header is present. If missing, return false.
+   - "geotagDetected": true ONLY IF GPS coordinates or photo date watermark are present. If missing, return false.
+   - "complianceAuditNote": 1 sentence summarizing what passed or failed.
 
 OFFICIAL NAAC CRITERIA & METRIC GUIDANCE:
 - Criterion 1: Curricular Aspects
@@ -892,6 +1239,18 @@ Any evidence of Blood Donation Camps, Health Checkup Drives, NSS/NCC Rallies, Vi
 - Key Indicator: "3.4"
 - Metric: "3.4.1"
 
+NAAC COMPLIANCE AUDIT GUIDANCE (Pahade Sir Framework):
+1. Document Nature Distinction:
+   - "supporting_doc": Institutional narratives, activity reports, BoS minutes, circulars, syllabus, policies, audited accounts.
+   - "ground_proof": Empirical ground evidence like event photos, attendance sheets with student/participant signatures, certificates, payment receipts.
+2. Mandatory Compliance Verification:
+   - signatureDetected: boolean (Authorized signatory or person's handwritten/digital signature present)
+   - stampDetected: boolean (Official institutional seal, round stamp, or rubber stamp present)
+   - dateDetected: boolean (Explicit date or academic year present)
+   - timeDetected: boolean (Event time, timestamp, or hour:minute watermark present)
+   - letterheadDetected: boolean (College letterhead, official crest or department header present)
+   - complianceAuditNote: short 1-sentence assessment of compliance readiness.
+
 If the filename is generic (e.g. "download.jpg", "image.png", "scan.pdf"), infer the event from the image text/visuals and generate a concise, professional title (e.g. "Blood Donation Camp - NSS Community Outreach").
 
 Respond in JSON ONLY:
@@ -900,7 +1259,14 @@ Respond in JSON ONLY:
   "keyIndicator": "3.4",
   "metric": "3.4.1",
   "suggestedTitle": "Professional Descriptive Title for the Document",
-  "reason": "Detailed 1-2 sentence explanation connecting the visual/text evidence to this specific NAAC Criterion, Key Indicator, and Metric."
+  "reason": "Detailed 1-2 sentence explanation connecting the visual/text evidence to this specific NAAC Criterion, Key Indicator, and Metric.",
+  "docNature": "supporting_doc",
+  "signatureDetected": false,
+  "stampDetected": false,
+  "dateDetected": false,
+  "timeDetected": false,
+  "letterheadDetected": false,
+  "complianceAuditNote": "Assessment of compliance readiness."
 }`;
 
       // Build multimodal payload
@@ -941,6 +1307,24 @@ Respond in JSON ONLY:
           const canonicalMetric = toCanonicalMetric(parsed.metric);
           const aiReason = parsed.reason || 'OpenAI Vision & Natural Language analysis of evidence document content and metadata.';
 
+          // Pahade Sir Framework: Detect nature & compliance flags from OpenAI response
+          const aiDocNature: 'supporting_doc' | 'ground_proof' =
+            parsed.docNature === 'supporting_doc' || parsed.docNature === 'ground_proof'
+              ? parsed.docNature
+              : (isImage ? 'ground_proof' : 'supporting_doc');
+
+          const aiAuditChecks = {
+            signature: isLorem ? false : (typeof parsed.signatureDetected === 'boolean' ? parsed.signatureDetected : false),
+            stamp: isLorem ? false : (typeof parsed.stampDetected === 'boolean' ? parsed.stampDetected : false),
+            date: isLorem ? false : (typeof parsed.dateDetected === 'boolean' ? parsed.dateDetected : (typeof parsed.cycleYearMatch === 'boolean' ? parsed.cycleYearMatch : false)),
+            time: isLorem ? false : (typeof parsed.timeDetected === 'boolean' ? parsed.timeDetected : (typeof parsed.geotagDetected === 'boolean' ? parsed.geotagDetected : false)),
+            letterhead: isLorem ? false : (typeof parsed.letterheadDetected === 'boolean' ? parsed.letterheadDetected : false),
+            cycleYear: isLorem ? false : (typeof parsed.cycleYearMatch === 'boolean' ? parsed.cycleYearMatch : false),
+            geotag: isLorem ? false : (typeof parsed.geotagDetected === 'boolean' ? parsed.geotagDetected : false),
+            notes: isLorem ? 'Document failed compliance audit: contains placeholder/Lorem Ipsum text without valid signatory or institutional seal.' : parsed.complianceAuditNote,
+          };
+          const auditRes = evaluateDocAudit(filename, aiDocNature, aiAuditChecks, auditConfig, fileText);
+
           const docIdToUpdate = targetDocId || activeDocId;
           if (docIdToUpdate) {
             const critObj = NAAC_CRITERIA_SUMMARY.find((c) => c.code.toLowerCase() === canonicalCrit.toLowerCase());
@@ -955,17 +1339,31 @@ Respond in JSON ONLY:
               metricType: metricObj?.metricType || 'QnM',
               aiReason: aiReason,
               aiAutoFiled: true,
+              docNature: aiDocNature,
+              readinessScore: `${auditRes.score}/${auditRes.totalChecks}`,
+              readinessPassed: auditRes.isReady,
+              readinessChecks: {
+                signature: auditRes.signature,
+                cycleYear: auditRes.cycleYear,
+                letterhead: auditRes.letterhead,
+                geotag: auditRes.geotag,
+                notes: auditRes.notes,
+              },
             });
             setUploadedFilesBatch((prev) =>
               prev.map((item) =>
                 item.docId === docIdToUpdate
                   ? {
                       ...item,
+                      name: parsed.suggestedTitle || item.name,
                       crit: canonicalCrit,
                       keyIndicator: canonicalKi,
                       metric: canonicalMetric,
                       reason: aiReason,
                       source: 'openai',
+                      docNature: aiDocNature,
+                      auditChecks: aiAuditChecks,
+                      extractedText: fileText || item.extractedText,
                     }
                   : item
               )
@@ -1071,11 +1469,46 @@ Respond in JSON ONLY:
       const activeMetric = metricsForCrit.find((m) => m.code === initialMetric) || metricsForCrit[0] || NAAC_METRICS_LIST[0];
 
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = async (e) => {
         const rawDataUrl = (e.target?.result as string) || '';
         const safeDataUrl = (rawDataUrl && rawDataUrl.length < 75000)
           ? rawDataUrl
           : 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf';
+
+        // Extract actual document text for RAG analysis & compliance verification
+        const extractedText = await extractDocumentText(file);
+        const isLorem = /lorem\s+ipsum/i.test(extractedText);
+        const hasSignature = /(sign(ed|ature)?|principal|dean|hod|director|registrar|authorized|faculty|convenor|coordinator|sd\/-)\b/i.test(extractedText);
+        const hasStamp = /(stamp(ed)?|seal|official\s+seal|rubber\s+stamp|approved\s+by)\b/i.test(extractedText);
+        const hasDate = /(\b\d{1,2}[-/.]([01]?\d|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[-/.](20\d{2}|\d{2})\b)|\b20(2[1-6])\b|(date|dated)\s*[:.-]?\s*\d/i.test(extractedText);
+        const hasTime = /(\b\d{1,2}:\d{2}(:\d{2})?\s*(am|pm|hrs|hours|ist)?\b|time\s*[:.-]\s*\d|\b(am|pm)\b)/i.test(extractedText);
+        const hasLetterhead = /(college|university|institute|academy|faculty|department|iqac|letterhead|campus)\b/i.test(extractedText);
+
+        if (isLorem) {
+          initialReason = 'The document contains placeholder text (Lorem Ipsum) with no valid institutional or academic NAAC evidence.';
+        } else if (extractedText) {
+          const textSug = getAiSuggestion(file.name, extractedText);
+          if (textSug) {
+            initialReason = textSug.reason;
+            if (useAi) {
+              initialCrit = toCanonicalCrit(textSug.crit);
+              initialKi = toCanonicalKi(textSug.keyIndicator);
+              initialMetric = toCanonicalMetric(textSug.metric);
+            }
+          }
+        }
+
+        const initialNature = detectDocNature(file.name);
+        const initialAuditChecks = {
+          signature: isLorem ? false : (extractedText ? hasSignature : file.name.toLowerCase().includes('signed')),
+          stamp: isLorem ? false : (extractedText ? hasStamp : file.name.toLowerCase().includes('stamp')),
+          date: isLorem ? false : (extractedText ? hasDate : (/\b20(2[1-6])\b/.test(file.name.toLowerCase()) || file.name.toLowerCase().includes('date'))),
+          time: isLorem ? false : (extractedText ? hasTime : (file.name.toLowerCase().includes('time') || initialNature === 'ground_proof')),
+          letterhead: isLorem ? false : (extractedText ? hasLetterhead : (initialNature === 'supporting_doc')),
+          cycleYear: isLorem ? false : (extractedText ? hasDate : (/\b20(2[1-6])\b/.test(file.name.toLowerCase()))),
+          geotag: initialNature === 'ground_proof' || /\.(jpg|jpeg|png|webp|gif)$/i.test(file.name),
+        };
+        const initialAudit = evaluateDocAudit(file.name, initialNature, initialAuditChecks, auditConfig, extractedText);
 
         const newDocId = `doc-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 6)}`;
         const newDoc: NaacEvidenceDocument = {
@@ -1102,6 +1535,16 @@ Respond in JSON ONLY:
           aiReason: useAi ? initialReason : undefined,
           aiAutoFiled: Boolean(useAi),
           cycleId: selectedCycleId,
+          docNature: initialNature,
+          readinessScore: `${initialAudit.score}/${initialAudit.totalChecks}`,
+          readinessPassed: initialAudit.isReady,
+          readinessChecks: {
+            signature: initialAudit.signature,
+            cycleYear: initialAudit.cycleYear,
+            letterhead: initialAudit.letterhead,
+            geotag: initialAudit.geotag,
+            notes: initialAudit.notes,
+          },
         };
 
         const created = addOrUpdateNaacDocument(newDoc);
@@ -1127,6 +1570,7 @@ Respond in JSON ONLY:
             name: file.name,
             size: sizeStr,
             dataUrl: safeDataUrl,
+            extractedText,
           });
           setActiveDocId(targetId);
         }
@@ -1143,13 +1587,16 @@ Respond in JSON ONLY:
             metric: initialMetric,
             reason: initialReason,
             source: 'rule-engine',
+            docNature: initialNature,
+            extractedText,
+            auditChecks: initialAuditChecks,
           },
         ]);
 
         // If AI is enabled, classify EVERY uploaded file in the batch
         if (useAi) {
           if (openaiKey.trim()) {
-            classifyWithOpenAi(file.name, openaiKey.trim(), rawDataUrl, targetId, index === 0);
+            classifyWithOpenAi(file.name, openaiKey.trim(), rawDataUrl, targetId, index === 0, extractedText);
           } else {
             if (index === 0) {
               setIsAiBoxOpen(true);
@@ -1299,6 +1746,8 @@ Respond in JSON ONLY:
 
     const targetId = activeDocId || `doc-${Date.now()}`;
     if (uploadedFilesBatch.length <= 1) {
+      const singleNature = detectDocNature(fileName);
+      const singleAudit = evaluateDocAudit(fileName, singleNature, undefined, auditConfig, uploadedFile.extractedText);
       addOrUpdateNaacDocument({
         id: targetId,
         title: docTitle,
@@ -1315,6 +1764,40 @@ Respond in JSON ONLY:
         programId: programId || (role === 'school' ? 'school-common' : role === 'university' ? 'univ-master' : 'prog-cse'),
         uploadedBy: uploaderName || (role === 'school' ? 'Dean (School Coordinator)' : role === 'university' ? 'IQAC Central Committee' : 'Prof. Anita Verma'),
         cycleId: selectedCycleId,
+        docNature: singleNature,
+        readinessScore: `${singleAudit.score}/${singleAudit.totalChecks}`,
+        readinessPassed: singleAudit.isReady,
+        readinessChecks: {
+          signature: singleAudit.signature,
+          stamp: singleAudit.stamp,
+          date: singleAudit.date,
+          time: singleAudit.time,
+          letterhead: singleAudit.letterhead,
+          cycleYear: singleAudit.cycleYear,
+          geotag: singleAudit.geotag,
+          notes: singleAudit.notes,
+        },
+      });
+    } else {
+      uploadedFilesBatch.forEach((item) => {
+        const itemNature = item.docNature || detectDocNature(item.name);
+        const itemAudit = evaluateDocAudit(item.name, itemNature, item.auditChecks, auditConfig, item.extractedText);
+        addOrUpdateNaacDocument({
+          id: item.docId,
+          docNature: itemNature,
+          readinessScore: `${itemAudit.score}/${itemAudit.totalChecks}`,
+          readinessPassed: itemAudit.isReady,
+          readinessChecks: {
+            signature: itemAudit.signature,
+            stamp: itemAudit.stamp,
+            date: itemAudit.date,
+            time: itemAudit.time,
+            letterhead: itemAudit.letterhead,
+            cycleYear: itemAudit.cycleYear,
+            geotag: itemAudit.geotag,
+            notes: itemAudit.notes,
+          },
+        });
       });
     }
 
@@ -2911,13 +3394,13 @@ Respond in JSON ONLY:
                 isBarDragging ? '!border-blue-500 !bg-slate-50 ring-4 ring-blue-100 scale-[1.005]' : ''
               }`}
             >
-              {/* Top Divided Header: Let AI do the filing vs Manual Mode Division */}
+              {/* Top Divided Header: Let AI do the filing vs Manual Mode Division + NAAC Audit Checklist */}
               <div 
-                className="w-full flex flex-col sm:flex-row items-center justify-between gap-2.5 pb-3 mb-2 border-b border-gray-100/90"
+                className="w-full flex flex-col md:flex-row items-center justify-between gap-2.5 pb-3 mb-2 border-b border-gray-100/90"
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* Left: Let AI do the filing vs Manual Mode Segmented Division */}
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2.5">
                   <span className="text-xs font-bold text-gray-500 uppercase tracking-wider hidden sm:inline">
                     Mode:
                   </span>
@@ -2925,7 +3408,7 @@ Respond in JSON ONLY:
                     <button
                       type="button"
                       onClick={() => setUseAi(true)}
-                      className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                         useAi
                           ? 'bg-white text-indigo-950 shadow-xs border border-indigo-200/80 ring-1 ring-indigo-100'
                           : 'text-gray-500 hover:text-gray-900'
@@ -2939,7 +3422,7 @@ Respond in JSON ONLY:
                     <button
                       type="button"
                       onClick={() => setUseAi(false)}
-                      className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                         !useAi
                           ? 'bg-white text-gray-900 shadow-xs border border-gray-300 ring-1 ring-gray-100'
                           : 'text-gray-500 hover:text-gray-900'
@@ -2951,6 +3434,139 @@ Respond in JSON ONLY:
                     </button>
                   </div>
                 </div>
+
+                {/* Right: Apply Checks Dropdown Popover (Only Shown in AI Mode) */}
+                {useAi && (
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsApplyChecksOpen(!isApplyChecksOpen);
+                      }}
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border transition-all cursor-pointer shadow-2xs ${
+                        [auditConfig.checkSignature, auditConfig.checkStamp, auditConfig.checkDate, auditConfig.checkTime, auditConfig.checkLetterhead].filter(Boolean).length > 0
+                          ? 'bg-blue-50/90 text-blue-900 border-blue-200 hover:bg-blue-100'
+                          : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100'
+                      }`}
+                      title="Configure AI compliance scan before uploading"
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                      <span>Apply Checks</span>
+                      <span className="px-1.5 py-0.2 rounded-full text-[10px] font-extrabold bg-[#0f2748] text-white">
+                        {[auditConfig.checkSignature, auditConfig.checkStamp, auditConfig.checkDate, auditConfig.checkTime, auditConfig.checkLetterhead].filter(Boolean).length}/5
+                      </span>
+                      <ChevronDown className={`w-3 h-3 text-blue-700 transition-transform ${isApplyChecksOpen ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {/* Popover Card for AI Mode */}
+                    {isApplyChecksOpen && (
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        className="absolute right-0 top-full mt-1.5 w-64 bg-white rounded-xl shadow-xl border border-gray-200 p-2.5 text-left z-50 animate-in fade-in zoom-in-95"
+                      >
+                        <div className="flex items-center justify-between pb-1.5 border-b border-gray-100 mb-1.5">
+                          <div className="flex items-center gap-1.5 text-xs font-bold text-gray-800">
+                            <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
+                            <span>Apply Checks</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setIsApplyChecksOpen(false)}
+                            className="text-gray-400 hover:text-gray-600 p-0.5 rounded cursor-pointer"
+                            title="Close"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        <div className="space-y-0.5">
+                          {/* 1. Signature */}
+                          <label className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer select-none transition-colors">
+                            <input
+                              type="checkbox"
+                              checked={auditConfig.checkSignature}
+                              onChange={(e) => setAuditConfig((c) => ({ ...c, checkSignature: e.target.checked }))}
+                              className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-0 cursor-pointer accent-blue-600"
+                            />
+                            <span className="text-xs font-medium text-gray-800">✍️ Signature</span>
+                          </label>
+
+                          {/* 2. Stamp */}
+                          <label className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer select-none transition-colors">
+                            <input
+                              type="checkbox"
+                              checked={auditConfig.checkStamp}
+                              onChange={(e) => setAuditConfig((c) => ({ ...c, checkStamp: e.target.checked }))}
+                              className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-0 cursor-pointer accent-blue-600"
+                            />
+                            <span className="text-xs font-medium text-gray-800">💮 Stamp</span>
+                          </label>
+
+                          {/* 3. Date */}
+                          <label className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer select-none transition-colors">
+                            <input
+                              type="checkbox"
+                              checked={auditConfig.checkDate}
+                              onChange={(e) => setAuditConfig((c) => ({ ...c, checkDate: e.target.checked }))}
+                              className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-0 cursor-pointer accent-blue-600"
+                            />
+                            <span className="text-xs font-medium text-gray-800">📅 Date</span>
+                          </label>
+
+                          {/* 4. Time */}
+                          <label className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer select-none transition-colors">
+                            <input
+                              type="checkbox"
+                              checked={auditConfig.checkTime}
+                              onChange={(e) => setAuditConfig((c) => ({ ...c, checkTime: e.target.checked }))}
+                              className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-0 cursor-pointer accent-blue-600"
+                            />
+                            <span className="text-xs font-medium text-gray-800">⏱️ Time</span>
+                          </label>
+
+                          {/* 5. Letterhead */}
+                          <label className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer select-none transition-colors">
+                            <input
+                              type="checkbox"
+                              checked={auditConfig.checkLetterhead}
+                              onChange={(e) => setAuditConfig((c) => ({ ...c, checkLetterhead: e.target.checked }))}
+                              className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-0 cursor-pointer accent-blue-600"
+                            />
+                            <span className="text-xs font-medium text-gray-800">🏛️ Letterhead</span>
+                          </label>
+                        </div>
+
+                        <div className="mt-2 pt-1.5 border-t border-gray-100 flex items-center justify-between">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const allChecked = auditConfig.checkSignature && auditConfig.checkStamp && auditConfig.checkDate && auditConfig.checkTime && auditConfig.checkLetterhead;
+                              setAuditConfig({
+                                enabled: true,
+                                checkSignature: !allChecked,
+                                checkStamp: !allChecked,
+                                checkDate: !allChecked,
+                                checkTime: !allChecked,
+                                checkLetterhead: !allChecked,
+                              });
+                            }}
+                            className="text-[11px] font-semibold text-blue-600 hover:text-blue-800 cursor-pointer"
+                          >
+                            {auditConfig.checkSignature && auditConfig.checkStamp && auditConfig.checkDate && auditConfig.checkTime && auditConfig.checkLetterhead ? 'Deselect All' : 'Select All'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setIsApplyChecksOpen(false)}
+                            className="px-2.5 py-0.5 rounded-md text-[11px] font-bold text-white bg-blue-600 hover:bg-blue-700 cursor-pointer shadow-2xs"
+                          >
+                            Done
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Center Dropzone Illustration & Action (Clean White Styling & Sleek Height) */}
@@ -3052,7 +3668,8 @@ Respond in JSON ONLY:
                                   openaiKey.trim(),
                                   item.dataUrl,
                                   item.docId,
-                                  item.docId === activeItem.docId
+                                  item.docId === activeItem.docId,
+                                  item.extractedText
                                 );
                               });
                             } else if (activeItem) {
@@ -3072,7 +3689,7 @@ Respond in JSON ONLY:
                               setTimeout(() => setIsAiProcessing(false), 1500);
                             }
                           } else if (uploadedFile && openaiKey.trim()) {
-                            classifyWithOpenAi(uploadedFile.name, openaiKey.trim(), uploadedFile.dataUrl);
+                            classifyWithOpenAi(uploadedFile.name, openaiKey.trim(), uploadedFile.dataUrl, undefined, true, uploadedFile.extractedText);
                           } else {
                             setTimeout(() => setIsAiProcessing(false), 1500);
                           }
@@ -3416,11 +4033,10 @@ Respond in JSON ONLY:
                     <table className="w-full text-left border-collapse">
                       <thead>
                         <tr className="bg-slate-50/90 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                          <th className={`py-2.5 px-3.5 ${useAi ? 'w-[20%]' : 'w-[34%]'}`}>Document</th>
-                          <th className={`py-2.5 px-3 ${useAi ? 'w-[18%]' : 'w-[28%]'}`}>Criteria &amp; KI</th>
-                          <th className={`py-2.5 px-3 ${useAi ? 'w-[16%]' : 'w-[26%]'}`}>Metric</th>
-                          {useAi && <th className="py-2.5 px-3 w-[38%]">AI Reasoning</th>}
-                          <th className="py-2.5 px-3 text-right w-[8%]">Actions</th>
+                          <th className="py-2.5 px-3.5 w-[36%]">Document &amp; Nature</th>
+                          <th className="py-2.5 px-3 w-[30%]">Criteria &amp; KI</th>
+                          <th className="py-2.5 px-3 w-[24%]">Metric</th>
+                          <th className="py-2.5 px-3 text-right w-[10%]">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 text-xs">
@@ -3447,174 +4063,334 @@ Respond in JSON ONLY:
                             itemAvailableMetrics[0];
 
                           const itemReason =
-                            batchItem.reason || getAiSuggestion(batchItem.name).reason;
+                            batchItem.reason || getAiSuggestion(batchItem.name, batchItem.extractedText).reason;
+
+                          // Pahade Sir Framework: Document Nature & Audit Status
+                          const itemNature = batchItem.docNature || detectDocNature(batchItem.name);
+                          const itemAudit = evaluateDocAudit(batchItem.name, itemNature, batchItem.auditChecks, auditConfig, batchItem.extractedText);
 
                           return (
-                            <tr
-                              key={batchItem.docId}
-                              className="transition-colors align-top hover:bg-slate-50/70"
-                            >
-                              {/* 1. Document */}
-                              <td className="py-3 px-3.5">
-                                <div className="flex items-start gap-2 min-w-0">
-                                  <span className="w-5 h-5 rounded-md bg-slate-100 border border-slate-200 text-[10px] font-bold text-slate-700 flex items-center justify-center shrink-0 mt-0.5">
-                                    {idx + 1}
-                                  </span>
-                                  <div className="min-w-0">
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        openFileInNewTab(batchItem.dataUrl, batchItem.name)
-                                      }
-                                      className="font-bold text-gray-900 hover:text-blue-600 text-left break-words line-clamp-2 leading-snug cursor-pointer"
-                                      title={`Preview ${batchItem.name}`}
-                                    >
-                                      {batchItem.name}
-                                    </button>
-                                    <span className="text-[10px] text-gray-400 font-medium block mt-0.5">
-                                      {batchItem.size}
+                            <React.Fragment key={batchItem.docId}>
+                              {/* 1. Main Document & Destination Row */}
+                              <tr className="transition-colors align-top hover:bg-slate-50/70 border-b border-slate-100">
+                                {/* 1. Document & Nature Distinction */}
+                                <td className="py-3 px-3.5">
+                                  <div className="flex items-start gap-2 min-w-0">
+                                    <span className="w-5 h-5 rounded-md bg-slate-100 border border-slate-200 text-[10px] font-bold text-slate-700 flex items-center justify-center shrink-0 mt-0.5">
+                                      {idx + 1}
                                     </span>
+                                    <div className="min-w-0">
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          openFileInNewTab(batchItem.dataUrl, batchItem.name)
+                                        }
+                                        className="font-bold text-gray-900 hover:text-blue-600 text-left break-words line-clamp-2 leading-snug cursor-pointer"
+                                        title={`Preview ${batchItem.name}`}
+                                      >
+                                        {batchItem.name}
+                                      </button>
+                                      <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                                        <span className="text-[10px] text-gray-400 font-medium">
+                                          {batchItem.size}
+                                        </span>
+                                        <span className="text-gray-300">•</span>
+                                        {/* Document Nature Badge (Toggleable) */}
+                                        <button
+                                          type="button"
+                                          onClick={() => toggleItemDocNature(batchItem.docId)}
+                                          className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer ${
+                                            itemNature === 'ground_proof'
+                                              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 shadow-2xs'
+                                              : 'bg-indigo-50 text-indigo-800 border border-indigo-200 hover:bg-indigo-100 shadow-2xs'
+                                          }`}
+                                          title="Click to toggle between Supporting Document and Ground Proof"
+                                        >
+                                          {itemNature === 'ground_proof' ? (
+                                            <>
+                                              <Camera className="w-2.5 h-2.5 text-emerald-600" />
+                                              <span>Ground Proof</span>
+                                            </>
+                                          ) : (
+                                            <>
+                                              <FileText className="w-2.5 h-2.5 text-indigo-600" />
+                                              <span>Supporting Doc</span>
+                                            </>
+                                          )}
+                                        </button>
+                                      </div>
+                                    </div>
                                   </div>
-                                </div>
-                              </td>
+                                </td>
 
-                              {/* 2. Criteria & KI */}
-                              <td className="py-3 px-3">
-                                <div>
-                                  <div className="flex items-center gap-1.5 flex-wrap">
-                                    <span className="px-2 py-0.5 rounded bg-[#0f2748] text-white font-mono text-[10px] font-bold">
-                                      {itemCritCode}
-                                    </span>
-                                    <span className="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-700 font-mono text-[10px] font-bold">
-                                      KI {itemKiCode}
-                                    </span>
-                                    {!useAi && batchItem.isManualEdit && (
-                                      <span className="px-1.5 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-700 text-[10px] font-bold" title="Manually customized for this document">
-                                        Custom
-                                      </span>
-                                    )}
-                                  </div>
-                                  <p
-                                    className="text-[11px] font-semibold text-gray-700 mt-1 line-clamp-2 leading-snug"
-                                    title={`${itemCriterionObj.name} — ${itemKiObj?.name || ''}`}
-                                  >
-                                    {itemKiObj?.name || itemCriterionObj.name}
-                                  </p>
-                                </div>
-                              </td>
-
-                              {/* 3. Metric */}
-                              <td className="py-3 px-3">
-                                <div>
-                                  <span className="inline-block px-2 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-700 font-mono text-[11px] font-extrabold">
-                                    Metric {itemMetricCode}
-                                  </span>
-                                  <p
-                                    className="text-[11px] font-medium text-gray-600 mt-1 line-clamp-2 leading-snug"
-                                    title={itemMetricObj?.name}
-                                  >
-                                    {itemMetricObj?.name || `Metric ${itemMetricCode}`}
-                                  </p>
-                                </div>
-                              </td>
-
-                              {/* 4. AI Reasoning (Only in AI Mode - Displayed 100% Completely Without Truncation) */}
-                              {useAi && (
+                                {/* 2. Criteria & KI */}
                                 <td className="py-3 px-3">
-                                  <div className="flex items-start gap-2 text-xs text-slate-800 leading-relaxed">
-                                    <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-amber-400 shrink-0 mt-0.5" />
-                                    <p className="text-xs text-slate-800 leading-relaxed break-words whitespace-normal font-medium">
-                                      {itemReason}
+                                  <div>
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <span className="px-2 py-0.5 rounded bg-[#0f2748] text-white font-mono text-[10px] font-bold">
+                                        {itemCritCode}
+                                      </span>
+                                      <span className="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-700 font-mono text-[10px] font-bold">
+                                        KI {itemKiCode}
+                                      </span>
+                                      {!useAi && batchItem.isManualEdit && (
+                                        <span className="px-1.5 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-700 text-[10px] font-bold" title="Manually customized for this document">
+                                          Custom
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p
+                                      className="text-[11px] font-semibold text-gray-700 mt-1 line-clamp-2 leading-snug"
+                                      title={`${itemCriterionObj.name} — ${itemKiObj?.name || ''}`}
+                                    >
+                                      {itemKiObj?.name || itemCriterionObj.name}
                                     </p>
                                   </div>
                                 </td>
-                              )}
 
-                              {/* 5. Edit / Remove Actions */}
-                              <td className="py-3 px-3 text-right whitespace-nowrap">
-                                <div className="inline-flex items-center justify-end gap-1">
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      setEditingDocModal({
-                                        docId: batchItem.docId,
-                                        fileName: batchItem.name,
-                                        crit: itemCritCode,
-                                        ki: itemKiCode,
-                                        metric: itemMetricCode,
-                                        aiReason: useAi ? itemReason : undefined,
-                                      })
-                                    }
-                                    className="p-1.5 rounded-lg bg-white text-gray-600 border border-gray-200 hover:text-blue-600 hover:border-blue-200 hover:bg-blue-50 transition-colors cursor-pointer"
-                                    title="Edit Filing Destination"
-                                  >
-                                    <Pencil className="w-3.5 h-3.5" />
-                                  </button>
+                                {/* 3. Metric */}
+                                <td className="py-3 px-3">
+                                  <div>
+                                    <span className="inline-block px-2 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-700 font-mono text-[11px] font-extrabold">
+                                      Metric {itemMetricCode}
+                                    </span>
+                                    <p
+                                      className="text-[11px] font-medium text-gray-600 mt-1 line-clamp-2 leading-snug"
+                                      title={itemMetricObj?.name}
+                                    >
+                                      {itemMetricObj?.name || `Metric ${itemMetricCode}`}
+                                    </p>
+                                  </div>
+                                </td>
 
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      deleteNaacDocument(batchItem.docId);
-                                      const updated = myDocIds.filter(
-                                        (id) => id !== batchItem.docId
-                                      );
-                                      setMyDocIds(updated);
-                                      setSelectedDocIds((prev) =>
-                                        prev.filter((id) => id !== batchItem.docId)
-                                      );
-                                      try {
-                                        localStorage.setItem(
-                                          myDocsStorageKey,
-                                          JSON.stringify(updated)
-                                        );
-                                        localStorage.setItem(
-                                          'naac_my_uploaded_doc_ids_prog_cse',
-                                          JSON.stringify(updated)
-                                        );
-                                        localStorage.setItem(
-                                          'naac_my_uploaded_doc_ids_program',
-                                          JSON.stringify(updated)
-                                        );
-                                      } catch (err) {
-                                        // ignore
+                                {/* 4. Edit / Remove Actions */}
+                                <td className="py-3 px-3 text-right whitespace-nowrap">
+                                  <div className="inline-flex items-center justify-end gap-1">
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setEditingDocModal({
+                                          docId: batchItem.docId,
+                                          fileName: batchItem.name,
+                                          crit: itemCritCode,
+                                          ki: itemKiCode,
+                                          metric: itemMetricCode,
+                                          aiReason: useAi ? itemReason : undefined,
+                                          docNature: itemNature,
+                                          extractedText: batchItem.extractedText,
+                                          auditChecks: batchItem.auditChecks,
+                                        })
                                       }
-                                      refreshDocuments();
+                                      className="p-1.5 rounded-lg bg-white text-gray-600 border border-gray-200 hover:text-blue-600 hover:border-blue-200 hover:bg-blue-50 transition-colors cursor-pointer"
+                                      title="Edit Filing Destination"
+                                    >
+                                      <Pencil className="w-3.5 h-3.5" />
+                                    </button>
 
-                                      const remaining = uploadedFilesBatch.filter(
-                                        (f) => f.docId !== batchItem.docId
-                                      );
-                                      setUploadedFilesBatch(remaining);
-                                      if (remaining.length > 0) {
-                                        const next = remaining[0];
-                                        setActiveDocId(next.docId);
-                                        setUploadedFile({
-                                          name: next.name,
-                                          size: next.size,
-                                          dataUrl: next.dataUrl,
-                                        });
-                                        setSelectedCriterionCode(next.crit);
-                                        setSelectedKeyIndicatorCode(next.keyIndicator);
-                                        setSelectedMetricCode(next.metric);
-                                      } else {
-                                        setUploadedFile(null);
-                                        setActiveDocId(null);
-                                        setSelectedCriterionCode('Criterion 1');
-                                        setSelectedKeyIndicatorCode('1.1');
-                                        setSelectedMetricCode('1.1.1');
-                                        setAiSuggestion(null);
-                                        setIsChangeOpen(false);
-                                        setIsAiBoxOpen(false);
-                                      }
-                                    }}
-                                    className="p-1.5 rounded-lg bg-white text-gray-500 border border-gray-200 hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50 transition-colors cursor-pointer"
-                                    title="Remove document"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        deleteNaacDocument(batchItem.docId);
+                                        const updated = myDocIds.filter(
+                                          (id) => id !== batchItem.docId
+                                        );
+                                        setMyDocIds(updated);
+                                        setSelectedDocIds((prev) =>
+                                          prev.filter((id) => id !== batchItem.docId)
+                                        );
+                                        try {
+                                          localStorage.setItem(
+                                            myDocsStorageKey,
+                                            JSON.stringify(updated)
+                                          );
+                                          localStorage.setItem(
+                                            'naac_my_uploaded_doc_ids_prog_cse',
+                                            JSON.stringify(updated)
+                                          );
+                                          localStorage.setItem(
+                                            'naac_my_uploaded_doc_ids_program',
+                                            JSON.stringify(updated)
+                                          );
+                                        } catch (err) {
+                                          // ignore
+                                        }
+                                        refreshDocuments();
+
+                                        const remaining = uploadedFilesBatch.filter(
+                                          (f) => f.docId !== batchItem.docId
+                                        );
+                                        setUploadedFilesBatch(remaining);
+                                        if (remaining.length > 0) {
+                                          const next = remaining[0];
+                                          setActiveDocId(next.docId);
+                                          setUploadedFile({
+                                            name: next.name,
+                                            size: next.size,
+                                            dataUrl: next.dataUrl,
+                                          });
+                                          setSelectedCriterionCode(next.crit);
+                                          setSelectedKeyIndicatorCode(next.keyIndicator);
+                                          setSelectedMetricCode(next.metric);
+                                        } else {
+                                          setUploadedFile(null);
+                                          setActiveDocId(null);
+                                          setSelectedCriterionCode('Criterion 1');
+                                          setSelectedKeyIndicatorCode('1.1');
+                                          setSelectedMetricCode('1.1.1');
+                                          setAiSuggestion(null);
+                                          setIsChangeOpen(false);
+                                          setIsAiBoxOpen(false);
+                                        }
+                                      }}
+                                      className="p-1.5 rounded-lg bg-white text-gray-500 border border-gray-200 hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50 transition-colors cursor-pointer"
+                                      title="Remove document"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+
+                              {/* 2. DEDICATED FULL-WIDTH AI REASONING & NAAC READINESS ROW */}
+                              <tr className="bg-slate-50/50 border-b border-gray-200 text-xs">
+                                <td colSpan={4} className="py-2.5 px-4 pl-10">
+                                  <div className="space-y-2.5">
+                                    {/* A. AI Reasoning (Full-Width with High Readability) */}
+                                    {useAi && (
+                                      <div className="flex items-start gap-2.5 text-xs text-slate-800 leading-relaxed bg-white/80 border border-slate-200/90 rounded-lg p-2.5 shadow-2xs">
+                                        <Sparkles className="w-4 h-4 text-amber-500 fill-amber-400 shrink-0 mt-0.5" />
+                                        <div className="min-w-0">
+                                          <span className="font-bold text-[#0f2748] mr-1.5">AI Mapping Reasoning:</span>
+                                          <span className="text-slate-700 font-medium leading-relaxed">{itemReason}</span>
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {/* B. NAAC Readiness Checklist Box (Matching AI Reasoning Card Box) */}
+                                    <div className="flex flex-wrap items-center justify-between gap-3 text-xs bg-white/80 border border-slate-200/90 rounded-lg p-2.5 shadow-2xs text-gray-700">
+                                      <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1.5">
+                                        {/* Label & Score */}
+                                        <span className="font-bold text-[#0f2748] flex items-center gap-1.5">
+                                          <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0" />
+                                          <span>NAAC Readiness:</span>
+                                          <span className="text-gray-500 font-normal">
+                                            {itemAudit.totalChecks > 0 ? `(${itemAudit.score}/${itemAudit.totalChecks})` : '(No checks selected)'}
+                                          </span>
+                                        </span>
+
+                                        {/* 1. Signature */}
+                                        {auditConfig.checkSignature && (
+                                          <>
+                                            <span className="text-gray-300 hidden sm:inline">|</span>
+                                            <button
+                                              type="button"
+                                              onClick={() => toggleItemAuditCheck(batchItem.docId, 'signature')}
+                                              className="inline-flex items-center gap-1.5 text-xs text-gray-700 hover:text-gray-950 py-0.5 px-1 rounded hover:bg-slate-200/50 transition-colors cursor-pointer"
+                                              title={itemAudit.signature ? 'Signature: Verified (Click to toggle)' : 'Signature: Missing (Click to toggle)'}
+                                            >
+                                              <span className="text-gray-700 font-medium">Signature:</span>
+                                              {itemAudit.signature ? (
+                                                <Check className="w-4.5 h-4.5 text-emerald-600 stroke-[3] shrink-0" />
+                                              ) : (
+                                                <X className="w-4.5 h-4.5 text-rose-600 stroke-[3] shrink-0" />
+                                              )}
+                                            </button>
+                                          </>
+                                        )}
+
+                                        {/* 2. Stamp */}
+                                        {auditConfig.checkStamp && (
+                                          <>
+                                            <span className="text-gray-300 hidden sm:inline">|</span>
+                                            <button
+                                              type="button"
+                                              onClick={() => toggleItemAuditCheck(batchItem.docId, 'stamp')}
+                                              className="inline-flex items-center gap-1.5 text-xs text-gray-700 hover:text-gray-950 py-0.5 px-1 rounded hover:bg-slate-200/50 transition-colors cursor-pointer"
+                                              title={itemAudit.stamp ? 'Stamp: Verified (Click to toggle)' : 'Stamp: Missing (Click to toggle)'}
+                                            >
+                                              <span className="text-gray-700 font-medium">Stamp:</span>
+                                              {itemAudit.stamp ? (
+                                                <Check className="w-4.5 h-4.5 text-emerald-600 stroke-[3] shrink-0" />
+                                              ) : (
+                                                <X className="w-4.5 h-4.5 text-rose-600 stroke-[3] shrink-0" />
+                                              )}
+                                            </button>
+                                          </>
+                                        )}
+
+                                        {/* 3. Date */}
+                                        {auditConfig.checkDate && (
+                                          <>
+                                            <span className="text-gray-300 hidden sm:inline">|</span>
+                                            <button
+                                              type="button"
+                                              onClick={() => toggleItemAuditCheck(batchItem.docId, 'date')}
+                                              className="inline-flex items-center gap-1.5 text-xs text-gray-700 hover:text-gray-950 py-0.5 px-1 rounded hover:bg-slate-200/50 transition-colors cursor-pointer"
+                                              title={itemAudit.date ? 'Date: Verified (Click to toggle)' : 'Date: Missing (Click to toggle)'}
+                                            >
+                                              <span className="text-gray-700 font-medium">Date:</span>
+                                              {itemAudit.date ? (
+                                                <Check className="w-4.5 h-4.5 text-emerald-600 stroke-[3] shrink-0" />
+                                              ) : (
+                                                <X className="w-4.5 h-4.5 text-rose-600 stroke-[3] shrink-0" />
+                                              )}
+                                            </button>
+                                          </>
+                                        )}
+
+                                        {/* 4. Time */}
+                                        {auditConfig.checkTime && (
+                                          <>
+                                            <span className="text-gray-300 hidden sm:inline">|</span>
+                                            <button
+                                              type="button"
+                                              onClick={() => toggleItemAuditCheck(batchItem.docId, 'time')}
+                                              className="inline-flex items-center gap-1.5 text-xs text-gray-700 hover:text-gray-950 py-0.5 px-1 rounded hover:bg-slate-200/50 transition-colors cursor-pointer"
+                                              title={itemAudit.time ? 'Time: Verified (Click to toggle)' : 'Time: Missing (Click to toggle)'}
+                                            >
+                                              <span className="text-gray-700 font-medium">Time:</span>
+                                              {itemAudit.time ? (
+                                                <Check className="w-4.5 h-4.5 text-emerald-600 stroke-[3] shrink-0" />
+                                              ) : (
+                                                <X className="w-4.5 h-4.5 text-rose-600 stroke-[3] shrink-0" />
+                                              )}
+                                            </button>
+                                          </>
+                                        )}
+
+                                        {/* 5. Letterhead */}
+                                        {auditConfig.checkLetterhead && (
+                                          <>
+                                            <span className="text-gray-300 hidden sm:inline">|</span>
+                                            <button
+                                              type="button"
+                                              onClick={() => toggleItemAuditCheck(batchItem.docId, 'letterhead')}
+                                              className="inline-flex items-center gap-1.5 text-xs text-gray-700 hover:text-gray-950 py-0.5 px-1 rounded hover:bg-slate-200/50 transition-colors cursor-pointer"
+                                              title={itemAudit.letterhead ? 'Letterhead: Detected (Click to toggle)' : 'Letterhead: Missing (Click to toggle)'}
+                                            >
+                                              <span className="text-gray-700 font-medium">Letterhead:</span>
+                                              {itemAudit.letterhead ? (
+                                                <Check className="w-4.5 h-4.5 text-emerald-600 stroke-[3] shrink-0" />
+                                              ) : (
+                                                <X className="w-4.5 h-4.5 text-rose-600 stroke-[3] shrink-0" />
+                                              )}
+                                            </button>
+                                          </>
+                                        )}
+                                     </div>
+                                   </div>
+                                 </div>
+                               </td>
+                             </tr>
+
+                             {/* 3. DISTINCT VISUAL SEPARATION BETWEEN MULTIPLE FILES */}
+                             {idx < uploadedFilesBatch.length - 1 && (
+                               <tr className="h-3.5 bg-slate-100/90 border-y border-slate-200/90" aria-hidden="true">
+                                 <td colSpan={4} className="p-0" />
+                               </tr>
+                             )}
+                            </React.Fragment>
                           );
                         })}
                       </tbody>
@@ -4379,6 +5155,151 @@ Respond in JSON ONLY:
                   ))}
                 </select>
               </div>
+
+              {/* 4. Document Nature (Pahade Sir Framework) */}
+              <div className="pt-2 border-t border-gray-100">
+                <label className="block text-xs font-bold text-gray-700 mb-1">
+                  4. Document Nature
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setEditingDocModal({
+                        ...editingDocModal,
+                        docNature: 'supporting_doc',
+                      })
+                    }
+                    className={`py-2 px-3 rounded-xl text-center font-bold text-xs border cursor-pointer transition-all ${
+                      editingDocModal.docNature === 'supporting_doc'
+                        ? 'bg-indigo-50 text-indigo-900 border-indigo-300 shadow-2xs'
+                        : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100'
+                    }`}
+                  >
+                    📄 Supporting Document
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setEditingDocModal({
+                        ...editingDocModal,
+                        docNature: 'ground_proof',
+                      })
+                    }
+                    className={`py-2 px-3 rounded-xl text-center font-bold text-xs border cursor-pointer transition-all ${
+                      editingDocModal.docNature === 'ground_proof'
+                        ? 'bg-emerald-50 text-emerald-900 border-emerald-300 shadow-2xs'
+                        : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100'
+                    }`}
+                  >
+                    📸 Ground Proof
+                  </button>
+                </div>
+              </div>
+
+              {/* 5. NAAC Readiness Checklist Items */}
+              <div className="pt-2 border-t border-gray-100">
+                <label className="block text-xs font-bold text-gray-700 mb-1.5 flex items-center justify-between">
+                  <span>5. NAAC Readiness Checklist</span>
+                  <span className="text-[10px] text-gray-400 font-normal">Pahade Sir Framework</span>
+                </label>
+                <div className="space-y-1.5 bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
+                  {/* 1. Signature */}
+                  <label className="flex items-center justify-between text-xs font-semibold text-gray-800 cursor-pointer">
+                    <span>✍️ Signature</span>
+                    <input
+                      type="checkbox"
+                      checked={editingDocModal.auditChecks?.signature ?? true}
+                      onChange={(e) =>
+                        setEditingDocModal({
+                          ...editingDocModal,
+                          auditChecks: {
+                            ...editingDocModal.auditChecks,
+                            signature: e.target.checked,
+                          },
+                        })
+                      }
+                      className="rounded text-blue-600 focus:ring-0 cursor-pointer"
+                    />
+                  </label>
+
+                  {/* 2. Stamp */}
+                  <label className="flex items-center justify-between text-xs font-semibold text-gray-800 cursor-pointer">
+                    <span>💮 Stamp</span>
+                    <input
+                      type="checkbox"
+                      checked={editingDocModal.auditChecks?.stamp ?? true}
+                      onChange={(e) =>
+                        setEditingDocModal({
+                          ...editingDocModal,
+                          auditChecks: {
+                            ...editingDocModal.auditChecks,
+                            stamp: e.target.checked,
+                          },
+                        })
+                      }
+                      className="rounded text-blue-600 focus:ring-0 cursor-pointer"
+                    />
+                  </label>
+
+                  {/* 3. Date */}
+                  <label className="flex items-center justify-between text-xs font-semibold text-gray-800 cursor-pointer">
+                    <span>📅 Date</span>
+                    <input
+                      type="checkbox"
+                      checked={editingDocModal.auditChecks?.date ?? true}
+                      onChange={(e) =>
+                        setEditingDocModal({
+                          ...editingDocModal,
+                          auditChecks: {
+                            ...editingDocModal.auditChecks,
+                            date: e.target.checked,
+                          },
+                        })
+                      }
+                      className="rounded text-blue-600 focus:ring-0 cursor-pointer"
+                    />
+                  </label>
+
+                  {/* 4. Time */}
+                  <label className="flex items-center justify-between text-xs font-semibold text-gray-800 cursor-pointer">
+                    <span>⏱️ Time</span>
+                    <input
+                      type="checkbox"
+                      checked={editingDocModal.auditChecks?.time ?? true}
+                      onChange={(e) =>
+                        setEditingDocModal({
+                          ...editingDocModal,
+                          auditChecks: {
+                            ...editingDocModal.auditChecks,
+                            time: e.target.checked,
+                          },
+                        })
+                      }
+                      className="rounded text-blue-600 focus:ring-0 cursor-pointer"
+                    />
+                  </label>
+
+                  {/* 5. Letterhead */}
+                  <label className="flex items-center justify-between text-xs font-semibold text-gray-800 cursor-pointer">
+                    <span>🏛️ College Letterhead</span>
+                    <input
+                      type="checkbox"
+                      checked={editingDocModal.auditChecks?.letterhead ?? true}
+                      onChange={(e) =>
+                        setEditingDocModal({
+                          ...editingDocModal,
+                          auditChecks: {
+                            ...editingDocModal.auditChecks,
+                            letterhead: e.target.checked,
+                          },
+                        })
+                      }
+                      className="rounded text-blue-600 focus:ring-0 cursor-pointer"
+                    />
+                  </label>
+                </div>
+              </div>
             </div>
 
             <div className="px-5 py-3.5 bg-gray-50 border-t border-gray-100 flex items-center justify-end gap-2">
@@ -4405,6 +5326,31 @@ Respond in JSON ONLY:
                   const metricObj = NAAC_METRICS_LIST.find(
                     (m) => m.code === editingDocModal.metric
                   );
+                  const modalNature = editingDocModal.docNature || 'supporting_doc';
+                  const modalAudit = evaluateDocAudit(
+                    editingDocModal.fileName,
+                    modalNature,
+                    editingDocModal.auditChecks,
+                    auditConfig,
+                    editingDocModal.extractedText
+                  );
+
+                  setUploadedFilesBatch((prev) =>
+                    prev.map((item) =>
+                      item.docId === editingDocModal.docId
+                        ? {
+                            ...item,
+                            crit: editingDocModal.crit,
+                            keyIndicator: editingDocModal.ki,
+                            metric: editingDocModal.metric,
+                            docNature: modalNature,
+                            auditChecks: editingDocModal.auditChecks,
+                            isManualEdit: true,
+                          }
+                        : item
+                    )
+                  );
+
                   addOrUpdateNaacDocument({
                     id: editingDocModal.docId,
                     criterionCode: editingDocModal.crit,
@@ -4413,10 +5359,23 @@ Respond in JSON ONLY:
                     metricCode: editingDocModal.metric,
                     metricName:
                       metricObj?.name || `${editingDocModal.metric} Evidence Proof`,
+                    docNature: modalNature,
+                    readinessScore: `${modalAudit.score}/${modalAudit.totalChecks}`,
+                    readinessPassed: modalAudit.isReady,
+                    readinessChecks: {
+                      signature: modalAudit.signature,
+                      stamp: modalAudit.stamp,
+                      date: modalAudit.date,
+                      time: modalAudit.time,
+                      letterhead: modalAudit.letterhead,
+                      cycleYear: modalAudit.cycleYear,
+                      geotag: modalAudit.geotag,
+                      notes: modalAudit.notes,
+                    },
                   });
                   refreshDocuments();
                   setSuccessToast(
-                    `Updated "${editingDocModal.fileName}" to ${editingDocModal.crit} › KI ${editingDocModal.ki} › Metric ${editingDocModal.metric}`
+                    `Updated "${editingDocModal.fileName}" destination & NAAC readiness checks!`
                   );
                   setTimeout(() => setSuccessToast(null), 3500);
                   setEditingDocModal(null);
