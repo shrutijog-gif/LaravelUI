@@ -2980,7 +2980,7 @@ Respond in JSON ONLY:
               onDragOver={handleBarDragOver}
               onDragLeave={handleBarDragLeave}
               onDrop={handleBarDrop}
-              className={`w-full max-w-4xl mx-auto bg-white border-2 rounded-2xl p-4 sm:p-5 shadow-lg text-left transition-all animate-in fade-in zoom-in-95 ${
+              className={`w-full max-w-5xl mx-auto bg-white border-2 rounded-2xl p-4 sm:p-5 shadow-lg text-left transition-all animate-in fade-in zoom-in-95 ${
                 isBarDragging ? 'border-blue-500 ring-4 ring-blue-100 bg-blue-50/30' : 'border-blue-200/90'
               }`}
             >
@@ -3416,11 +3416,11 @@ Respond in JSON ONLY:
                     <table className="w-full text-left border-collapse">
                       <thead>
                         <tr className="bg-slate-50/90 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                          <th className={`py-2.5 px-3.5 ${useAi ? 'w-[24%]' : 'w-[34%]'}`}>Document</th>
-                          <th className={`py-2.5 px-3 ${useAi ? 'w-[20%]' : 'w-[28%]'}`}>Criteria &amp; KI</th>
-                          <th className={`py-2.5 px-3 ${useAi ? 'w-[18%]' : 'w-[26%]'}`}>Metric</th>
-                          {useAi && <th className="py-2.5 px-3 w-[28%]">AI Reasoning</th>}
-                          <th className="py-2.5 px-3 text-right w-[10%]">Actions</th>
+                          <th className={`py-2.5 px-3.5 ${useAi ? 'w-[20%]' : 'w-[34%]'}`}>Document</th>
+                          <th className={`py-2.5 px-3 ${useAi ? 'w-[18%]' : 'w-[28%]'}`}>Criteria &amp; KI</th>
+                          <th className={`py-2.5 px-3 ${useAi ? 'w-[16%]' : 'w-[26%]'}`}>Metric</th>
+                          {useAi && <th className="py-2.5 px-3 w-[38%]">AI Reasoning</th>}
+                          <th className="py-2.5 px-3 text-right w-[8%]">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 text-xs">
@@ -3518,14 +3518,14 @@ Respond in JSON ONLY:
                                 </div>
                               </td>
 
-                              {/* 4. AI Reasoning (Only in AI Mode) */}
+                              {/* 4. AI Reasoning (Only in AI Mode - Displayed 100% Completely Without Truncation) */}
                               {useAi && (
                                 <td className="py-3 px-3">
-                                  <div className="flex items-start gap-1.5 text-[11px] text-slate-700 leading-relaxed">
-                                    <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
-                                    <span className="line-clamp-3" title={itemReason}>
+                                  <div className="flex items-start gap-2 text-xs text-slate-800 leading-relaxed">
+                                    <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-amber-400 shrink-0 mt-0.5" />
+                                    <p className="text-xs text-slate-800 leading-relaxed break-words whitespace-normal font-medium">
                                       {itemReason}
-                                    </span>
+                                    </p>
                                   </div>
                                 </td>
                               )}

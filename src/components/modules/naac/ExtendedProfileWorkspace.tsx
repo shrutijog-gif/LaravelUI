@@ -11,8 +11,6 @@ import {
   Edit3, 
   Trash2, 
   Plus, 
-  ChevronRight, 
-  ChevronLeft,
   X,
   Save,
   Check,
@@ -404,7 +402,7 @@ export const ExtendedProfileWorkspace: React.FC<ExtendedProfileWorkspaceProps> =
                     <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-2xs divide-y divide-slate-100 flex-1 min-h-[160px] flex flex-col">
                       {metric.documentProofs.length === 0 ? (
                         <div className="p-8 text-center text-xs text-slate-400 bg-slate-50/30 flex-1 flex items-center justify-center">
-                          No evidence document filed yet for Metric {metric.code}. Click <strong className="text-blue-700 font-semibold mx-1">"Upload Institutional Proof"</strong> to attach approved lists or certified orders.
+                          No evidence attached
                         </div>
                       ) : (
                         metric.documentProofs.map((proof) => (
@@ -472,33 +470,6 @@ export const ExtendedProfileWorkspace: React.FC<ExtendedProfileWorkspaceProps> =
             </div>
           );
         })}
-      </div>
-
-      {/* Section Navigation Footer */}
-      <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-        <button
-          disabled={activeSection === 'programs'}
-          onClick={() => {
-            const idx = sections.findIndex((s) => s.id === activeSection);
-            if (idx > 0) setActiveSection(sections[idx - 1].id);
-          }}
-          className="px-4 py-2 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 text-xs font-bold flex items-center gap-1.5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-        >
-          <ChevronLeft className="w-4 h-4" />
-          <span>Previous Section</span>
-        </button>
-
-        <button
-          disabled={activeSection === 'expenditure'}
-          onClick={() => {
-            const idx = sections.findIndex((s) => s.id === activeSection);
-            if (idx < sections.length - 1) setActiveSection(sections[idx + 1].id);
-          }}
-          className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1.5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-        >
-          <span>Next Section</span>
-          <ChevronRight className="w-4 h-4" />
-        </button>
       </div>
 
       {/* Edit Numbers Modal */}
