@@ -118,6 +118,9 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
       setSelectedCycleId(cycleId);
     }
   }, [cycleId]);
+
+  const isInsideCycle = Boolean(cycleId);
+  const activeCycleObj = cycles.find((c) => c.id === selectedCycleId) || cycles[0] || null;
   const [isDragging, setIsDragging] = useState(false);
   const [isBarDragging, setIsBarDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -2730,25 +2733,35 @@ Respond in JSON ONLY:
                 <span className="text-xs font-semibold text-gray-500 whitespace-nowrap">
                   Cycle:
                 </span>
-                <select
-                  value={selectedCycleId}
-                  onChange={(e) => setSelectedCycleId(e.target.value)}
-                  className="text-xs font-bold text-blue-700 bg-transparent outline-none cursor-pointer pr-1"
-                >
-                  {cycles.map((c) => (
-                    <option key={c.id} value={c.id} className="text-gray-900 font-semibold">
-                      {c.cycleNumber} : {c.yearFrom} to {c.yearTo}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={openManageCyclesModal}
-                  className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors cursor-pointer border-l border-gray-200 pl-2"
-                  title="Edit or Add NAAC Cycles"
-                >
-                  <Settings className="w-3.5 h-3.5" />
-                </button>
+                {isInsideCycle ? (
+                  <span className="text-xs font-bold text-gray-900 whitespace-nowrap">
+                    {activeCycleObj
+                      ? `${activeCycleObj.cycleNumber} : ${activeCycleObj.yearFrom} to ${activeCycleObj.yearTo}`
+                      : selectedCycleId}
+                  </span>
+                ) : (
+                  <>
+                    <select
+                      value={selectedCycleId}
+                      onChange={(e) => setSelectedCycleId(e.target.value)}
+                      className="text-xs font-bold text-blue-700 bg-transparent outline-none cursor-pointer pr-1"
+                    >
+                      {cycles.map((c) => (
+                        <option key={c.id} value={c.id} className="text-gray-900 font-semibold">
+                          {c.cycleNumber} : {c.yearFrom} to {c.yearTo}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={openManageCyclesModal}
+                      className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors cursor-pointer border-l border-gray-200 pl-2"
+                      title="Edit or Add NAAC Cycles"
+                    >
+                      <Settings className="w-3.5 h-3.5" />
+                    </button>
+                  </>
+                )}
               </div>
 
               <span className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-xs font-bold whitespace-nowrap shrink-0">
@@ -3726,32 +3739,42 @@ Respond in JSON ONLY:
           )}
         </div>
 
-        {/* Select Cycle Dropdown Above Droppable Area */}
+        {/* Select Cycle Dropdown / Locked Cycle Name Above Droppable Area */}
         <div className="mb-4 flex items-center justify-center">
           <div className="inline-flex items-center gap-2.5 bg-white border border-gray-200 rounded-xl px-3.5 py-2 shadow-2xs">
             <Calendar className="w-4 h-4 text-blue-600 shrink-0" />
             <span className="text-xs font-bold uppercase tracking-wider text-gray-500">
               Cycle:
             </span>
-            <select
-              value={selectedCycleId}
-              onChange={(e) => setSelectedCycleId(e.target.value)}
-              className="bg-transparent text-xs sm:text-sm font-bold text-gray-900 outline-none border-none cursor-pointer pr-1"
-            >
-              {cycles.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.cycleNumber} : {c.yearFrom} to {c.yearTo}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              onClick={openManageCyclesModal}
-              className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer border-l border-gray-200 pl-2.5"
-              title="Edit or Add NAAC Cycles"
-            >
-              <Settings className="w-4 h-4" />
-            </button>
+            {isInsideCycle ? (
+              <span className="text-xs sm:text-sm font-bold text-gray-900 pr-1">
+                {activeCycleObj
+                  ? `${activeCycleObj.cycleNumber} : ${activeCycleObj.yearFrom} to ${activeCycleObj.yearTo}`
+                  : selectedCycleId}
+              </span>
+            ) : (
+              <>
+                <select
+                  value={selectedCycleId}
+                  onChange={(e) => setSelectedCycleId(e.target.value)}
+                  className="bg-transparent text-xs sm:text-sm font-bold text-gray-900 outline-none border-none cursor-pointer pr-1"
+                >
+                  {cycles.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.cycleNumber} : {c.yearFrom} to {c.yearTo}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={openManageCyclesModal}
+                  className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer border-l border-gray-200 pl-2.5"
+                  title="Edit or Add NAAC Cycles"
+                >
+                  <Settings className="w-4 h-4" />
+                </button>
+              </>
+            )}
           </div>
         </div>
 
