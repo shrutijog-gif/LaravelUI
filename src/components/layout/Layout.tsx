@@ -49,6 +49,11 @@ export const Layout: React.FC<LayoutProps> = ({
   };
 
   const [activeModuleId, setActiveModuleId] = useState<string>(() => getInitialModule());
+  const [cycleQifTarget, setCycleQifTarget] = useState<{
+    critCode?: string;
+    metricCode?: string;
+    toastMsg?: string;
+  } | null>(null);
   const [activeModuleLabel, setActiveModuleLabel] = useState<string>(() => {
     const initMod = getInitialModule();
     if (initMod === 'naac-quick-drop') return 'Quick Evidence Drop';
@@ -196,15 +201,22 @@ export const Layout: React.FC<LayoutProps> = ({
               <NaacQuickUploadLanding
                 academicYear="2024-25"
                 initialDirectoryOpen={activeModuleId === 'naac-evidence-directory'}
-                onNavigateToDocumentList={() =>
-                  handleSelectMenuItem('naac-ssr-cycle', 'All Cycles')
-                }
+                onNavigateToDocumentList={(critCode, metricCode, toastMsg, targetCycleId) => {
+                  const effectiveCycle = targetCycleId || 'cycle-1';
+                  setCycleQifTarget({ critCode, metricCode, toastMsg });
+                  handleSelectMenuItem(`naac-cycle-${effectiveCycle}`, `Cycle ${effectiveCycle.replace('cycle-', '')}`);
+                }}
               />
             ) : activeModuleId === 'naac-ssr-cycle' || activeModuleId === 'naac-dms' || activeModuleId === 'naac-ssr' || activeModuleId === 'naac-dvv' || activeModuleId.startsWith('naac-cycle-') ? (
               <NaacSsrCycleModule
                 mode="ssr"
                 initialCycleId={activeModuleId.startsWith('naac-cycle-') ? activeModuleId.replace('naac-cycle-', '') : null}
+                initialTab={cycleQifTarget ? 'qif' : undefined}
+                initialCriterionCode={cycleQifTarget?.critCode}
+                initialMetricCode={cycleQifTarget?.metricCode}
+                initialToastMessage={cycleQifTarget?.toastMsg}
                 onSelectCycle={(cycleId) => {
+                  setCycleQifTarget(null);
                   if (cycleId) {
                     handleSelectMenuItem(`naac-cycle-${cycleId}`, `Cycle ${cycleId.replace('cycle-', '')}`);
                   } else {

@@ -60,6 +60,10 @@ interface NaacSsrCycleModuleProps {
   mode?: 'ssr' | 'aqar';
   onNavigateToAllocation?: () => void;
   initialCycleId?: string | null;
+  initialTab?: 'quick_drop' | 'qif' | 'extended_profile' | 'dvv' | 'ssr_report';
+  initialCriterionCode?: string | null;
+  initialMetricCode?: string | null;
+  initialToastMessage?: string | null;
   onSelectCycle?: (cycleId: string | null) => void;
 }
 
@@ -152,6 +156,10 @@ export const NaacSsrCycleModule: React.FC<NaacSsrCycleModuleProps> = ({
   mode = 'ssr',
   onNavigateToAllocation,
   initialCycleId,
+  initialTab,
+  initialCriterionCode,
+  initialMetricCode,
+  initialToastMessage,
   onSelectCycle,
 }) => {
   const [tenant, setTenant] = useState<CollegeTenant>(() => getActiveTenant());
@@ -165,15 +173,29 @@ export const NaacSsrCycleModule: React.FC<NaacSsrCycleModuleProps> = ({
   const [cycles, setCycles] = useState<NaacSsrCycle[]>(() => getStoredNaacCycles());
   const [selectedCycleId, setSelectedCycleId] = useState<string | null>(initialCycleId ?? null);
   const [selectedCriterionCode, setSelectedCriterionCode] = useState<string | null>(null);
-  const [cycleActiveTab, setCycleActiveTab] = useState<'quick_drop' | 'qif' | 'extended_profile' | 'dvv' | 'ssr_report'>('quick_drop');
+  const [qifTargetCriterion, setQifTargetCriterion] = useState<string | null>(initialCriterionCode ?? null);
+  const [qifTargetMetric, setQifTargetMetric] = useState<string | null>(initialMetricCode ?? null);
+  const [qifToastMessage, setQifToastMessage] = useState<string | null>(initialToastMessage ?? null);
+  const [cycleActiveTab, setCycleActiveTab] = useState<'quick_drop' | 'qif' | 'extended_profile' | 'dvv' | 'ssr_report'>(initialTab ?? 'quick_drop');
 
   useEffect(() => {
     if (initialCycleId !== undefined) {
       setSelectedCycleId(initialCycleId);
       setSelectedCriterionCode(null);
-      setCycleActiveTab('quick_drop');
+      if (initialTab) {
+        setCycleActiveTab(initialTab);
+      }
+      if (initialCriterionCode) {
+        setQifTargetCriterion(initialCriterionCode);
+      }
+      if (initialMetricCode) {
+        setQifTargetMetric(initialMetricCode);
+      }
+      if (initialToastMessage) {
+        setQifToastMessage(initialToastMessage);
+      }
     }
-  }, [initialCycleId]);
+  }, [initialCycleId, initialTab, initialCriterionCode, initialMetricCode, initialToastMessage]);
 
   const handleChooseCycle = (cycleId: string | null) => {
     setSelectedCycleId(cycleId);
@@ -795,6 +817,7 @@ export const NaacSsrCycleModule: React.FC<NaacSsrCycleModuleProps> = ({
           {cycleActiveTab === 'quick_drop' && (
             <div className="flex-1 flex flex-col justify-center my-auto w-full">
               <NaacQuickUploadLanding
+              cycleId={selectedCycle.id}
               academicYear={selectedCycle.yearFrom}
               role={activeRole}
               uploaderName={activeRoleMeta.personName}
@@ -819,12 +842,18 @@ export const NaacSsrCycleModule: React.FC<NaacSsrCycleModuleProps> = ({
                   ? 'University IQAC'
                   : 'Public Website SSR Archive'
               }
-              onNavigateToDocumentList={(critCode) => {
+              onNavigateToDocumentList={(critCode, metricCode, toastMsg) => {
                 if (critCode) {
-                  setSelectedCriterionCode(critCode);
-                } else {
-                  setCycleActiveTab('qif');
+                  setQifTargetCriterion(critCode);
                 }
+                if (metricCode) {
+                  setQifTargetMetric(metricCode);
+                }
+                if (toastMsg) {
+                  setQifToastMessage(toastMsg);
+                }
+                setSelectedCriterionCode(null);
+                setCycleActiveTab('qif');
               }}
             />
             </div>
@@ -837,7 +866,9 @@ export const NaacSsrCycleModule: React.FC<NaacSsrCycleModuleProps> = ({
               cycleNumber={selectedCycle.cycleNumber}
               yearFrom={selectedCycle.yearFrom}
               yearTo={selectedCycle.yearTo}
-              initialCriterionCode={selectedCriterionCode || undefined}
+              initialCriterionCode={qifTargetCriterion || undefined}
+              initialMetricCode={qifTargetMetric || undefined}
+              initialToastMessage={qifToastMessage || undefined}
             />
           )}
 

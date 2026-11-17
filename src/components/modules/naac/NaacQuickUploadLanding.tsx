@@ -5,6 +5,7 @@ import {
   Sparkles, 
   CheckCircle2, 
   AlertCircle, 
+  AlertTriangle, 
   FolderOpen, 
   ArrowRight, 
   ExternalLink, 
@@ -54,7 +55,8 @@ import { openFileInNewTab, generateCompiledNaacIndexPdfDataUrl } from '../../../
 
 export interface NaacQuickUploadLandingProps {
   academicYear: string;
-  onNavigateToDocumentList: (critCode?: string, metricCode?: string) => void;
+  cycleId?: string;
+  onNavigateToDocumentList?: (critCode?: string, metricCode?: string, toastMsg?: string, cycleId?: string) => void;
   // Role & Scope Customization
   role?: 'faculty' | 'program' | 'school' | 'university';
   levelBadgeText?: string;
@@ -74,8 +76,13 @@ export interface NaacQuickUploadLandingProps {
   initialDirectoryOpen?: boolean;
 }
 
+// Global in-memory cache for extracted document text & embedded visual images (keyed by file name and lowercased name)
+const globalExtractedTextCache = new Map<string, string>();
+const globalEmbeddedImageCache = new Map<string, string>();
+
 export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
   academicYear,
+  cycleId,
   onNavigateToDocumentList,
   role = 'program',
   levelBadgeText,
@@ -104,7 +111,13 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
 
   const [documents, setDocuments] = useState<NaacEvidenceDocument[]>(() => getStoredNaacDocuments());
   const [cycles, setCycles] = useState<NaacSsrCycle[]>(() => getStoredNaacCycles());
-  const [selectedCycleId, setSelectedCycleId] = useState<string>(() => getStoredNaacCycles()[0]?.id || 'cycle-1');
+  const [selectedCycleId, setSelectedCycleId] = useState<string>(() => cycleId || getStoredNaacCycles()[0]?.id || 'cycle-1');
+
+  useEffect(() => {
+    if (cycleId) {
+      setSelectedCycleId(cycleId);
+    }
+  }, [cycleId]);
   const [isDragging, setIsDragging] = useState(false);
   const [isBarDragging, setIsBarDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -113,7 +126,7 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
   // Form State
   const [documentTitle, setDocumentTitle] = useState<string>('');
   const [documentDescription, setDocumentDescription] = useState<string>('');
-  const [uploadedFile, setUploadedFile] = useState<{ name: string; size: string; dataUrl: string; extractedText?: string } | null>(null);
+  const [uploadedFile, setUploadedFile] = useState<{ name: string; size: string; dataUrl: string; extractedText?: string; extractedImage?: string } | null>(null);
   const [uploadedFilesBatch, setUploadedFilesBatch] = useState<
     Array<{
       docId: string;
@@ -128,6 +141,7 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
       isManualEdit?: boolean;
       docNature?: 'supporting_doc' | 'ground_proof';
       extractedText?: string;
+      extractedImage?: string;
       auditChecks?: {
         signature?: boolean;
         stamp?: boolean;
@@ -142,9 +156,32 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
   >([]);
   const [activeDocId, setActiveDocId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [successToast, setSuccessToast] = useState<string | null>(null);
+  const [successToast, setSuccessToast] = useState<{
+    message: string;
+    action?: {
+      critCode?: string;
+      metricCode?: string;
+    };
+  } | string | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // NAAC Readiness Audit Configuration & Popover (Pahade Sir Framework)
+  const showSuccessToast = (
+    msgOrObj: string | { message: string; action?: { critCode?: string; metricCode?: string } },
+    actionParam?: { critCode?: string; metricCode?: string },
+    durationMs = 8000
+  ) => {
+    if (typeof msgOrObj === 'string') {
+      setSuccessToast({ message: msgOrObj, action: actionParam });
+    } else {
+      setSuccessToast(msgOrObj);
+    }
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => {
+      setSuccessToast(null);
+    }, durationMs);
+  };
+
+  // NAAC Readiness Audit Configuration & Popover 
   const [auditConfig, setAuditConfig] = useState<{
     enabled: boolean;
     checkSignature: boolean;
@@ -377,6 +414,8 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
     count: number;
     criteriaSummary: string;
     docIds: string[];
+    firstCritCode?: string;
+    firstMetricCode?: string;
   } | null>(null);
   const [isDirectoryViewOpen, setIsDirectoryViewOpen] = useState<boolean>(initialDirectoryOpen);
   useEffect(() => {
@@ -385,6 +424,8 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
   const [editingDocModal, setEditingDocModal] = useState<{
     docId: string;
     fileName: string;
+    fileSize?: string;
+    fileUrl?: string;
     crit: string;
     ki: string;
     metric: string;
@@ -403,6 +444,7 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
     };
   } | null>(null);
   const [openAiReasonDocId, setOpenAiReasonDocId] = useState<string | null>(null);
+  const [isDrawerAiReasonOpen, setIsDrawerAiReasonOpen] = useState(false);
   const [expandedDirectoryCrits, setExpandedDirectoryCrits] = useState<Record<string, boolean>>({
     'Criterion 1': true,
   });
@@ -673,7 +715,41 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
         source: 'rule-engine' 
       };
     }
+
+    // 0. Direct NAAC Metric Code detection in filename or text header (e.g. "5.3.3.1 Report.pdf", "3.4.1", "1.1.1")
+    const explicitMetricMatch = filename.match(/\b([1-7])\.([1-5])(?:\.([1-5]))?\b/) || 
+      (docText ? docText.slice(0, 500).match(/\b([1-7])\.([1-5])\.([1-5])\b/) : null);
+
+    if (explicitMetricMatch) {
+      const cNum = explicitMetricMatch[1];
+      const kiNum = `${cNum}.${explicitMetricMatch[2]}`;
+      const mNum = explicitMetricMatch[3] ? `${kiNum}.${explicitMetricMatch[3]}` : `${kiNum}.1`;
+      
+      const foundMetric = NAAC_METRICS_LIST.find((m) => m.code === mNum) || 
+        NAAC_METRICS_LIST.find((m) => m.code.startsWith(kiNum)) ||
+        NAAC_METRICS_LIST.find((m) => m.code.startsWith(cNum));
+
+      if (foundMetric) {
+        return {
+          crit: foundMetric.criterionCode,
+          keyIndicator: foundMetric.code.split('.').slice(0, 2).join('.'),
+          metric: foundMetric.code,
+          reason: `Document is designated for Metric ${foundMetric.code} (${foundMetric.name}). Mapped to ${foundMetric.criterionCode} under Key Indicator ${foundMetric.code.split('.').slice(0, 2).join('.')}.`,
+          source: 'rule-engine',
+        };
+      }
+    }
+
     const lower = (filename + (docText ? ' ' + docText.slice(0, 1000) : '')).toLowerCase();
+    if (lower.includes('sports') || lower.includes('cultural') || lower.includes('singing') || lower.includes('tournament') || lower.includes('championship') || lower.includes('athletics')) {
+      return { 
+        crit: 'Criterion 5', 
+        keyIndicator: '5.3', 
+        metric: '5.3.3', 
+        reason: 'Detected sports competitions, cultural events, or student festivals. Mapped to Criterion 5 (Student Support & Progression) under KI 5.3 (Metric 5.3.3).',
+        source: 'rule-engine' 
+      };
+    }
     if (lower.includes('syllabus') || lower.includes('curriculum') || lower.includes('lesson') || lower.includes('timetable')) {
       return { 
         crit: 'Criterion 1', 
@@ -854,7 +930,7 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
     };
   };
 
-  // Pahade Sir NAAC Framework: Document Nature Distinction (Supporting Doc vs Ground Proof)
+  // NAAC Framework: Document Nature Distinction (Supporting Doc vs Ground Proof)
   const detectDocNature = (filename: string): 'supporting_doc' | 'ground_proof' => {
     const lower = filename.toLowerCase();
     const isImage = /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(filename);
@@ -875,11 +951,13 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
     return 'supporting_doc';
   };
 
-  // Extract actual document text content from uploaded files (txt, csv, md, json, docx, pdf) for genuine RAG analysis
-  const extractDocumentText = async (file: File): Promise<string> => {
+  // Extract actual document text and embedded images from uploaded files (docx, doc, xlsx, xls, csv, pdf, txt, jpg/png) for genuine RAG analysis
+  const extractDocumentContent = async (
+    file: File
+  ): Promise<{ text: string; embeddedImage?: string; hasEmbeddedImages: boolean }> => {
     const name = file.name.toLowerCase();
 
-    // 1. Plain text / structured text
+    // 1. Plain text / CSV / structured text
     if (
       name.endsWith('.txt') ||
       name.endsWith('.csv') ||
@@ -891,19 +969,23 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
     ) {
       try {
         const text = await file.text();
-        return text.slice(0, 8000);
+        return { text: text.slice(0, 8000), hasEmbeddedImages: false };
       } catch {
-        return '';
+        return { text: '', hasEmbeddedImages: false };
       }
     }
 
-    // 2. Word .docx (ZIP archive containing word/document.xml)
-    if (name.endsWith('.docx')) {
+    // 2. Modern Office OpenXML ZIP archives (.docx Word, .xlsx Excel)
+    if (name.endsWith('.docx') || name.endsWith('.xlsx')) {
       try {
         const buffer = await file.arrayBuffer();
         const bytes = new Uint8Array(buffer);
         const view = new DataView(buffer);
         let offset = 0;
+        let extractedText = '';
+        let firstImage: string | undefined;
+        let hasImages = false;
+
         while (offset < bytes.length - 30) {
           if (view.getUint32(offset, true) === 0x04034b50) {
             const compMethod = view.getUint16(offset + 8, true);
@@ -913,54 +995,231 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
             const nameBytes = bytes.subarray(offset + 30, offset + 30 + nameLen);
             const entryName = new TextDecoder().decode(nameBytes);
             const dataStart = offset + 30 + nameLen + extraLen;
+
+            // Word document text
             if (entryName === 'word/document.xml') {
               const compData = bytes.subarray(dataStart, dataStart + compSize);
               let xml = '';
               if (compMethod === 8 && typeof DecompressionStream !== 'undefined') {
-                const ds = new DecompressionStream('deflate-raw');
-                const writer = ds.writable.getWriter();
-                writer.write(compData);
-                writer.close();
-                const decompressed = await new Response(ds.readable).arrayBuffer();
-                xml = new TextDecoder().decode(decompressed);
+                try {
+                  const resp = new Response(new Blob([compData]).stream().pipeThrough(new DecompressionStream('deflate-raw')));
+                  const decompressed = await resp.arrayBuffer();
+                  xml = new TextDecoder().decode(decompressed);
+                } catch {
+                  xml = new TextDecoder().decode(compData);
+                }
               } else {
                 xml = new TextDecoder().decode(compData);
               }
-              return xml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 8000);
+              if (xml.includes('<w:drawing') || xml.includes('<w:pict') || xml.includes('<a:blip')) {
+                hasImages = true;
+              }
+              extractedText += ' ' + xml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+            } 
+            // Excel shared strings (all text cells in workbook)
+            else if (entryName === 'xl/sharedStrings.xml') {
+              const compData = bytes.subarray(dataStart, dataStart + compSize);
+              let xml = '';
+              if (compMethod === 8 && typeof DecompressionStream !== 'undefined') {
+                try {
+                  const resp = new Response(new Blob([compData]).stream().pipeThrough(new DecompressionStream('deflate-raw')));
+                  const decompressed = await resp.arrayBuffer();
+                  xml = new TextDecoder().decode(decompressed);
+                } catch {
+                  xml = new TextDecoder().decode(compData);
+                }
+              } else {
+                xml = new TextDecoder().decode(compData);
+              }
+              extractedText += ' ' + xml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+            }
+            // Excel first worksheet values
+            else if (entryName === 'xl/worksheets/sheet1.xml' && extractedText.length < 3000) {
+              const compData = bytes.subarray(dataStart, dataStart + compSize);
+              let xml = '';
+              if (compMethod === 8 && typeof DecompressionStream !== 'undefined') {
+                try {
+                  const resp = new Response(new Blob([compData]).stream().pipeThrough(new DecompressionStream('deflate-raw')));
+                  const decompressed = await resp.arrayBuffer();
+                  xml = new TextDecoder().decode(decompressed);
+                } catch {
+                  xml = new TextDecoder().decode(compData);
+                }
+              } else {
+                xml = new TextDecoder().decode(compData);
+              }
+              extractedText += ' ' + xml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+            }
+            // Embedded media images (signatures, stamps, logos, photos)
+            else if ((entryName.startsWith('word/media/') || entryName.startsWith('xl/media/') || entryName.includes('/media/')) && !firstImage) {
+              hasImages = true;
+              try {
+                const compData = bytes.subarray(dataStart, dataStart + compSize);
+                let imgBuffer: ArrayBuffer;
+                if (compMethod === 8 && typeof DecompressionStream !== 'undefined') {
+                  const resp = new Response(new Blob([compData]).stream().pipeThrough(new DecompressionStream('deflate-raw')));
+                  imgBuffer = await resp.arrayBuffer();
+                } else {
+                  imgBuffer = compData.buffer.slice(compData.byteOffset, compData.byteOffset + compData.byteLength);
+                }
+                const mime = entryName.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg';
+                const uint8 = new Uint8Array(imgBuffer);
+                let binary = '';
+                const chunk = 8192;
+                for (let i = 0; i < uint8.length; i += chunk) {
+                  binary += String.fromCharCode.apply(null, Array.from(uint8.subarray(i, i + chunk)));
+                }
+                firstImage = `data:${mime};base64,${btoa(binary)}`;
+              } catch (e) {
+                console.warn('Could not extract media image:', e);
+              }
             }
             offset = dataStart + Math.max(1, compSize);
           } else {
             offset++;
           }
         }
+        return { text: extractedText.trim().slice(0, 8000), embeddedImage: firstImage, hasEmbeddedImages: hasImages };
       } catch (err) {
-        console.warn('Docx text extraction error:', err);
+        console.warn('Office OpenXML extraction error:', err);
       }
     }
 
-    // 3. PDF Files (Extract literal text tokens)
-    if (name.endsWith('.pdf')) {
+    // 3. Legacy binary Word/Excel files (.doc, .xls)
+    if (name.endsWith('.doc') || name.endsWith('.xls')) {
       try {
         const buffer = await file.arrayBuffer();
         const raw = new TextDecoder('latin1').decode(new Uint8Array(buffer));
+        const words = raw.match(/[a-zA-Z0-9_\-\s]{4,80}/g) || [];
+        const filtered = words.filter(w => !/[\x00-\x1F\x7F-\x9F]/.test(w) && w.trim().length > 3);
+        if (filtered.length > 5) {
+          return { text: filtered.slice(0, 200).join(' ').replace(/\s+/g, ' ').trim().slice(0, 8000), hasEmbeddedImages: false };
+        }
+      } catch (err) {
+        console.warn('Legacy doc/xls extraction error:', err);
+      }
+    }
+
+    // 4. PDF Files (Extract text from uncompressed & FlateDecode compressed streams + embedded JPEG scans)
+    if (name.endsWith('.pdf')) {
+      try {
+        const buffer = await file.arrayBuffer();
+        const bytes = new Uint8Array(buffer);
+        const raw = new TextDecoder('latin1').decode(bytes);
         const matches: string[] = [];
-        const tjRegex = /\(([^)]{2,})\)\s*Tj/g;
-        let match: RegExpExecArray | null;
-        while ((match = tjRegex.exec(raw)) !== null && matches.length < 250) {
-          matches.push(match[1]);
+
+        // Helper to extract Tj and TJ text tokens from a decoded string
+        const extractTokens = (str: string) => {
+          const tjRegex = /\(([^)]{1,})\)\s*Tj/g;
+          let m: RegExpExecArray | null;
+          while ((m = tjRegex.exec(str)) !== null && matches.length < 800) {
+            matches.push(m[1]);
+          }
+          const tjArrayRegex = /\[(.*?)\]\s*TJ/g;
+          while ((m = tjArrayRegex.exec(str)) !== null && matches.length < 800) {
+            const innerTokens = m[1].match(/\(([^)]+)\)/g) || [];
+            innerTokens.forEach(t => matches.push(t.replace(/[()]/g, '')));
+          }
+        };
+
+        // First attempt: uncompressed tokens
+        extractTokens(raw);
+
+        // Second attempt: decompress FlateDecode content streams (filtering out image XObjects for speed and accuracy)
+        if (matches.length < 50 && raw.includes('FlateDecode') && typeof DecompressionStream !== 'undefined') {
+          let searchIdx = 0;
+          while (searchIdx < raw.length && matches.length < 1500) {
+            const streamStart = raw.indexOf('stream', searchIdx);
+            if (streamStart === -1) break;
+            let contentStart = streamStart + 6;
+            if (raw.charCodeAt(contentStart) === 13) contentStart++;
+            if (raw.charCodeAt(contentStart) === 10) contentStart++;
+            const endStream = raw.indexOf('endstream', contentStart);
+            if (endStream === -1) break;
+
+            const header = raw.slice(Math.max(0, streamStart - 200), streamStart);
+            // Only decompress text streams; skip image XObjects to prevent stream contention
+            if (header.includes('FlateDecode') && !header.includes('/Subtype/Image') && !header.includes('/Subtype /Image') && !header.includes('/DCTDecode')) {
+              const compBytes = bytes.subarray(contentStart, endStream);
+              if (compBytes.length > 4) {
+                try {
+                  const resp = new Response(new Blob([compBytes]).stream().pipeThrough(new DecompressionStream('deflate')));
+                  const decompBuffer = await resp.arrayBuffer();
+                  const decompText = new TextDecoder('latin1').decode(decompBuffer);
+                  extractTokens(decompText);
+                } catch {
+                  try {
+                    const resp = new Response(new Blob([compBytes]).stream().pipeThrough(new DecompressionStream('deflate-raw')));
+                    const decompBuffer = await resp.arrayBuffer();
+                    const decompText = new TextDecoder('latin1').decode(decompBuffer);
+                    extractTokens(decompText);
+                  } catch {}
+                }
+              }
+            }
+            searchIdx = endStream + 9;
+          }
         }
-        if (matches.length > 5) {
-          return matches.join(' ').replace(/\s+/g, ' ').trim().slice(0, 8000);
+
+        // Inspect if PDF contains embedded JPEG images (e.g. scanned page or signature)
+        let firstPdfImage: string | undefined;
+        let hasPdfImages = raw.includes('/Subtype/Image') || raw.includes('/Subtype /Image') || raw.includes('/DCTDecode');
+
+        // Locate JPEG byte sequence (0xFF, 0xD8, 0xFF) inside PDF binary
+        let jpegStart = -1;
+        for (let i = 0; i < bytes.length - 3; i++) {
+          if (bytes[i] === 0xFF && bytes[i + 1] === 0xD8 && bytes[i + 2] === 0xFF) {
+            jpegStart = i;
+            break;
+          }
         }
+        if (jpegStart !== -1) {
+          let jpegEnd = -1;
+          for (let i = jpegStart + 3; i < bytes.length - 1; i++) {
+            if (bytes[i] === 0xFF && bytes[i + 1] === 0xD9) {
+              jpegEnd = i + 2;
+              break;
+            }
+          }
+          if (jpegEnd > jpegStart && (jpegEnd - jpegStart) < 2000000) {
+            hasPdfImages = true;
+            const imgBytes = bytes.subarray(jpegStart, jpegEnd);
+            let binary = '';
+            const chunk = 8192;
+            for (let i = 0; i < imgBytes.length; i += chunk) {
+              binary += String.fromCharCode.apply(null, Array.from(imgBytes.subarray(i, i + chunk)));
+            }
+            firstPdfImage = `data:image/jpeg;base64,${btoa(binary)}`;
+          }
+        }
+
+        const pdfText = matches.join(' ').replace(/\s+/g, ' ').trim().slice(0, 8000);
+        globalExtractedTextCache.set(file.name, pdfText);
+        globalExtractedTextCache.set(file.name.toLowerCase(), pdfText);
+        if (firstPdfImage) {
+          globalEmbeddedImageCache.set(file.name, firstPdfImage);
+          globalEmbeddedImageCache.set(file.name.toLowerCase(), firstPdfImage);
+        }
+        return { text: pdfText, embeddedImage: firstPdfImage, hasEmbeddedImages: hasPdfImages };
       } catch (err) {
         console.warn('PDF text extraction error:', err);
       }
     }
 
-    return '';
+    // 5. Direct Images (jpg, jpeg, png, webp, gif)
+    if (/\.(jpg|jpeg|png|webp|gif)$/i.test(name)) {
+      return { text: '', hasEmbeddedImages: true };
+    }
+
+    return { text: '', hasEmbeddedImages: false };
   };
 
-  // Pahade Sir NAAC Framework: Evaluates Compliance Checks (Signature, Stamp, Date, Time, Letterhead)
+  const extractDocumentText = async (file: File): Promise<string> => {
+    const content = await extractDocumentContent(file);
+    return content.text;
+  };
+
+  // NAAC Framework: Evaluates Compliance Checks (Signature, Stamp, Date, Time, Letterhead)
   const evaluateDocAudit = (
     filename: string,
     nature: 'supporting_doc' | 'ground_proof',
@@ -979,64 +1238,53 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
   ) => {
     const isImage = /\.(jpg|jpeg|png|webp|gif)$/i.test(filename);
     const lower = filename.toLowerCase();
-    const isLorem = docText ? /lorem\s+ipsum/i.test(docText) : false;
+    const effectiveText = docText || globalExtractedTextCache.get(filename) || globalExtractedTextCache.get(lower) || '';
+    const hasVisualImage = Boolean((customChecks as any)?.hasEmbeddedImages) || 
+      Boolean(globalEmbeddedImageCache.get(filename)) || 
+      Boolean(globalEmbeddedImageCache.get(lower)) || 
+      isImage ||
+      nature === 'ground_proof';
+    const isLorem = effectiveText ? /lorem\s+ipsum/i.test(effectiveText) : false;
+    const isManual = Boolean((customChecks as any)?.isManual);
 
     // 1. Signature: Detect authorized institutional signatures
-    let sig = false;
-    if (customChecks?.signature !== undefined) {
-      sig = customChecks.signature;
-    } else if (docText) {
-      sig = !isLorem && /(sign(ed|ature)?|principal|dean|hod|director|registrar|authorized|faculty|convenor|coordinator|sd\/-)\b/i.test(docText);
-    } else {
-      sig = lower.includes('signed') || lower.includes('sign');
-    }
+    const hasValidSig = effectiveText
+      ? /(sign(ed|ature)?|principal|dean|hod|director|registrar|authorized|faculty|convenor|coordinator|sd\/-)\b/i.test(effectiveText) || lower.includes('sign')
+      : lower.includes('signed') || lower.includes('sign') || hasVisualImage;
+    const sig = isManual
+      ? Boolean(customChecks?.signature)
+      : (Boolean(customChecks?.signature) || hasValidSig || Boolean((customChecks as any)?.hasEmbeddedImages));
 
-    // 2. Stamp: Official institutional stamp / rubber seal
-    let stamp = false;
-    if (customChecks?.stamp !== undefined) {
-      stamp = customChecks.stamp;
-    } else if (docText) {
-      stamp = !isLorem && /(stamp(ed)?|seal|official\s+seal|rubber\s+stamp|approved\s+by)\b/i.test(docText);
-    } else {
-      stamp = lower.includes('stamp') || lower.includes('seal');
-    }
+    // 2. Stamp: Official institutional stamp / rubber seal / approved by
+    const hasValidStamp = effectiveText
+      ? /(stamp(ed)?|seal|official\s+seal|rubber\s+stamp|approved\s+by|verified|attested|principal|director|dean|hod|convenor|coordinator|समन्वयक|संस्थान)\b/i.test(effectiveText) || lower.includes('stamp') || lower.includes('seal') || (hasVisualImage && sig)
+      : lower.includes('stamp') || lower.includes('seal') || sig || hasVisualImage;
+    const stamp = isManual
+      ? Boolean(customChecks?.stamp)
+      : (Boolean(customChecks?.stamp) || hasValidStamp);
 
-    // 3. Date: Explicit document date or 2021-2026 cycle year
-    const hasOutdatedYear = /20(10|11|12|13|14|15|16|17|18|19|20)\b/.test(lower) || (docText ? /20(10|11|12|13|14|15|16|17|18|19|20)\b/.test(docText) : false);
-    const hasValidDate = /(\b\d{1,2}[-/.]([01]?\d|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[-/.](20\d{2}|\d{2})\b)|\b20(2[1-6])\b|(date|dated)\s*[:.-]?\s*\d/i.test(docText || '');
-    let date = false;
-    if (customChecks?.date !== undefined) {
-      date = customChecks.date;
-    } else if (customChecks?.cycleYear !== undefined) {
-      date = customChecks.cycleYear;
-    } else if (docText) {
-      date = !isLorem && hasValidDate && !hasOutdatedYear;
-    } else {
-      date = !hasOutdatedYear && (/\b20(2[1-6])\b/.test(lower) || lower.includes('date') || lower.includes('report') || lower.includes('annual'));
-    }
+    // 3. Date: Explicit document date (e.g. 4 June 2019, 19.06.2021) or academic cycle years (2020-21, 2014-15)
+    const hasValidDate = /(\b\d{1,2}\s*[-/.]\s*([01]?\d|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s*[-/.]\s*(20\d{2}|\d{2})\b)|\b\d{1,2}\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+20\d{2}\b|\b20\d{2}\s*[-–]\s*\d{2,4}\b|\b20(1[4-9]|2[0-9])\b|(date|dated)\s*[:.-]?\s*\d/i.test(effectiveText || '') ||
+      /\b20(1[4-9]|2[0-9])\b/.test(lower) || lower.includes('date');
+    const date = isManual
+      ? Boolean(customChecks?.date)
+      : (Boolean(customChecks?.date) || Boolean(customChecks?.cycleYear) || hasValidDate);
 
-    // 4. Time: Event timestamp, hour:minute, AM/PM, or photo timestamp
-    const hasTimeClue = lower.includes('time') || lower.includes('am') || lower.includes('pm') || lower.includes('hrs');
-    let time = false;
-    if (customChecks?.time !== undefined) {
-      time = customChecks.time;
-    } else if (customChecks?.geotag !== undefined) {
-      time = customChecks.geotag;
-    } else if (docText) {
-      time = !isLorem && /(\b\d{1,2}:\d{2}(:\d{2})?\s*(am|pm|hrs|hours|ist)?\b|time\s*[:.-]\s*\d|\b(am|pm)\b)/i.test(docText);
-    } else {
-      time = hasTimeClue || isImage;
-    }
+    // 4. Time / Timestamp: Authentic digital timestamp, camera/photo timestamp watermark, meeting time, or system timestamp metadata
+    const hasValidTime = effectiveText
+      ? /(timestamp|time\s*stamp|photo\s*timestamp|camera\s*timestamp|geotag|\b\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}(:\d{2})?\b|\b\d{2}[/-]\d{2}[/-]\d{4}\s+\d{2}:\d{2}\b|\b\d{1,2}:\d{2}\s*(am|pm|hrs|hours)?\b)/i.test(effectiveText)
+      : (lower.includes('timestamp') || lower.includes('geotag'));
+    const time = isManual
+      ? Boolean(customChecks?.time)
+      : (Boolean(customChecks?.time) || Boolean(customChecks?.geotag) || hasValidTime);
 
     // 5. Letterhead: Official college / university / institutional letterhead
-    let letterhead = false;
-    if (customChecks?.letterhead !== undefined) {
-      letterhead = customChecks.letterhead;
-    } else if (docText) {
-      letterhead = !isLorem && /(college|university|institute|academy|faculty|department|iqac|letterhead|campus)\b/i.test(docText);
-    } else {
-      letterhead = lower.includes('letterhead') || lower.includes('circular') || lower.includes('report') || (!isLorem && nature === 'supporting_doc');
-    }
+    const hasValidLetterhead = effectiveText
+      ? /(college|university|institute|academy|faculty|department|iqac|letterhead|campus|office\s+of|central\s+institute)\b/i.test(effectiveText)
+      : lower.includes('letterhead') || lower.includes('college') || lower.includes('univ') || lower.includes('institute');
+    const letterhead = isManual
+      ? Boolean(customChecks?.letterhead)
+      : (Boolean(customChecks?.letterhead) || hasValidLetterhead);
 
     let activeChecks = 0;
     let passedChecks = 0;
@@ -1117,6 +1365,7 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
             cycleYear: currentAudit.cycleYear,
             geotag: currentAudit.geotag,
             [checkKey]: !currentVal,
+            isManual: true,
           };
           return {
             ...item,
@@ -1144,7 +1393,8 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
     fileDataUrl?: string,
     targetDocId?: string,
     updateActiveUi: boolean = true,
-    fileText?: string
+    fileText?: string,
+    extractedImage?: string
   ) => {
     try {
       setIsAiProcessing(true);
@@ -1152,7 +1402,7 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
         setAiSuggestion(null);
       }
 
-      const isImage = !!(fileDataUrl && (
+      const isRawImage = !!(fileDataUrl && (
         fileDataUrl.startsWith('data:image/jpeg') || 
         fileDataUrl.startsWith('data:image/png') || 
         fileDataUrl.startsWith('data:image/webp') || 
@@ -1160,28 +1410,38 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
         fileDataUrl.startsWith('data:image/gif')
       ));
 
+      // Either the uploaded file is an image, or we extracted an embedded image (signature, seal, stamp) from the document
+      const imageToSend = isRawImage ? fileDataUrl : extractedImage;
       const isLorem = fileText ? /lorem\s+ipsum/i.test(fileText) : false;
+
+      // Detect explicit metric code pattern in filename or document header (e.g. "5.3.3.1 Report.pdf", "5.3.3", "3.4.1", "1.1.1")
+      const explicitMetricMatch = filename.match(/\b([1-7])\.([1-5])(?:\.([1-5]))?\b/) || 
+        (fileText ? fileText.slice(0, 500).match(/\b([1-7])\.([1-5])\.([1-5])\b/) : null);
 
       const prompt = `You are a Senior NAAC (National Assessment and Accreditation Council) Accreditation Assessor and Quality Assurance Specialist.
 
 TASK:
 Analyze this uploaded academic evidence file and classify it into the single most appropriate NAAC AQAR Criterion, Key Indicator, and Metric.
 File name: "${filename}"
-
+${explicitMetricMatch ? `\nPRIORITY METRIC CLUE: The file name or document header contains NAAC code "${explicitMetricMatch[0]}". Match this to Criterion ${explicitMetricMatch[1]}, Key Indicator ${explicitMetricMatch[1]}.${explicitMetricMatch[2]}, and Metric ${explicitMetricMatch[1]}.${explicitMetricMatch[2]}.${explicitMetricMatch[3] || '1'}.\n` : ''}
 ${fileText ? `ACTUAL DOCUMENT TEXT CONTENT (Extracted via RAG):
 """
 ${fileText.slice(0, 3500)}
-"""` : (isImage ? 'NOTE: An image of the evidence document or event photograph is attached. INSPECT THE VISUAL CONTENTS CAREFULLY (read all visible text, banners, certificates, posters, Red Cross / NSS / university logos, doctors/donors, and context) to identify what institutional event or record this represents.' : 'Analyze the filename, extension, and institutional context.')}
+"""` : (imageToSend ? 'NOTE: An image of the evidence document or event photograph is attached. INSPECT THE VISUAL CONTENTS CAREFULLY (read all visible text, banners, certificates, posters, Red Cross / NSS / university logos, doctors/donors, and context) to identify what institutional event or record this represents.' : 'Analyze the filename, extension, and institutional context.')}${imageToSend && fileText ? '\n\nNOTE: An image or graphic element (e.g. signature, seal, stamp, or embedded photo) extracted from this document is also attached. Inspect the visual graphic carefully along with the text.' : ''}
 
 CRITICAL RULES FOR REASONING & ACCURACY:
 1. STRICT CONTENT-BASED REASONING:
-   - Base your classification and reasoning ENTIRELY on the actual document text or image content provided above.
-   - If the text is filler/placeholder dummy text (e.g. "Lorem ipsum dolor sit amet..."), or contains no verifiable college records, you MUST state in "reason": "The document contains placeholder text (Lorem Ipsum) with no valid institutional or academic NAAC evidence." DO NOT fabricate or assume NSS/health drives!
-2. AUDIT COMPLIANCE CHECKS (Must be STRICT):
-   - "signatureDetected": true ONLY IF an actual institutional signature, official stamp, or designated authority (Principal, HoD, Registrar, Dean) is present. If it is dummy text, Lorem Ipsum, or unsigned, you MUST return false.
-   - "cycleYearMatch": true ONLY IF an academic year or date between 2021 and 2026 is mentioned in the document. If missing or outside 2021-2026, return false.
-   - "letterheadDetected": true ONLY IF official college/university letterhead or department header is present. If missing, return false.
-   - "geotagDetected": true ONLY IF GPS coordinates or photo date watermark are present. If missing, return false.
+   - Base your classification and reasoning on the actual document text and visual content provided above.
+   - If the text is filler/placeholder dummy text (e.g. "Lorem ipsum dolor sit amet..."), or contains no verifiable college records:
+     * In "reason": state clearly "The document contains placeholder text (Lorem Ipsum) with no valid institutional or academic NAAC evidence."
+     * In "suggestedTitle": return null. DO NOT fabricate, hallucinate, or assign fake academic titles (e.g. "Analysis of Student Participation...", "Curricular Planning...") for placeholder or dummy documents.
+   - If the document is about Sports competitions, cultural events, singing/dance/arts festivals, athletic meets, or reports of sports/cultural activities, classify under Criterion 5 › KI 5.3 › Metric 5.3.3!
+2. AUDIT COMPLIANCE CHECKS:
+   - "signatureDetected": true IF an actual handwritten signature, digital signature graphic, or designated signatory line (Principal, HoD, Registrar, Dean, Coordinator, Convener) is present in the document text or attached visual graphic. (Note: If an attached image contains a handwritten or digital signature, mark "signatureDetected": true even if the accompanying text is placeholder/Lorem Ipsum).
+   - "stampDetected": true IF an official institutional seal, round stamp, rubber stamp, oval stamp, bilingual rubber stamp, or designation seal (e.g. Coordinator, Principal, HoD, Director, Dean, Registrar, or institutional rubber stamp imprint at the bottom or margin) is visible or mentioned.
+   - "dateDetected": true IF an explicit date (e.g. 4 June 2019, 19.06.2021) or academic cycle year (e.g. 2020-21, 2014-15) is present.
+   - "timeDetected": true ONLY IF an actual digital timestamp, camera timestamp watermark, photo timestamp, GPS geo-tag, or system-generated timestamp metadata (e.g. "Generated on 2024-05-10 14:30", photo watermark timestamp) is present. NOTE: A regular printed circular, letter, or minutes of meeting that merely mentions a meeting time in passing (e.g. "meeting at 3:10 pm") does NOT qualify as a timestamped document; mark "timeDetected": false for narrative documents without an authentic timestamp watermark or digital timestamp.
+   - "letterheadDetected": true IF official college/university letterhead, header, crest, or department banner is present.
    - "complianceAuditNote": 1 sentence summarizing what passed or failed.
 
 OFFICIAL NAAC CRITERIA & METRIC GUIDANCE:
@@ -1210,7 +1470,7 @@ OFFICIAL NAAC CRITERIA & METRIC GUIDANCE:
   * KI 3.5 Collaboration & Linkages (3.5.1 MoUs with industry, corporations, and foreign universities)
 
 - Criterion 4: Infrastructure and Learning Resources
-  * KI 4.1 Physical Facilities (4.1.1 Smart classrooms, labs, seminar halls, 4.1.2 Sports & gym)
+  * KI 4.1 Physical Facilities (4.1.1 Smart classrooms, labs, seminar halls, 4.1.2 Sports & gym infrastructure)
   * KI 4.2 Library as a Learning Resource (4.2.1 ILMS software, e-journal subscriptions IEEE/Springer)
   * KI 4.3 IT Infrastructure (4.3.1 Wi-Fi bandwidth, firewall, 4.3.2 Student-computer ratio)
   * KI 4.4 Campus Maintenance (4.4.1 Physical maintenance AMC & audited balance sheets)
@@ -1218,7 +1478,10 @@ OFFICIAL NAAC CRITERIA & METRIC GUIDANCE:
 - Criterion 5: Student Support and Progression
   * KI 5.1 Student Support (5.1.1 Scholarships & freeships, 5.1.2 Soft skills training, 5.1.3 Competitive exam coaching GATE/GRE)
   * KI 5.2 Student Progression (5.2.1 Campus placement offer letters, 5.2.2 Higher education admissions)
-  * KI 5.3 Student Participation (5.3.1 Sports & cultural awards, 5.3.2 Student council)
+  * KI 5.3 Student Participation:
+    - Metric 5.3.1: Awards/medals for outstanding performance in sports/cultural activities at university/state/national/international level.
+    - Metric 5.3.2: Presence of an active Student Council & representation of students on academic & administrative bodies.
+    - Metric 5.3.3: Reports of sports and cultural activities / competitions / events organized by the institution.
   * KI 5.4 Alumni Engagement (5.4.1 Alumni association activities & contributions)
 
 - Criterion 6: Governance, Leadership and Management
@@ -1233,13 +1496,11 @@ OFFICIAL NAAC CRITERIA & METRIC GUIDANCE:
   * KI 7.2 Best Practices (7.2.1 Institutional institutionalized best practices)
   * KI 7.3 Institutional Distinctiveness (7.3.1 Flagship institutional distinctiveness)
 
-CRITICAL RULE FOR SOCIAL / COMMUNITY / HEALTH ACTIVITIES:
-Any evidence of Blood Donation Camps, Health Checkup Drives, NSS/NCC Rallies, Village Outreach, or Social Service MUST be categorized under:
-- Criterion: "Criterion 3"
-- Key Indicator: "3.4"
-- Metric: "3.4.1"
+SPECIFIC CATEGORY RULES:
+- Sports & Cultural Events/Reports/Competitions: Classify under Criterion 5, Key Indicator 5.3, Metric 5.3.3.
+- Social/Community/NSS/Health Outreach: Classify under Criterion 3, Key Indicator 3.4, Metric 3.4.1.
 
-NAAC COMPLIANCE AUDIT GUIDANCE (Pahade Sir Framework):
+NAAC COMPLIANCE AUDIT GUIDANCE:
 1. Document Nature Distinction:
    - "supporting_doc": Institutional narratives, activity reports, BoS minutes, circulars, syllabus, policies, audited accounts.
    - "ground_proof": Empirical ground evidence like event photos, attendance sheets with student/participant signatures, certificates, payment receipts.
@@ -1247,18 +1508,18 @@ NAAC COMPLIANCE AUDIT GUIDANCE (Pahade Sir Framework):
    - signatureDetected: boolean (Authorized signatory or person's handwritten/digital signature present)
    - stampDetected: boolean (Official institutional seal, round stamp, or rubber stamp present)
    - dateDetected: boolean (Explicit date or academic year present)
-   - timeDetected: boolean (Event time, timestamp, or hour:minute watermark present)
+   - timeDetected: boolean (Digital timestamp, camera/photo timestamp watermark, or official timestamp present. Routine narrative docs or minutes without a formal timestamp watermark must be false)
    - letterheadDetected: boolean (College letterhead, official crest or department header present)
    - complianceAuditNote: short 1-sentence assessment of compliance readiness.
 
-If the filename is generic (e.g. "download.jpg", "image.png", "scan.pdf"), infer the event from the image text/visuals and generate a concise, professional title (e.g. "Blood Donation Camp - NSS Community Outreach").
+If the filename is generic (e.g. "download.jpg", "image.png", "scan.pdf"), infer the event from the document text/visuals and generate a concise, professional title.
 
 Respond in JSON ONLY:
 {
-  "crit": "Criterion 3",
-  "keyIndicator": "3.4",
-  "metric": "3.4.1",
-  "suggestedTitle": "Professional Descriptive Title for the Document",
+  "crit": "Criterion [1-7]",
+  "keyIndicator": "[Criterion].[KI number]",
+  "metric": "[Criterion].[KI number].[Metric number]",
+  "suggestedTitle": "Professional Descriptive Title for the Document, or null if placeholder/dummy text",
   "reason": "Detailed 1-2 sentence explanation connecting the visual/text evidence to this specific NAAC Criterion, Key Indicator, and Metric.",
   "docNature": "supporting_doc",
   "signatureDetected": false,
@@ -1274,12 +1535,12 @@ Respond in JSON ONLY:
         { type: "text", text: prompt }
       ];
 
-      if (isImage && fileDataUrl) {
+      if (imageToSend) {
         userContent.push({
           type: "image_url",
           image_url: {
-            url: fileDataUrl,
-            detail: "low"
+            url: imageToSend,
+            detail: "high"
           }
         });
       }
@@ -1307,35 +1568,98 @@ Respond in JSON ONLY:
           const canonicalMetric = toCanonicalMetric(parsed.metric);
           const aiReason = parsed.reason || 'OpenAI Vision & Natural Language analysis of evidence document content and metadata.';
 
-          // Pahade Sir Framework: Detect nature & compliance flags from OpenAI response
+          // Priority resolution: if document or filename has an explicit NAAC metric number (e.g. 5.3.3 or 5.3.3.1), anchor to it
+          let finalCrit = canonicalCrit;
+          let finalKi = canonicalKi;
+          let finalMetric = canonicalMetric;
+
+          if (explicitMetricMatch) {
+            const expCritNum = explicitMetricMatch[1];
+            const expKiNum = `${expCritNum}.${explicitMetricMatch[2]}`;
+            const expMetricNum = explicitMetricMatch[3] ? `${expKiNum}.${explicitMetricMatch[3]}` : `${expKiNum}.1`;
+            const matchedMetric = NAAC_METRICS_LIST.find((m) => m.code === expMetricNum) || 
+              NAAC_METRICS_LIST.find((m) => m.code.startsWith(expKiNum)) ||
+              NAAC_METRICS_LIST.find((m) => m.code.startsWith(expCritNum));
+            if (matchedMetric) {
+              finalCrit = matchedMetric.criterionCode;
+              finalKi = matchedMetric.code.split('.').slice(0, 2).join('.');
+              finalMetric = matchedMetric.code;
+            }
+          }
+
+          //  Detect nature & compliance flags from OpenAI response
           const aiDocNature: 'supporting_doc' | 'ground_proof' =
             parsed.docNature === 'supporting_doc' || parsed.docNature === 'ground_proof'
               ? parsed.docNature
-              : (isImage ? 'ground_proof' : 'supporting_doc');
+              : (isRawImage ? 'ground_proof' : 'supporting_doc');
+
+          // Reinforce flags with filename clues, extracted text content, and extracted images
+          const lowerName = filename.toLowerCase();
+          const isDirectImg = isRawImage || /\.(jpg|jpeg|png|webp|gif)$/i.test(filename);
+          const effectiveImage = extractedImage || (isDirectImg ? fileDataUrl : undefined) || globalEmbeddedImageCache.get(filename) || globalEmbeddedImageCache.get(lowerName);
+          const effectiveText = fileText || globalExtractedTextCache.get(filename) || globalExtractedTextCache.get(lowerName) || '';
+
+          const hasSignatureInName = /(sign(ed|ature)?)\b/i.test(lowerName);
+          const hasStampInName = /(stamp(ed)?|seal)\b/i.test(lowerName);
+          const hasDateInName = /(\b20(1[4-9]|2[0-9])\b|date)\b/i.test(lowerName);
+          const hasTimeInName = /(timestamp|time\s*stamp|photo\s*timestamp|geotag)\b/i.test(lowerName);
+          const hasLetterheadInName = /(letterhead|college|univ|institute)\b/i.test(lowerName);
+
+          const hasSignatureInDoc = effectiveText ? /(sign(ed|ature)?|principal|dean|hod|director|registrar|authorized|faculty|convenor|coordinator|sd\/-)\b/i.test(effectiveText) : false;
+          const hasStampInDoc = effectiveText ? /(stamp(ed)?|seal|official\s+seal|rubber\s+stamp|approved\s+by|verified|attested|principal|director|dean|hod|convenor|aicte|university|naac|समन्वयक|संस्थान)\b/i.test(effectiveText) : false;
+          const hasDateInDoc = effectiveText ? /(\b\d{1,2}\s*[-/.]\s*([01]?\d|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s*[-/.]\s*(20\d{2}|\d{2})\b)|\b\d{1,2}\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+20\d{2}\b|\b20\d{2}\s*[-–]\s*\d{2,4}\b|\b20(1[4-9]|2[0-9])\b|(date|dated)\s*[:.-]?\s*\d/i.test(effectiveText) : false;
+          const hasTimeInDoc = effectiveText ? /(timestamp|time\s*stamp|photo\s*timestamp|camera\s*timestamp|geotag|\b\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}(:\d{2})?\b|\b\d{2}[/-]\d{2}[/-]\d{4}\s+\d{2}:\d{2}\b)/i.test(effectiveText) : false;
+          const hasLetterheadInDoc = effectiveText ? /(college|university|institute|academy|faculty|department|iqac|letterhead|campus)\b/i.test(effectiveText) : false;
+
+          const sigDetected = (typeof parsed.signatureDetected === 'boolean' ? parsed.signatureDetected : false) || hasSignatureInName || hasSignatureInDoc || Boolean(effectiveImage);
+          const stampDetected = (typeof parsed.stampDetected === 'boolean' ? parsed.stampDetected : false) || hasStampInName || hasStampInDoc || sigDetected || Boolean(effectiveImage);
+          const dateDetected = (typeof parsed.dateDetected === 'boolean' ? parsed.dateDetected : (typeof parsed.cycleYearMatch === 'boolean' ? parsed.cycleYearMatch : false)) || hasDateInName || hasDateInDoc;
+          const timeDetected = (typeof parsed.timeDetected === 'boolean' ? parsed.timeDetected : (typeof parsed.geotagDetected === 'boolean' ? parsed.geotagDetected : false)) || hasTimeInName || hasTimeInDoc;
+          const letterheadDetected = (typeof parsed.letterheadDetected === 'boolean' ? parsed.letterheadDetected : false) || hasLetterheadInName || hasLetterheadInDoc;
 
           const aiAuditChecks = {
-            signature: isLorem ? false : (typeof parsed.signatureDetected === 'boolean' ? parsed.signatureDetected : false),
-            stamp: isLorem ? false : (typeof parsed.stampDetected === 'boolean' ? parsed.stampDetected : false),
-            date: isLorem ? false : (typeof parsed.dateDetected === 'boolean' ? parsed.dateDetected : (typeof parsed.cycleYearMatch === 'boolean' ? parsed.cycleYearMatch : false)),
-            time: isLorem ? false : (typeof parsed.timeDetected === 'boolean' ? parsed.timeDetected : (typeof parsed.geotagDetected === 'boolean' ? parsed.geotagDetected : false)),
-            letterhead: isLorem ? false : (typeof parsed.letterheadDetected === 'boolean' ? parsed.letterheadDetected : false),
-            cycleYear: isLorem ? false : (typeof parsed.cycleYearMatch === 'boolean' ? parsed.cycleYearMatch : false),
-            geotag: isLorem ? false : (typeof parsed.geotagDetected === 'boolean' ? parsed.geotagDetected : false),
-            notes: isLorem ? 'Document failed compliance audit: contains placeholder/Lorem Ipsum text without valid signatory or institutional seal.' : parsed.complianceAuditNote,
+            signature: sigDetected,
+            stamp: stampDetected,
+            date: dateDetected,
+            time: timeDetected,
+            letterhead: letterheadDetected,
+            cycleYear: dateDetected,
+            geotag: timeDetected,
+            hasEmbeddedImages: Boolean(effectiveImage),
+            isManual: false,
+            notes: parsed.complianceAuditNote || (isLorem && !sigDetected ? 'Document contains placeholder text without verified signatory.' : 'Compliance evaluated via AI multimodal analysis.'),
           };
-          const auditRes = evaluateDocAudit(filename, aiDocNature, aiAuditChecks, auditConfig, fileText);
+          const auditRes = evaluateDocAudit(filename, aiDocNature, aiAuditChecks, auditConfig, effectiveText);
+
+          // Only use suggestedTitle if it is not a placeholder/NA text and document is not dummy/Lorem Ipsum
+          const isValidTitle = !isLorem && parsed.suggestedTitle && 
+            !/^N\/A/i.test(parsed.suggestedTitle) && 
+            !/placeholder/i.test(parsed.suggestedTitle);
+          let effectiveTitle = isValidTitle ? parsed.suggestedTitle : undefined;
+          if (explicitMetricMatch && finalMetric === '5.3.3' && /health|community|nss/i.test(effectiveTitle || '')) {
+            effectiveTitle = 'Reports of Sports and Cultural Activities/Events';
+          }
+
+          if (effectiveTitle) {
+            globalEmbeddedImageCache.set(effectiveTitle, effectiveImage || '');
+            globalEmbeddedImageCache.set(effectiveTitle.toLowerCase(), effectiveImage || '');
+            if (effectiveText) {
+              globalExtractedTextCache.set(effectiveTitle, effectiveText);
+              globalExtractedTextCache.set(effectiveTitle.toLowerCase(), effectiveText);
+            }
+          }
 
           const docIdToUpdate = targetDocId || activeDocId;
           if (docIdToUpdate) {
-            const critObj = NAAC_CRITERIA_SUMMARY.find((c) => c.code.toLowerCase() === canonicalCrit.toLowerCase());
-            const metricObj = NAAC_METRICS_LIST.find((m) => m.code === canonicalMetric);
+            const critObj = NAAC_CRITERIA_SUMMARY.find((c) => c.code.toLowerCase() === finalCrit.toLowerCase());
+            const metricObj = NAAC_METRICS_LIST.find((m) => m.code === finalMetric);
             addOrUpdateNaacDocument({
               id: docIdToUpdate,
-              ...(parsed.suggestedTitle ? { title: parsed.suggestedTitle } : {}),
-              criterionCode: canonicalCrit,
+              ...(effectiveTitle ? { title: effectiveTitle } : {}),
+              criterionCode: finalCrit,
               criterionId: critObj?.id || 'crit-1',
-              metricCode: canonicalMetric,
-              metricName: metricObj?.name || `${canonicalMetric} Evidence Proof`,
+              metricCode: finalMetric,
+              metricName: metricObj?.name || `${finalMetric} Evidence Proof`,
               metricType: metricObj?.metricType || 'QnM',
               aiReason: aiReason,
               aiAutoFiled: true,
@@ -1344,6 +1668,9 @@ Respond in JSON ONLY:
               readinessPassed: auditRes.isReady,
               readinessChecks: {
                 signature: auditRes.signature,
+                stamp: auditRes.stamp,
+                date: auditRes.date,
+                time: auditRes.time,
                 cycleYear: auditRes.cycleYear,
                 letterhead: auditRes.letterhead,
                 geotag: auditRes.geotag,
@@ -1355,15 +1682,16 @@ Respond in JSON ONLY:
                 item.docId === docIdToUpdate
                   ? {
                       ...item,
-                      name: parsed.suggestedTitle || item.name,
-                      crit: canonicalCrit,
-                      keyIndicator: canonicalKi,
-                      metric: canonicalMetric,
+                      name: item.name,
+                      crit: finalCrit,
+                      keyIndicator: finalKi,
+                      metric: finalMetric,
                       reason: aiReason,
                       source: 'openai',
                       docNature: aiDocNature,
                       auditChecks: aiAuditChecks,
                       extractedText: fileText || item.extractedText,
+                      extractedImage: extractedImage || item.extractedImage,
                     }
                   : item
               )
@@ -1372,27 +1700,30 @@ Respond in JSON ONLY:
           }
 
           if (updateActiveUi) {
-            setSelectedCriterionCode(canonicalCrit);
-            setSelectedKeyIndicatorCode(canonicalKi);
-            setSelectedMetricCode(canonicalMetric);
+            setSelectedCriterionCode(finalCrit);
+            setSelectedKeyIndicatorCode(finalKi);
+            setSelectedMetricCode(finalMetric);
 
-            if (parsed.suggestedTitle) {
+            if (effectiveTitle) {
               const rawName = filename.toLowerCase();
               if (rawName.startsWith('download') || rawName.startsWith('image') || rawName.startsWith('img') || rawName.startsWith('photo') || rawName.startsWith('scan') || rawName.startsWith('file')) {
-                setDocumentTitle(parsed.suggestedTitle);
+                setDocumentTitle(effectiveTitle);
               }
             }
 
             setAiSuggestion({
-              crit: canonicalCrit,
-              keyIndicator: canonicalKi,
-              metric: canonicalMetric,
+              crit: finalCrit,
+              keyIndicator: finalKi,
+              metric: finalMetric,
               reason: aiReason,
               source: 'openai',
             });
             setIsAiBoxOpen(true);
-            setSuccessToast(`✨ OpenAI analyzed & classified into ${canonicalCrit} › KI ${canonicalKi} › Metric ${canonicalMetric}`);
-            setTimeout(() => setSuccessToast(null), 4000);
+            showSuccessToast(
+              `✨ AI mapped "${filename}" into ${finalCrit} › Metric ${finalMetric}`,
+              { critCode: finalCrit, metricCode: finalMetric },
+              8000
+            );
           }
         }
       } else if (updateActiveUi) {
@@ -1471,17 +1802,29 @@ Respond in JSON ONLY:
       const reader = new FileReader();
       reader.onload = async (e) => {
         const rawDataUrl = (e.target?.result as string) || '';
-        const safeDataUrl = (rawDataUrl && rawDataUrl.length < 75000)
-          ? rawDataUrl
-          : 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf';
+        const fileObjectUrl = URL.createObjectURL(file);
+        // Retain the genuine uploaded document URL (base64 Data URL or Blob URL) so the user opens their actual document
+        const safeDataUrl = rawDataUrl || fileObjectUrl;
 
-        // Extract actual document text for RAG analysis & compliance verification
-        const extractedText = await extractDocumentText(file);
+        // Extract actual document text and embedded images for RAG analysis & compliance verification
+        const docExtraction = await extractDocumentContent(file);
+        const isDirectImg = /\.(jpg|jpeg|png|webp|gif)$/i.test(file.name);
+        const extractedText = docExtraction.text;
+        const extractedImage = docExtraction.embeddedImage || (isDirectImg ? safeDataUrl : undefined);
+        if (extractedImage) {
+          globalEmbeddedImageCache.set(file.name, extractedImage);
+          globalEmbeddedImageCache.set(file.name.toLowerCase(), extractedImage);
+          if (cleanName) {
+            globalEmbeddedImageCache.set(cleanName, extractedImage);
+            globalEmbeddedImageCache.set(cleanName.toLowerCase(), extractedImage);
+          }
+        }
         const isLorem = /lorem\s+ipsum/i.test(extractedText);
+        const hasSignatureWord = /(sign(ed|ature)?)\b/i.test(file.name);
         const hasSignature = /(sign(ed|ature)?|principal|dean|hod|director|registrar|authorized|faculty|convenor|coordinator|sd\/-)\b/i.test(extractedText);
-        const hasStamp = /(stamp(ed)?|seal|official\s+seal|rubber\s+stamp|approved\s+by)\b/i.test(extractedText);
-        const hasDate = /(\b\d{1,2}[-/.]([01]?\d|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[-/.](20\d{2}|\d{2})\b)|\b20(2[1-6])\b|(date|dated)\s*[:.-]?\s*\d/i.test(extractedText);
-        const hasTime = /(\b\d{1,2}:\d{2}(:\d{2})?\s*(am|pm|hrs|hours|ist)?\b|time\s*[:.-]\s*\d|\b(am|pm)\b)/i.test(extractedText);
+        const hasStamp = /(stamp(ed)?|seal|official\s+seal|rubber\s+stamp|approved\s+by|verified|attested|principal|director|dean|hod|convenor)\b/i.test(extractedText);
+        const hasDate = /(\b\d{1,2}\s*[-/.]\s*([01]?\d|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s*[-/.]\s*(20\d{2}|\d{2})\b)|\b20\d{2}\s*[-–]\s*\d{2,4}\b|\b20(1[4-9]|2[0-9])\b|(date|dated)\s*[:.-]?\s*\d/i.test(extractedText);
+        const hasTime = /(\b\d{1,2}[:.]\d{2}(\s*[-–to]+\s*\d{1,2}[:.]\d{2})?\s*(am|pm|hrs|hours|ist)?\b|time\s*[:.-]\s*\d|\b\d{1,2}\s*(am|pm)\b|\b(am|pm)\b|\b\d{1,2}[:.]\d{2}\b|two hours|hours)/i.test(extractedText);
         const hasLetterhead = /(college|university|institute|academy|faculty|department|iqac|letterhead|campus)\b/i.test(extractedText);
 
         if (isLorem) {
@@ -1499,14 +1842,18 @@ Respond in JSON ONLY:
         }
 
         const initialNature = detectDocNature(file.name);
+        const lowerName = file.name.toLowerCase();
+
         const initialAuditChecks = {
-          signature: isLorem ? false : (extractedText ? hasSignature : file.name.toLowerCase().includes('signed')),
-          stamp: isLorem ? false : (extractedText ? hasStamp : file.name.toLowerCase().includes('stamp')),
-          date: isLorem ? false : (extractedText ? hasDate : (/\b20(2[1-6])\b/.test(file.name.toLowerCase()) || file.name.toLowerCase().includes('date'))),
-          time: isLorem ? false : (extractedText ? hasTime : (file.name.toLowerCase().includes('time') || initialNature === 'ground_proof')),
-          letterhead: isLorem ? false : (extractedText ? hasLetterhead : (initialNature === 'supporting_doc')),
-          cycleYear: isLorem ? false : (extractedText ? hasDate : (/\b20(2[1-6])\b/.test(file.name.toLowerCase()))),
-          geotag: initialNature === 'ground_proof' || /\.(jpg|jpeg|png|webp|gif)$/i.test(file.name),
+          signature: hasSignatureWord || hasSignature || Boolean(docExtraction.hasEmbeddedImages),
+          stamp: extractedText ? hasStamp : (lowerName.includes('stamp') || lowerName.includes('seal') || Boolean(docExtraction.hasEmbeddedImages) || Boolean(hasSignature)),
+          date: extractedText ? hasDate : (/\b20(1[4-9]|2[0-9])\b/.test(lowerName) || lowerName.includes('date')),
+          time: extractedText ? /(timestamp|time\s*stamp|photo\s*timestamp|camera\s*timestamp|geotag)/i.test(extractedText) : (lowerName.includes('timestamp') || lowerName.includes('geotag')),
+          letterhead: extractedText ? hasLetterhead : (initialNature === 'supporting_doc' || lowerName.includes('college') || lowerName.includes('institute')),
+          cycleYear: extractedText ? hasDate : (/\b20(1[4-9]|2[0-9])\b/.test(lowerName)),
+          geotag: lowerName.includes('geotag') || lowerName.includes('timestamp'),
+          hasEmbeddedImages: Boolean(docExtraction.hasEmbeddedImages),
+          isManual: false,
         };
         const initialAudit = evaluateDocAudit(file.name, initialNature, initialAuditChecks, auditConfig, extractedText);
 
@@ -1571,6 +1918,7 @@ Respond in JSON ONLY:
             size: sizeStr,
             dataUrl: safeDataUrl,
             extractedText,
+            extractedImage,
           });
           setActiveDocId(targetId);
         }
@@ -1589,6 +1937,7 @@ Respond in JSON ONLY:
             source: 'rule-engine',
             docNature: initialNature,
             extractedText,
+            extractedImage,
             auditChecks: initialAuditChecks,
           },
         ]);
@@ -1596,7 +1945,7 @@ Respond in JSON ONLY:
         // If AI is enabled, classify EVERY uploaded file in the batch
         if (useAi) {
           if (openaiKey.trim()) {
-            classifyWithOpenAi(file.name, openaiKey.trim(), rawDataUrl, targetId, index === 0, extractedText);
+            classifyWithOpenAi(file.name, openaiKey.trim(), rawDataUrl, targetId, index === 0, extractedText, extractedImage);
           } else {
             if (index === 0) {
               setIsAiBoxOpen(true);
@@ -1612,11 +1961,18 @@ Respond in JSON ONLY:
               setTimeout(() => {
                 setIsAiProcessing(false);
                 if (filesArray.length > 1) {
-                  setSuccessToast(`✨ AI scanned & mapped ${filesArray.length} documents with reasoning! Review & click Confirm to file.`);
+                  showSuccessToast(
+                    `✨ AI scanned & mapped ${filesArray.length} documents! Review & click Confirm to file.`,
+                    { critCode: initialCrit, metricCode: initialMetric },
+                    8000
+                  );
                 } else {
-                  setSuccessToast(`✨ AI mapped "${file.name}" to ${initialCrit} › Metric ${initialMetric}! Review reasoning & click Confirm.`);
+                  showSuccessToast(
+                    `✨ AI mapped "${file.name}" to ${initialCrit} › Metric ${initialMetric}!`,
+                    { critCode: initialCrit, metricCode: initialMetric },
+                    8000
+                  );
                 }
-                setTimeout(() => setSuccessToast(null), 4500);
               }, 1600);
             }
           }
@@ -1829,18 +2185,26 @@ Respond in JSON ONLY:
           ).join(', ')
         : `${cleanCritCode} (${cleanMetricCode})`;
 
+    const firstCrit = uploadedFilesBatch.length > 0 ? toCanonicalCrit(uploadedFilesBatch[0].crit) : cleanCritCode;
+    const firstMetric = uploadedFilesBatch.length > 0 ? toCanonicalMetric(uploadedFilesBatch[0].metric) : cleanMetricCode;
+
     setAutoFiledNotice({
       count: filedCount,
       criteriaSummary,
       docIds: batchIds,
+      firstCritCode: firstCrit,
+      firstMetricCode: firstMetric,
     });
 
-    if (filedCount > 1) {
-      setSuccessToast(`✓ Filed ${filedCount} documents across ${criteriaSummary}!`);
-    } else {
-      setSuccessToast(`✓ Filed "${fileName}" into ${criteriaSummary}!`);
-    }
-    setTimeout(() => setSuccessToast(null), 5000);
+    const successMsg = filedCount > 1
+      ? `✓ Filed ${filedCount} documents across ${criteriaSummary}!`
+      : `✓ Filed "${fileName}" into ${criteriaSummary}!`;
+
+    showSuccessToast(
+      successMsg,
+      { critCode: firstCrit, metricCode: firstMetric },
+      9000
+    );
 
     // Reset Form for next upload
     setUploadedFile(null);
@@ -1969,21 +2333,41 @@ Respond in JSON ONLY:
 
   return (
     <div className={`animate-in fade-in ${isDirectoryViewOpen ? 'space-y-6 pb-12' : 'flex-1 flex flex-col justify-center my-auto w-full'}`}>
-      {/* Toast Notification */}
+      {/* Toast Notification — Single Source of Truth with Repository Link Button */}
       {successToast && (
-        <div className="fixed top-20 right-6 z-50 bg-emerald-50 border border-emerald-300 text-emerald-950 px-4 py-3 rounded-xl shadow-xl flex items-center justify-between text-xs font-semibold gap-3 animate-in fade-in slide-in-from-top-2">
+        <div className="fixed top-20 right-6 z-50 bg-emerald-50 border border-emerald-300 text-emerald-950 px-4 py-3 rounded-xl shadow-xl flex items-center justify-between text-xs font-semibold gap-3 animate-in fade-in slide-in-from-top-2 max-w-xl">
           <div className="flex items-center gap-2 min-w-0">
             <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
-            <span>{successToast}</span>
+            <span className="truncate">{typeof successToast === 'string' ? successToast : successToast.message}</span>
           </div>
-          <button 
-            type="button" 
-            onClick={() => setSuccessToast(null)} 
-            className="text-emerald-700 hover:text-emerald-950 p-0.5 rounded cursor-pointer transition-colors shrink-0"
-            title="Dismiss"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            {typeof onNavigateToDocumentList === 'function' && typeof successToast === 'object' && successToast?.action && (
+              <button
+                type="button"
+                onClick={() => {
+                  onNavigateToDocumentList(
+                    successToast.action?.critCode,
+                    successToast.action?.metricCode,
+                    undefined,
+                    selectedCycleId
+                  );
+                  setSuccessToast(null);
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-800 shadow-2xs cursor-pointer transition-all shrink-0"
+              >
+                <span>View Document in Repository</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            )}
+            <button 
+              type="button" 
+              onClick={() => setSuccessToast(null)} 
+              className="text-emerald-700 hover:text-emerald-950 p-0.5 rounded cursor-pointer transition-colors"
+              title="Dismiss"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
       )}
 
@@ -2958,12 +3342,16 @@ Respond in JSON ONLY:
                                                   setEditingDocModal({
                                                     docId: doc.id,
                                                     fileName: doc.fileName || doc.title,
+                                                    fileSize: doc.fileSize,
+                                                    fileUrl: doc.fileUrl,
                                                     crit: crit.code,
                                                     ki: kiCode,
                                                     metric: docMetricCode,
                                                     aiReason: isAiUploaded
                                                       ? doc.aiReason
                                                       : undefined,
+                                                    docNature: (doc.docNature as any) || 'supporting_doc',
+                                                    auditChecks: doc.readinessChecks,
                                                   })
                                                 }
                                                 className="p-1.5 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg cursor-pointer transition-colors"
@@ -3489,7 +3877,7 @@ Respond in JSON ONLY:
                               onChange={(e) => setAuditConfig((c) => ({ ...c, checkSignature: e.target.checked }))}
                               className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-0 cursor-pointer accent-blue-600"
                             />
-                            <span className="text-xs font-medium text-gray-800">✍️ Signature</span>
+                            <span className="text-xs font-medium text-gray-800">Signature</span>
                           </label>
 
                           {/* 2. Stamp */}
@@ -3500,7 +3888,7 @@ Respond in JSON ONLY:
                               onChange={(e) => setAuditConfig((c) => ({ ...c, checkStamp: e.target.checked }))}
                               className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-0 cursor-pointer accent-blue-600"
                             />
-                            <span className="text-xs font-medium text-gray-800">💮 Stamp</span>
+                            <span className="text-xs font-medium text-gray-800">Stamp</span>
                           </label>
 
                           {/* 3. Date */}
@@ -3511,7 +3899,7 @@ Respond in JSON ONLY:
                               onChange={(e) => setAuditConfig((c) => ({ ...c, checkDate: e.target.checked }))}
                               className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-0 cursor-pointer accent-blue-600"
                             />
-                            <span className="text-xs font-medium text-gray-800">📅 Date</span>
+                            <span className="text-xs font-medium text-gray-800">Date</span>
                           </label>
 
                           {/* 4. Time */}
@@ -3522,7 +3910,7 @@ Respond in JSON ONLY:
                               onChange={(e) => setAuditConfig((c) => ({ ...c, checkTime: e.target.checked }))}
                               className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-0 cursor-pointer accent-blue-600"
                             />
-                            <span className="text-xs font-medium text-gray-800">⏱️ Time</span>
+                            <span className="text-xs font-medium text-gray-800">Time</span>
                           </label>
 
                           {/* 5. Letterhead */}
@@ -3533,7 +3921,7 @@ Respond in JSON ONLY:
                               onChange={(e) => setAuditConfig((c) => ({ ...c, checkLetterhead: e.target.checked }))}
                               className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-0 cursor-pointer accent-blue-600"
                             />
-                            <span className="text-xs font-medium text-gray-800">🏛️ Letterhead</span>
+                            <span className="text-xs font-medium text-gray-800">Letterhead</span>
                           </label>
                         </div>
 
@@ -3669,7 +4057,8 @@ Respond in JSON ONLY:
                                   item.dataUrl,
                                   item.docId,
                                   item.docId === activeItem.docId,
-                                  item.extractedText
+                                  item.extractedText,
+                                  item.extractedImage
                                 );
                               });
                             } else if (activeItem) {
@@ -3689,7 +4078,15 @@ Respond in JSON ONLY:
                               setTimeout(() => setIsAiProcessing(false), 1500);
                             }
                           } else if (uploadedFile && openaiKey.trim()) {
-                            classifyWithOpenAi(uploadedFile.name, openaiKey.trim(), uploadedFile.dataUrl, undefined, true, uploadedFile.extractedText);
+                            classifyWithOpenAi(
+                              uploadedFile.name,
+                              openaiKey.trim(),
+                              uploadedFile.dataUrl,
+                              undefined,
+                              true,
+                              uploadedFile.extractedText,
+                              uploadedFile.extractedImage
+                            );
                           } else {
                             setTimeout(() => setIsAiProcessing(false), 1500);
                           }
@@ -4065,9 +4462,13 @@ Respond in JSON ONLY:
                           const itemReason =
                             batchItem.reason || getAiSuggestion(batchItem.name, batchItem.extractedText).reason;
 
-                          // Pahade Sir Framework: Document Nature & Audit Status
+                          //  Document Nature & Audit Status
                           const itemNature = batchItem.docNature || detectDocNature(batchItem.name);
-                          const itemAudit = evaluateDocAudit(batchItem.name, itemNature, batchItem.auditChecks, auditConfig, batchItem.extractedText);
+                          const effectiveAuditChecks = {
+                            ...batchItem.auditChecks,
+                            hasEmbeddedImages: (batchItem.auditChecks as any)?.hasEmbeddedImages ?? Boolean(batchItem.extractedImage || batchItem.dataUrl?.startsWith('data:image')),
+                          };
+                          const itemAudit = evaluateDocAudit(batchItem.name, itemNature, effectiveAuditChecks, auditConfig, batchItem.extractedText);
 
                           return (
                             <React.Fragment key={batchItem.docId}>
@@ -4099,22 +4500,26 @@ Respond in JSON ONLY:
                                         <button
                                           type="button"
                                           onClick={() => toggleItemDocNature(batchItem.docId)}
-                                          className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer ${
+                                          className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-bold transition-all cursor-pointer border ${
                                             itemNature === 'ground_proof'
-                                              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 shadow-2xs'
-                                              : 'bg-indigo-50 text-indigo-800 border border-indigo-200 hover:bg-indigo-100 shadow-2xs'
+                                              ? 'bg-emerald-50 text-emerald-900 border-emerald-300 hover:bg-emerald-100 shadow-2xs'
+                                              : 'bg-indigo-50 text-indigo-900 border-indigo-300 hover:bg-indigo-100 shadow-2xs'
                                           }`}
-                                          title="Click to toggle between Supporting Document and Ground Proof"
+                                          title={
+                                            itemNature === 'ground_proof'
+                                              ? 'Ground Proof: Field photograph, signed attendance, student feedback. Click to toggle.'
+                                              : 'Supporting Document: Official institutional notification, circular, syllabus, minutes. Click to toggle.'
+                                          }
                                         >
                                           {itemNature === 'ground_proof' ? (
                                             <>
-                                              <Camera className="w-2.5 h-2.5 text-emerald-600" />
+                                               
                                               <span>Ground Proof</span>
                                             </>
                                           ) : (
                                             <>
-                                              <FileText className="w-2.5 h-2.5 text-indigo-600" />
-                                              <span>Supporting Doc</span>
+                                              <FileText className="w-3 h-3 text-indigo-600 shrink-0" />
+                                              <span>Supporting Document</span>
                                             </>
                                           )}
                                         </button>
@@ -4172,6 +4577,8 @@ Respond in JSON ONLY:
                                         setEditingDocModal({
                                           docId: batchItem.docId,
                                           fileName: batchItem.name,
+                                          fileSize: batchItem.size,
+                                          fileUrl: batchItem.dataUrl,
                                           crit: itemCritCode,
                                           ki: itemKiCode,
                                           metric: itemMetricCode,
@@ -4272,8 +4679,8 @@ Respond in JSON ONLY:
                                       <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1.5">
                                         {/* Label & Score */}
                                         <span className="font-bold text-[#0f2748] flex items-center gap-1.5">
-                                          <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0" />
-                                          <span>NAAC Readiness:</span>
+                                         
+                                          <span>Evidence Audit:</span>
                                           <span className="text-gray-500 font-normal">
                                             {itemAudit.totalChecks > 0 ? `(${itemAudit.score}/${itemAudit.totalChecks})` : '(No checks selected)'}
                                           </span>
@@ -4293,7 +4700,7 @@ Respond in JSON ONLY:
                                               {itemAudit.signature ? (
                                                 <Check className="w-4.5 h-4.5 text-emerald-600 stroke-[3] shrink-0" />
                                               ) : (
-                                                <X className="w-4.5 h-4.5 text-rose-600 stroke-[3] shrink-0" />
+                                                <AlertTriangle className="w-4.5 h-4.5 text-amber-500 fill-amber-50 stroke-[2.5] shrink-0" />
                                               )}
                                             </button>
                                           </>
@@ -4313,7 +4720,7 @@ Respond in JSON ONLY:
                                               {itemAudit.stamp ? (
                                                 <Check className="w-4.5 h-4.5 text-emerald-600 stroke-[3] shrink-0" />
                                               ) : (
-                                                <X className="w-4.5 h-4.5 text-rose-600 stroke-[3] shrink-0" />
+                                                <AlertTriangle className="w-4.5 h-4.5 text-amber-500 fill-amber-50 stroke-[2.5] shrink-0" />
                                               )}
                                             </button>
                                           </>
@@ -4333,7 +4740,7 @@ Respond in JSON ONLY:
                                               {itemAudit.date ? (
                                                 <Check className="w-4.5 h-4.5 text-emerald-600 stroke-[3] shrink-0" />
                                               ) : (
-                                                <X className="w-4.5 h-4.5 text-rose-600 stroke-[3] shrink-0" />
+                                                <AlertTriangle className="w-4.5 h-4.5 text-amber-500 fill-amber-50 stroke-[2.5] shrink-0" />
                                               )}
                                             </button>
                                           </>
@@ -4353,7 +4760,7 @@ Respond in JSON ONLY:
                                               {itemAudit.time ? (
                                                 <Check className="w-4.5 h-4.5 text-emerald-600 stroke-[3] shrink-0" />
                                               ) : (
-                                                <X className="w-4.5 h-4.5 text-rose-600 stroke-[3] shrink-0" />
+                                                <AlertTriangle className="w-4.5 h-4.5 text-amber-500 fill-amber-50 stroke-[2.5] shrink-0" />
                                               )}
                                             </button>
                                           </>
@@ -4373,7 +4780,7 @@ Respond in JSON ONLY:
                                               {itemAudit.letterhead ? (
                                                 <Check className="w-4.5 h-4.5 text-emerald-600 stroke-[3] shrink-0" />
                                               ) : (
-                                                <X className="w-4.5 h-4.5 text-rose-600 stroke-[3] shrink-0" />
+                                                <AlertTriangle className="w-4.5 h-4.5 text-amber-500 fill-amber-50 stroke-[2.5] shrink-0" />
                                               )}
                                             </button>
                                           </>
@@ -4401,46 +4808,7 @@ Respond in JSON ONLY:
             </div>
           )}
 
-          {/* Zero-Click AI Auto-Filed Status Banner & Link to Directory */}
-          {autoFiledNotice && !uploadedFile && (
-            <div className="max-w-4xl mx-auto bg-emerald-50 border border-emerald-200 rounded-2xl px-4 py-3.5 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3 text-left animate-in fade-in slide-in-from-top-1">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
-                  <CheckCircle2 className="w-4 h-4" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs sm:text-sm font-bold text-emerald-950">
-                    {autoFiledNotice.count}{' '}
-                    {autoFiledNotice.count === 1 ? 'document has been' : 'documents have been'}{' '}
-                    automatically filed by AI under Criteria
-                  </p>
-                  <p className="text-[11px] text-emerald-800 truncate mt-0.5">
-                    Filed into: <span className="font-semibold">{autoFiledNotice.criteriaSummary}</span>
-                  </p>
-                </div>
-              </div>
 
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setIsDirectoryViewOpen(true)}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-800 shadow-2xs transition-colors cursor-pointer"
-                >
-                  <FolderOpen className="w-3.5 h-3.5" />
-                  <span>View Filed Directory</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAutoFiledNotice(null)}
-                  className="p-1.5 rounded-lg text-emerald-700 hover:bg-emerald-100 cursor-pointer"
-                  title="Dismiss"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          )}
 
           {/* OpenAI Pass Key Below Drop Area */}
           {useAi && (
@@ -5013,381 +5381,416 @@ Respond in JSON ONLY:
         </div>
       )}
 
-      {/* Edit Filing Destination Popup Modal (Shared across AI Review Table & Evidence Directory) */}
-      {editingDocModal && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
-          <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 max-w-lg w-full overflow-hidden animate-in zoom-in-95 text-left">
-            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-slate-50">
-              <div>
-                <h3 className="text-sm font-bold text-gray-900">
-                  Edit Filing Destination
-                </h3>
-                <p className="text-xs text-gray-500 truncate max-w-sm mt-0.5">
-                  {editingDocModal.fileName}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setEditingDocModal(null)}
-                className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+      {/* Edit Filing Destination & Evidence Audit Slide-over Right Drawer */}
+      {editingDocModal && (() => {
+        const modalNature = editingDocModal.docNature || 'supporting_doc';
+        const modalAudit = evaluateDocAudit(
+          editingDocModal.fileName,
+          modalNature,
+          editingDocModal.auditChecks,
+          auditConfig,
+          editingDocModal.extractedText
+        );
 
-            <div className="p-5 space-y-4">
-              {/* Show AI Reasoning inside Edit Popup if document was AI-filed */}
-              {editingDocModal.aiReason && (
-                <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-200/80 text-xs text-amber-950 leading-relaxed flex items-start gap-2">
-                  <Sparkles className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                  <div>
-                    <div className="font-bold text-[11px] uppercase tracking-wider text-amber-800 mb-0.5">
-                      AI Reasoning
+        const auditChecklistItems = [
+          {
+            key: 'signature',
+            label: 'Institutional Signature',
+            icon: '✍️',
+            active: Boolean(auditConfig.checkSignature),
+            verified: modalAudit.signature,
+            verifiedMsg: 'Authorized faculty or administrative signature detected.',
+            missingMsg: 'Missing authorized signature endorsement on document.',
+          },
+          {
+            key: 'stamp',
+            label: 'Official Seal / Rubber Stamp',
+            icon: '💮',
+            active: Boolean(auditConfig.checkStamp),
+            verified: modalAudit.stamp,
+            verifiedMsg: 'Official college/department seal or stamp verified.',
+            missingMsg: 'No institutional rubber seal or stamp detected.',
+          },
+          {
+            key: 'date',
+            label: 'Document Date / Academic Cycle',
+            icon: '📅',
+            active: Boolean(auditConfig.checkDate),
+            verified: modalAudit.date,
+            verifiedMsg: 'Explicit date or academic year identified.',
+            missingMsg: 'Document does not state an explicit date or year.',
+          },
+          {
+            key: 'time',
+            label: 'Event Time / Timestamp',
+            icon: '⏱️',
+            active: Boolean(auditConfig.checkTime),
+            verified: modalAudit.time,
+            verifiedMsg: 'Meeting time or authentic timestamp recorded.',
+            missingMsg: 'Event timing or timestamp watermark not recorded.',
+          },
+          {
+            key: 'letterhead',
+            label: 'College Letterhead',
+            icon: '🏛️',
+            active: Boolean(auditConfig.checkLetterhead),
+            verified: modalAudit.letterhead,
+            verifiedMsg: 'Official college letterhead header verified.',
+            missingMsg: 'Official institutional letterhead header not detected.',
+          },
+        ];
+
+        return (
+          <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex justify-end animate-in fade-in duration-200">
+            {/* Click backdrop to close */}
+            <div
+              className="absolute inset-0 cursor-pointer"
+              onClick={() => setEditingDocModal(null)}
+              aria-label="Close backdrop"
+            />
+
+            {/* Slide-over Right Drawer (Expanded Width & Uncrowded Airy Layout) */}
+            <div className="relative w-full max-w-xl md:max-w-2xl h-full bg-white shadow-2xl flex flex-col border-l border-gray-200 animate-in slide-in-from-right duration-300 z-10 text-left">
+              {/* FIXED HEADER */}
+              <div className="px-6 py-4 border-b border-gray-200 bg-white flex items-center justify-between shrink-0">
+                <h3 className="text-base font-bold text-gray-900 truncate">
+                  Edit Destination & Audit
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setEditingDocModal(null)}
+                  className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg cursor-pointer transition-colors shrink-0"
+                  title="Close Drawer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* SCROLLABLE BODY */}
+              <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+                {/* AI Reasoning (Collapsible Pill/Accordion to save vertical space) */}
+                {editingDocModal.aiReason && (
+                  <div className="rounded-xl border border-amber-200/80 bg-amber-50/50 overflow-hidden text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setIsDrawerAiReasonOpen((prev) => !prev)}
+                      className="w-full px-3.5 py-2 flex items-center justify-between text-left font-semibold text-amber-900 hover:bg-amber-100/40 cursor-pointer transition-colors"
+                    >
+                      <div className="flex items-center gap-2 truncate pr-2">
+                        <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-amber-800">
+                          AI Mapping Reason
+                        </span>
+                        {!isDrawerAiReasonOpen && (
+                          <span className="text-gray-500 font-normal truncate max-w-[320px] text-[11px]">
+                            — {editingDocModal.aiReason}
+                          </span>
+                        )}
+                      </div>
+                      <ChevronDown
+                        className={`w-3.5 h-3.5 text-amber-700 shrink-0 transition-transform duration-200 ${
+                          isDrawerAiReasonOpen ? 'rotate-180' : ''
+                        }`}
+                      />
+                    </button>
+                    {isDrawerAiReasonOpen && (
+                      <div className="px-3.5 pb-2.5 pt-1 text-gray-700 leading-relaxed text-[11.5px] border-t border-amber-200/50 bg-amber-50/30">
+                        {editingDocModal.aiReason}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 1. Destination Hierarchy (Criterion & KI 2-Col Grid, Metric Below) */}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-gray-600 uppercase tracking-wider mb-1">
+                        1. Criterion
+                      </label>
+                      <select
+                        value={editingDocModal.crit}
+                        onChange={(e) => {
+                          const nextCrit = toCanonicalCrit(e.target.value);
+                          const kis = KEY_INDICATORS.filter(
+                            (k) => k.criterionCode.toLowerCase() === nextCrit.toLowerCase()
+                          );
+                          const nextKi = kis[0]?.code || '1.1';
+                          const metrics = NAAC_METRICS_LIST.filter(
+                            (m) => m.criterionCode.toLowerCase() === nextCrit.toLowerCase()
+                          );
+                          const nextMetric =
+                            metrics.find((m) => m.code.startsWith(nextKi))?.code ||
+                            metrics[0]?.code ||
+                            '1.1.1';
+                          setEditingDocModal({
+                            ...editingDocModal,
+                            crit: nextCrit,
+                            ki: nextKi,
+                            metric: nextMetric,
+                          });
+                        }}
+                        className="w-full text-xs font-semibold px-3 py-2 border border-gray-300 rounded-xl bg-white text-gray-800 outline-none focus:border-blue-500 cursor-pointer shadow-2xs"
+                      >
+                        {NAAC_CRITERIA_SUMMARY.map((c) => (
+                          <option key={c.code} value={c.code}>
+                            {c.code}: {c.name}
+                          </option>
+                        ))}
+                      </select>
                     </div>
-                    <p className="text-gray-700">{editingDocModal.aiReason}</p>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-gray-600 uppercase tracking-wider mb-1">
+                        2. Key Indicator
+                      </label>
+                      <select
+                        value={editingDocModal.ki}
+                        onChange={(e) => {
+                          const nextKi = toCanonicalKi(e.target.value);
+                          const metrics = NAAC_METRICS_LIST.filter(
+                            (m) =>
+                              m.criterionCode.toLowerCase() ===
+                              editingDocModal.crit.toLowerCase()
+                          );
+                          const nextMetric =
+                            metrics.find((m) => m.code.startsWith(nextKi))?.code ||
+                            metrics[0]?.code ||
+                            '1.1.1';
+                          setEditingDocModal({
+                            ...editingDocModal,
+                            ki: nextKi,
+                            metric: nextMetric,
+                          });
+                        }}
+                        className="w-full text-xs font-semibold px-3 py-2 border border-gray-300 rounded-xl bg-white text-gray-800 outline-none focus:border-blue-500 cursor-pointer shadow-2xs"
+                      >
+                        {KEY_INDICATORS.filter(
+                          (k) =>
+                            k.criterionCode.toLowerCase() ===
+                            editingDocModal.crit.toLowerCase()
+                        ).map((ki) => (
+                          <option key={ki.code} value={ki.code}>
+                            KI {ki.code}: {ki.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-gray-600 uppercase tracking-wider mb-1">
+                      3. Metric Destination
+                    </label>
+                    <select
+                      value={editingDocModal.metric}
+                      onChange={(e) => {
+                        const nextMetric = toCanonicalMetric(e.target.value);
+                        const parts = nextMetric.split('.');
+                        const parentKi =
+                          parts.length >= 2 ? `${parts[0]}.${parts[1]}` : editingDocModal.ki;
+                        setEditingDocModal({
+                          ...editingDocModal,
+                          ki: parentKi,
+                          metric: nextMetric,
+                        });
+                      }}
+                      className="w-full text-xs font-semibold px-3 py-2 border border-gray-300 rounded-xl bg-white text-gray-800 outline-none focus:border-blue-500 cursor-pointer shadow-2xs"
+                    >
+                      {NAAC_METRICS_LIST.filter(
+                        (m) =>
+                          m.criterionCode.toLowerCase() ===
+                          editingDocModal.crit.toLowerCase()
+                      ).map((m) => (
+                        <option key={m.code} value={m.code}>
+                          {m.code} ({m.metricType}) — {m.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
-              )}
 
-              {/* 1. Criterion */}
-              <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">
-                  1. Criterion
-                </label>
-                <select
-                  value={editingDocModal.crit}
-                  onChange={(e) => {
-                    const nextCrit = toCanonicalCrit(e.target.value);
-                    const kis = KEY_INDICATORS.filter(
-                      (k) => k.criterionCode.toLowerCase() === nextCrit.toLowerCase()
-                    );
-                    const nextKi = kis[0]?.code || '1.1';
-                    const metrics = NAAC_METRICS_LIST.filter(
-                      (m) => m.criterionCode.toLowerCase() === nextCrit.toLowerCase()
-                    );
-                    const nextMetric =
-                      metrics.find((m) => m.code.startsWith(nextKi))?.code ||
-                      metrics[0]?.code ||
-                      '1.1.1';
-                    setEditingDocModal({
-                      ...editingDocModal,
-                      crit: nextCrit,
-                      ki: nextKi,
-                      metric: nextMetric,
-                    });
-                  }}
-                  className="w-full text-xs font-semibold px-3 py-2 border border-gray-300 rounded-xl bg-white text-gray-800 outline-none focus:border-blue-500 cursor-pointer"
-                >
-                  {NAAC_CRITERIA_SUMMARY.map((c) => (
-                    <option key={c.code} value={c.code}>
-                      {c.code}: {c.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                {/* 2. Document Nature (Plain Radio Buttons) */}
+                <div className="pt-2">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-[11px] font-bold text-gray-600 uppercase tracking-wider">
+                      4. Document Nature
+                    </label>
+ 
+                  </div>
+                  <div className="flex items-center gap-6 py-1">
+                    <label className="inline-flex items-center gap-2 text-xs font-semibold text-gray-800 cursor-pointer select-none">
+                      <input
+                        type="radio"
+                        name="drawerDocNature"
+                        value="supporting_doc"
+                        checked={modalNature === 'supporting_doc'}
+                        onChange={() =>
+                          setEditingDocModal({
+                            ...editingDocModal,
+                            docNature: 'supporting_doc',
+                          })
+                        }
+                        className="w-4 h-4 text-blue-600 focus:ring-0 cursor-pointer"
+                      />
+                      <span>Supporting Document</span>
+                    </label>
 
-              {/* 2. Key Indicator */}
-              <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">
-                  2. Key Indicator
-                </label>
-                <select
-                  value={editingDocModal.ki}
-                  onChange={(e) => {
-                    const nextKi = toCanonicalKi(e.target.value);
-                    const metrics = NAAC_METRICS_LIST.filter(
-                      (m) =>
-                        m.criterionCode.toLowerCase() ===
-                        editingDocModal.crit.toLowerCase()
-                    );
-                    const nextMetric =
-                      metrics.find((m) => m.code.startsWith(nextKi))?.code ||
-                      metrics[0]?.code ||
-                      '1.1.1';
-                    setEditingDocModal({
-                      ...editingDocModal,
-                      ki: nextKi,
-                      metric: nextMetric,
-                    });
-                  }}
-                  className="w-full text-xs font-semibold px-3 py-2 border border-gray-300 rounded-xl bg-white text-gray-800 outline-none focus:border-blue-500 cursor-pointer"
-                >
-                  {KEY_INDICATORS.filter(
-                    (k) =>
-                      k.criterionCode.toLowerCase() ===
-                      editingDocModal.crit.toLowerCase()
-                  ).map((ki) => (
-                    <option key={ki.code} value={ki.code}>
-                      KI {ki.code}: {ki.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                    <label className="inline-flex items-center gap-2 text-xs font-semibold text-gray-800 cursor-pointer select-none">
+                      <input
+                        type="radio"
+                        name="drawerDocNature"
+                        value="ground_proof"
+                        checked={modalNature === 'ground_proof'}
+                        onChange={() =>
+                          setEditingDocModal({
+                            ...editingDocModal,
+                            docNature: 'ground_proof',
+                          })
+                        }
+                        className="w-4 h-4 text-blue-600 focus:ring-0 cursor-pointer"
+                      />
+                      <span>Ground Proof</span>
+                    </label>
+                  </div>
+                </div>
 
-              {/* 3. Metric */}
-              <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">
-                  3. Metric
-                </label>
-                <select
-                  value={editingDocModal.metric}
-                  onChange={(e) => {
-                    const nextMetric = toCanonicalMetric(e.target.value);
-                    const parts = nextMetric.split('.');
-                    const parentKi =
-                      parts.length >= 2 ? `${parts[0]}.${parts[1]}` : editingDocModal.ki;
-                    setEditingDocModal({
-                      ...editingDocModal,
-                      ki: parentKi,
-                      metric: nextMetric,
-                    });
-                  }}
-                  className="w-full text-xs font-semibold px-3 py-2 border border-gray-300 rounded-xl bg-white text-gray-800 outline-none focus:border-blue-500 cursor-pointer"
-                >
-                  {NAAC_METRICS_LIST.filter(
-                    (m) =>
-                      m.criterionCode.toLowerCase() ===
-                      editingDocModal.crit.toLowerCase()
-                  ).map((m) => (
-                    <option key={m.code} value={m.code}>
-                      {m.code} ({m.metricType}) — {m.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                {/* 3. Evidence Audit Results (Clean List) */}
+                <div className="pt-3 border-t border-gray-200 space-y-2.5">
+                  <div className="flex items-center gap-2">
+                   
+                    <span className="text-xs font-bold text-gray-800">
+                      5. Evidence Audit
+                    </span>
+                  </div>
 
-              {/* 4. Document Nature (Pahade Sir Framework) */}
-              <div className="pt-2 border-t border-gray-100">
-                <label className="block text-xs font-bold text-gray-700 mb-1">
-                  4. Document Nature
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setEditingDocModal({
-                        ...editingDocModal,
-                        docNature: 'supporting_doc',
-                      })
-                    }
-                    className={`py-2 px-3 rounded-xl text-center font-bold text-xs border cursor-pointer transition-all ${
-                      editingDocModal.docNature === 'supporting_doc'
-                        ? 'bg-indigo-50 text-indigo-900 border-indigo-300 shadow-2xs'
-                        : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100'
-                    }`}
-                  >
-                    📄 Supporting Document
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setEditingDocModal({
-                        ...editingDocModal,
-                        docNature: 'ground_proof',
-                      })
-                    }
-                    className={`py-2 px-3 rounded-xl text-center font-bold text-xs border cursor-pointer transition-all ${
-                      editingDocModal.docNature === 'ground_proof'
-                        ? 'bg-emerald-50 text-emerald-900 border-emerald-300 shadow-2xs'
-                        : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100'
-                    }`}
-                  >
-                    📸 Ground Proof
-                  </button>
+                  {/* Clean, Compact Row-by-Row Audit Status Items */}
+                  <div className="bg-slate-50/70 rounded-xl border border-slate-200 divide-y divide-slate-100 overflow-hidden">
+                    {auditChecklistItems.map((item) => (
+                      <div
+                        key={item.key}
+                        className={`px-3.5 py-2 flex items-center justify-between transition-colors ${
+                          !item.active ? 'opacity-50 bg-slate-50/40' : ''
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                          <span className="text-sm shrink-0">{item.icon}</span>
+                          <span className="text-xs font-semibold text-gray-800 truncate">
+                            {item.label}
+                          </span>
+                        </div>
+
+                        <div className="shrink-0">
+                          {!item.active ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium text-gray-400 bg-gray-100 border border-gray-200">
+                              Skipped
+                            </span>
+                          ) : item.verified ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10.5px] font-bold text-emerald-800 bg-emerald-100/70 border border-emerald-300">
+                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                              <span>Verified</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10.5px] font-bold text-amber-800 bg-amber-100/70 border border-amber-300">
+                              <AlertTriangle className="w-3 h-3 text-amber-600" />
+                              <span>Missing</span>
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
 
-              {/* 5. NAAC Readiness Checklist Items */}
-              <div className="pt-2 border-t border-gray-100">
-                <label className="block text-xs font-bold text-gray-700 mb-1.5 flex items-center justify-between">
-                  <span>5. NAAC Readiness Checklist</span>
-                  <span className="text-[10px] text-gray-400 font-normal">Pahade Sir Framework</span>
-                </label>
-                <div className="space-y-1.5 bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
-                  {/* 1. Signature */}
-                  <label className="flex items-center justify-between text-xs font-semibold text-gray-800 cursor-pointer">
-                    <span>✍️ Signature</span>
-                    <input
-                      type="checkbox"
-                      checked={editingDocModal.auditChecks?.signature ?? true}
-                      onChange={(e) =>
-                        setEditingDocModal({
-                          ...editingDocModal,
-                          auditChecks: {
-                            ...editingDocModal.auditChecks,
-                            signature: e.target.checked,
-                          },
-                        })
-                      }
-                      className="rounded text-blue-600 focus:ring-0 cursor-pointer"
-                    />
-                  </label>
+              {/* FIXED FOOTER */}
+              <div className="px-5 py-3.5 bg-gray-50 border-t border-gray-200 flex items-center justify-end gap-2.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setEditingDocModal(null)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-gray-600 hover:bg-gray-200 transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    updateBatchItemDestination(
+                      editingDocModal.docId,
+                      editingDocModal.crit,
+                      editingDocModal.ki,
+                      editingDocModal.metric
+                    );
+                    const critObj = NAAC_CRITERIA_SUMMARY.find(
+                      (c) =>
+                        c.code.toLowerCase() === editingDocModal.crit.toLowerCase()
+                    );
+                    const metricObj = NAAC_METRICS_LIST.find(
+                      (m) => m.code === editingDocModal.metric
+                    );
+                    const modalNature = editingDocModal.docNature || 'supporting_doc';
+                    const modalAudit = evaluateDocAudit(
+                      editingDocModal.fileName,
+                      modalNature,
+                      editingDocModal.auditChecks,
+                      auditConfig,
+                      editingDocModal.extractedText
+                    );
 
-                  {/* 2. Stamp */}
-                  <label className="flex items-center justify-between text-xs font-semibold text-gray-800 cursor-pointer">
-                    <span>💮 Stamp</span>
-                    <input
-                      type="checkbox"
-                      checked={editingDocModal.auditChecks?.stamp ?? true}
-                      onChange={(e) =>
-                        setEditingDocModal({
-                          ...editingDocModal,
-                          auditChecks: {
-                            ...editingDocModal.auditChecks,
-                            stamp: e.target.checked,
-                          },
-                        })
-                      }
-                      className="rounded text-blue-600 focus:ring-0 cursor-pointer"
-                    />
-                  </label>
+                    setUploadedFilesBatch((prev) =>
+                      prev.map((item) =>
+                        item.docId === editingDocModal.docId
+                          ? {
+                              ...item,
+                              crit: editingDocModal.crit,
+                              keyIndicator: editingDocModal.ki,
+                              metric: editingDocModal.metric,
+                              docNature: modalNature,
+                              auditChecks: editingDocModal.auditChecks,
+                              isManualEdit: true,
+                            }
+                          : item
+                      )
+                    );
 
-                  {/* 3. Date */}
-                  <label className="flex items-center justify-between text-xs font-semibold text-gray-800 cursor-pointer">
-                    <span>📅 Date</span>
-                    <input
-                      type="checkbox"
-                      checked={editingDocModal.auditChecks?.date ?? true}
-                      onChange={(e) =>
-                        setEditingDocModal({
-                          ...editingDocModal,
-                          auditChecks: {
-                            ...editingDocModal.auditChecks,
-                            date: e.target.checked,
-                          },
-                        })
-                      }
-                      className="rounded text-blue-600 focus:ring-0 cursor-pointer"
-                    />
-                  </label>
-
-                  {/* 4. Time */}
-                  <label className="flex items-center justify-between text-xs font-semibold text-gray-800 cursor-pointer">
-                    <span>⏱️ Time</span>
-                    <input
-                      type="checkbox"
-                      checked={editingDocModal.auditChecks?.time ?? true}
-                      onChange={(e) =>
-                        setEditingDocModal({
-                          ...editingDocModal,
-                          auditChecks: {
-                            ...editingDocModal.auditChecks,
-                            time: e.target.checked,
-                          },
-                        })
-                      }
-                      className="rounded text-blue-600 focus:ring-0 cursor-pointer"
-                    />
-                  </label>
-
-                  {/* 5. Letterhead */}
-                  <label className="flex items-center justify-between text-xs font-semibold text-gray-800 cursor-pointer">
-                    <span>🏛️ College Letterhead</span>
-                    <input
-                      type="checkbox"
-                      checked={editingDocModal.auditChecks?.letterhead ?? true}
-                      onChange={(e) =>
-                        setEditingDocModal({
-                          ...editingDocModal,
-                          auditChecks: {
-                            ...editingDocModal.auditChecks,
-                            letterhead: e.target.checked,
-                          },
-                        })
-                      }
-                      className="rounded text-blue-600 focus:ring-0 cursor-pointer"
-                    />
-                  </label>
-                </div>
+                    addOrUpdateNaacDocument({
+                      id: editingDocModal.docId,
+                      criterionCode: editingDocModal.crit,
+                      criterionId: critObj?.id || 'crit-1',
+                      keyIndicatorCode: editingDocModal.ki,
+                      metricCode: editingDocModal.metric,
+                      metricName:
+                        metricObj?.name || `${editingDocModal.metric} Evidence Proof`,
+                      docNature: modalNature,
+                      readinessScore: `${modalAudit.score}/${modalAudit.totalChecks}`,
+                      readinessPassed: modalAudit.isReady,
+                      readinessChecks: {
+                        signature: modalAudit.signature,
+                        stamp: modalAudit.stamp,
+                        date: modalAudit.date,
+                        time: modalAudit.time,
+                        letterhead: modalAudit.letterhead,
+                        cycleYear: modalAudit.cycleYear,
+                        geotag: modalAudit.geotag,
+                        notes: modalAudit.notes,
+                      },
+                    });
+                    refreshDocuments();
+                    setSuccessToast(
+                      `Updated "${editingDocModal.fileName}" destination & evidence audit checks!`
+                    );
+                    setTimeout(() => setSuccessToast(null), 3500);
+                    setEditingDocModal(null);
+                  }}
+                  className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-[#1d4ed8] hover:bg-blue-800 shadow-2xs cursor-pointer transition-all active:scale-[0.98]"
+                >
+                  Save Changes
+                </button>
               </div>
-            </div>
-
-            <div className="px-5 py-3.5 bg-gray-50 border-t border-gray-100 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setEditingDocModal(null)}
-                className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-gray-600 hover:bg-gray-200 cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  updateBatchItemDestination(
-                    editingDocModal.docId,
-                    editingDocModal.crit,
-                    editingDocModal.ki,
-                    editingDocModal.metric
-                  );
-                  const critObj = NAAC_CRITERIA_SUMMARY.find(
-                    (c) =>
-                      c.code.toLowerCase() === editingDocModal.crit.toLowerCase()
-                  );
-                  const metricObj = NAAC_METRICS_LIST.find(
-                    (m) => m.code === editingDocModal.metric
-                  );
-                  const modalNature = editingDocModal.docNature || 'supporting_doc';
-                  const modalAudit = evaluateDocAudit(
-                    editingDocModal.fileName,
-                    modalNature,
-                    editingDocModal.auditChecks,
-                    auditConfig,
-                    editingDocModal.extractedText
-                  );
-
-                  setUploadedFilesBatch((prev) =>
-                    prev.map((item) =>
-                      item.docId === editingDocModal.docId
-                        ? {
-                            ...item,
-                            crit: editingDocModal.crit,
-                            keyIndicator: editingDocModal.ki,
-                            metric: editingDocModal.metric,
-                            docNature: modalNature,
-                            auditChecks: editingDocModal.auditChecks,
-                            isManualEdit: true,
-                          }
-                        : item
-                    )
-                  );
-
-                  addOrUpdateNaacDocument({
-                    id: editingDocModal.docId,
-                    criterionCode: editingDocModal.crit,
-                    criterionId: critObj?.id || 'crit-1',
-                    keyIndicatorCode: editingDocModal.ki,
-                    metricCode: editingDocModal.metric,
-                    metricName:
-                      metricObj?.name || `${editingDocModal.metric} Evidence Proof`,
-                    docNature: modalNature,
-                    readinessScore: `${modalAudit.score}/${modalAudit.totalChecks}`,
-                    readinessPassed: modalAudit.isReady,
-                    readinessChecks: {
-                      signature: modalAudit.signature,
-                      stamp: modalAudit.stamp,
-                      date: modalAudit.date,
-                      time: modalAudit.time,
-                      letterhead: modalAudit.letterhead,
-                      cycleYear: modalAudit.cycleYear,
-                      geotag: modalAudit.geotag,
-                      notes: modalAudit.notes,
-                    },
-                  });
-                  refreshDocuments();
-                  setSuccessToast(
-                    `Updated "${editingDocModal.fileName}" destination & NAAC readiness checks!`
-                  );
-                  setTimeout(() => setSuccessToast(null), 3500);
-                  setEditingDocModal(null);
-                }}
-                className="px-4 py-1.5 rounded-lg text-xs font-bold text-white bg-[#1d4ed8] hover:bg-blue-800 shadow-2xs cursor-pointer"
-              >
-                Save Changes
-              </button>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 };

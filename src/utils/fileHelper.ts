@@ -22,7 +22,7 @@ export const dataUrlToBlob = (dataUrl: string): Blob => {
 };
 
 /**
- * Opens any URL or base64 PDF Data URL in a new browser tab.
+ * Opens any URL, Blob URL, or base64 Data URL in a new browser tab or triggers download for Office files.
  * Uses Blob Object URLs for data: URLs to prevent Chromium top-frame navigation block.
  */
 export const openFileInNewTab = (url?: string, fileName?: string): void => {
@@ -31,27 +31,55 @@ export const openFileInNewTab = (url?: string, fileName?: string): void => {
     return;
   }
 
+  const isOfficeDoc = fileName && /\.(docx?|xlsx?|csv|pptx?)$/i.test(fileName);
+
+  // 1. Direct Blob URL from uploaded file
+  if (url.startsWith('blob:')) {
+    if (isOfficeDoc) {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } else {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+    return;
+  }
+
+  // 2. Base64 Data URL
   if (url.startsWith('data:')) {
     try {
       const blob = dataUrlToBlob(url);
       const blobUrl = URL.createObjectURL(blob);
-      const newWin = window.open(blobUrl, '_blank');
+
+      if (isOfficeDoc) {
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = fileName || 'document.docx';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      } else {
+        const newWin = window.open(blobUrl, '_blank');
+        if (!newWin || newWin.closed || typeof newWin.closed === 'undefined') {
+          const a = document.createElement('a');
+          a.href = blobUrl;
+          a.download = fileName || 'document.pdf';
+          a.target = '_blank';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        }
+      }
+
       // Revoke after 60s to free memory
       setTimeout(() => {
         try {
           URL.revokeObjectURL(blobUrl);
         } catch {}
       }, 60000);
-
-      if (!newWin || newWin.closed || typeof newWin.closed === 'undefined') {
-        const a = document.createElement('a');
-        a.href = blobUrl;
-        a.download = fileName || 'document.pdf';
-        a.target = '_blank';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      }
       return;
     } catch (e) {
       console.error('Error creating Blob from Data URL:', e);

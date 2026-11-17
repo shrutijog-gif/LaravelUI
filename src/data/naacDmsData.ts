@@ -40,7 +40,7 @@ export interface NaacMetric {
   description: string;
 }
 
-export type NaacWorkflowStatus = 
+export type NaacWorkflowStatus =
   | 'draft'
   | 'submitted_to_program'
   | 'submitted_to_school'
@@ -90,7 +90,7 @@ export interface NaacEvidenceDocument {
   aiReason?: string;
   aiAutoFiled?: boolean;
   cycleId?: string;
-  // NAAC Readiness Audit & Document Nature (Pahade Sir Framework)
+  // NAAC Readiness Audit & Document Nature
   docNature?: 'supporting_doc' | 'ground_proof';
   readinessScore?: string;
   readinessPassed?: boolean;
@@ -292,7 +292,7 @@ export const KEY_INDICATORS: KeyIndicatorDef[] = [
   // Criterion 5: Student Support and Progression
   { code: '5.1', name: 'Student Support & Freeships', criterionCode: 'Criterion 5', metricCodes: ['5.1.1', '5.1.2', '5.1.3'] },
   { code: '5.2', name: 'Student Progression & Placements', criterionCode: 'Criterion 5', metricCodes: ['5.2.1', '5.2.2'] },
-  { code: '5.3', name: 'Student Participation & Awards', criterionCode: 'Criterion 5', metricCodes: ['5.3.1', '5.3.2'] },
+  { code: '5.3', name: 'Student Participation & Activities', criterionCode: 'Criterion 5', metricCodes: ['5.3.1', '5.3.2', '5.3.3'] },
   { code: '5.4', name: 'Alumni Engagement', criterionCode: 'Criterion 5', metricCodes: ['5.4.1', '5.4.2'] },
 
   // Criterion 6: Governance, Leadership and Management
@@ -369,6 +369,7 @@ export const NAAC_METRICS_LIST: NaacMetric[] = [
   { code: '5.2.2', name: 'Students Qualifying in State / National / International Level Exams (GATE/NET)', criterionId: 'crit-5', criterionCode: 'Criterion 5', metricType: 'QnM', description: 'Scorecards, rank letters for GATE, CAT, GRE, GMAT, and civil service exams.' },
   { code: '5.3.1', name: 'Student Sports, Cultural Competitions & National / International Awards', criterionId: 'crit-5', criterionCode: 'Criterion 5', metricType: 'QnM', description: 'Merit certificates, event photographs, and university sports representation proofs.' },
   { code: '5.3.2', name: 'Presence of an Active Student Council & Student Representation on Bodies', criterionId: 'crit-5', criterionCode: 'Criterion 5', metricType: 'QlM', description: 'Student council constitution, notification circulars, and meeting minutes.' },
+  { code: '5.3.3', name: 'Sports and Cultural Events / Competitions Organised by the Institution', criterionId: 'crit-5', criterionCode: 'Criterion 5', metricType: 'QnM', description: 'Reports of sports and cultural events/competitions along with event dates, participant lists, and geo-tagged photographs.' },
   { code: '5.4.1', name: 'Registered Alumni Association Contributing Significantly to Institution', criterionId: 'crit-5', criterionCode: 'Criterion 5', metricType: 'QlM', description: 'Alumni registration certificate, guest lecture photos, and mentorship records.' },
   { code: '5.4.2', name: 'Alumni Financial and In-kind Contribution During the Year', criterionId: 'crit-5', criterionCode: 'Criterion 5', metricType: 'QnM', description: 'Audited alumni donation statements, endowment receipts, and equipment gifts.' },
 
@@ -1550,7 +1551,7 @@ export const getStoredNaacDocuments = (): NaacEvidenceDocument[] => {
       merged.forEach(d => {
         if (!d) return;
         if (
-          d.fileName?.toLowerCase().includes('trishna-saraf') || 
+          d.fileName?.toLowerCase().includes('trishna-saraf') ||
           (Boolean(d.id?.startsWith('naac-doc-')) && d.uploadedBy === 'Prof. Priyanka Deshmukh') ||
           d.uploadedBy === 'Prof. Anita Verma (Program Coordinator)' ||
           d.uploadedBy === 'Program Coordinator'
@@ -1567,7 +1568,12 @@ export const getStoredNaacDocuments = (): NaacEvidenceDocument[] => {
       if (updated) {
         localStorage.setItem(NAAC_STORAGE_KEY, JSON.stringify(merged));
       }
-      return merged;
+      return merged.map(d => {
+        if (d && d.id && sessionFileUrlCache.has(d.id)) {
+          return { ...d, fileUrl: sessionFileUrlCache.get(d.id)! };
+        }
+        return d;
+      });
     }
     return INITIAL_NAAC_DOCUMENTS;
   } catch {
@@ -1575,7 +1581,15 @@ export const getStoredNaacDocuments = (): NaacEvidenceDocument[] => {
   }
 };
 
+// In-memory session cache to preserve genuine uploaded base64 data URLs / Blob URLs during active session
+const sessionFileUrlCache = new Map<string, string>();
+
 export const saveAllNaacDocuments = (docs: NaacEvidenceDocument[]): void => {
+  docs.forEach(d => {
+    if (d && d.id && d.fileUrl && (d.fileUrl.startsWith('data:') || d.fileUrl.startsWith('blob:'))) {
+      sessionFileUrlCache.set(d.id, d.fileUrl);
+    }
+  });
   try {
     localStorage.setItem(NAAC_STORAGE_KEY, JSON.stringify(docs));
     window.dispatchEvent(new Event('naac-dms-updated'));
@@ -1585,8 +1599,8 @@ export const saveAllNaacDocuments = (docs: NaacEvidenceDocument[]): void => {
       // Stripping oversized base64 data URLs ensures metadata is 100% saved without failing
       const lightweightDocs = docs.map(d => ({
         ...d,
-        fileUrl: (d.fileUrl && d.fileUrl.length > 50000) 
-          ? 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf' 
+        fileUrl: (d.fileUrl && d.fileUrl.length > 50000)
+          ? 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'
           : (d.fileUrl || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf')
       }));
       localStorage.setItem(NAAC_STORAGE_KEY, JSON.stringify(lightweightDocs));
@@ -1598,6 +1612,9 @@ export const saveAllNaacDocuments = (docs: NaacEvidenceDocument[]): void => {
 };
 
 export const addOrUpdateNaacDocument = (doc: Partial<NaacEvidenceDocument>): NaacEvidenceDocument => {
+  if (doc?.id && doc.fileUrl && (doc.fileUrl.startsWith('data:') || doc.fileUrl.startsWith('blob:'))) {
+    sessionFileUrlCache.set(doc.id, doc.fileUrl);
+  }
   const current = getStoredNaacDocuments();
   const existingIdx = doc?.id ? current.findIndex(d => d && d.id === doc.id) : -1;
 
@@ -1675,7 +1692,7 @@ export const compileDocumentIntoDossier = (docId: string, coordinatorNotes?: str
  * Program Coordinator Action: Batch compile multiple faculty documents into Department Dossier atomically
  */
 export const compileBatchDocumentsIntoDossier = (
-  docIds: string[], 
+  docIds: string[],
   coordinatorNotes?: string
 ): NaacEvidenceDocument[] => {
   const current = getStoredNaacDocuments();
@@ -1719,7 +1736,7 @@ export const requestRevisionFromFaculty = (docId: string, feedback: string): voi
  * Faculty Action: Replace / Re-upload revised evidence file in response to revision feedback
  */
 export const replaceFacultyDocumentFile = (
-  docId: string, 
+  docId: string,
   newFile: { fileName: string; fileSize: string; fileUrl: string }
 ): NaacEvidenceDocument | undefined => {
   const current = getStoredNaacDocuments();
@@ -1864,9 +1881,9 @@ export const submitBatchNaacDocuments = (
  * School Coordinator Action: Batch approve or request revision on multiple department submissions atomically
  */
 export const reviewBatchSchoolDocuments = (
-  docIds: string[], 
-  approved: boolean, 
-  note: string, 
+  docIds: string[],
+  approved: boolean,
+  note: string,
   reviewerName: string = 'Dr. Rajesh Sharma (School Coordinator)'
 ): NaacEvidenceDocument[] => {
   const current = getStoredNaacDocuments();
@@ -1892,9 +1909,9 @@ export const reviewBatchSchoolDocuments = (
 };
 
 export const reviewSchoolDocument = (
-  docId: string, 
-  approved: boolean, 
-  note: string, 
+  docId: string,
+  approved: boolean,
+  note: string,
   reviewerName: string = 'Dr. Rajesh Sharma'
 ): NaacEvidenceDocument[] => {
   return reviewBatchSchoolDocuments([docId], approved, note, reviewerName);

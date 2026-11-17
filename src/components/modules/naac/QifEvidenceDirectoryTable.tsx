@@ -38,6 +38,8 @@ interface QifEvidenceDirectoryTableProps {
   yearFrom: string;
   yearTo: string;
   initialCriterionCode?: string;
+  initialMetricCode?: string;
+  initialToastMessage?: string;
 }
 
 export const QifEvidenceDirectoryTable: React.FC<QifEvidenceDirectoryTableProps> = ({
@@ -46,10 +48,12 @@ export const QifEvidenceDirectoryTable: React.FC<QifEvidenceDirectoryTableProps>
   yearFrom,
   yearTo,
   initialCriterionCode,
+  initialMetricCode,
+  initialToastMessage,
 }) => {
   const [documents, setDocuments] = useState<NaacEvidenceDocument[]>(() => getStoredNaacDocuments());
   const [searchQuery, setSearchQuery] = useState('');
-  const [criterionFilter, setCriterionFilter] = useState<string>(initialCriterionCode || 'ALL');
+  const [criterionFilter, setCriterionFilter] = useState<string>('ALL');
   const [showEmptyMetrics, setShowEmptyMetrics] = useState<boolean>(true);
 
   // Hierarchy expand / collapse state
@@ -169,15 +173,24 @@ export const QifEvidenceDirectoryTable: React.FC<QifEvidenceDirectoryTableProps>
     };
   }, []);
 
-  // Update criterion filter if prop changes
+  // Expand target hierarchy if props change (keep criterionFilter as 'ALL' so all 7 criteria remain visible)
   useEffect(() => {
-    if (initialCriterionCode) {
-      setCriterionFilter(initialCriterionCode);
-      if (initialCriterionCode !== 'ALL') {
-        setExpandedCrits((prev) => ({ ...prev, [initialCriterionCode]: true }));
-      }
+    if (initialCriterionCode && initialCriterionCode !== 'ALL') {
+      const canonicalCrit = toCanonicalCrit(initialCriterionCode);
+      setExpandedCrits((prev) => ({ ...prev, [canonicalCrit]: true }));
     }
-  }, [initialCriterionCode]);
+    if (initialMetricCode) {
+      const canonicalMetric = toCanonicalMetric(initialMetricCode);
+      const parts = canonicalMetric.split('.');
+      const parentKi = parts.length >= 2 ? `${parts[0]}.${parts[1]}` : '1.1';
+      setExpandedKis((prev) => ({ ...prev, [parentKi]: true }));
+      setExpandedMetrics((prev) => ({ ...prev, [canonicalMetric]: true }));
+    }
+    if (initialToastMessage) {
+      setToastMessage(initialToastMessage);
+      setTimeout(() => setToastMessage(null), 4500);
+    }
+  }, [initialCriterionCode, initialMetricCode, initialToastMessage]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -255,7 +268,7 @@ export const QifEvidenceDirectoryTable: React.FC<QifEvidenceDirectoryTableProps>
     e.preventDefault();
     e.stopPropagation();
     setDragOverCrit(null);
-    const files = Array.from(e.dataTransfer.files).filter((f) => f.name.toLowerCase().endsWith('.pdf'));
+    const files = Array.from(e.dataTransfer.files);
     if (files.length === 0) return;
     const matchingMetric = NAAC_METRICS_LIST.find(
       (m) => m.criterionCode.toLowerCase() === critCode.toLowerCase()
@@ -267,7 +280,7 @@ export const QifEvidenceDirectoryTable: React.FC<QifEvidenceDirectoryTableProps>
     e.preventDefault();
     e.stopPropagation();
     setDragOverKi(null);
-    const files = Array.from(e.dataTransfer.files).filter((f) => f.name.toLowerCase().endsWith('.pdf'));
+    const files = Array.from(e.dataTransfer.files);
     if (files.length === 0) return;
     const matchingMetric = NAAC_METRICS_LIST.find((m) => m.code.startsWith(kiCode))?.code || `${kiCode}.1`;
     handleFilesSelected(files, critCode, kiCode, matchingMetric);
@@ -278,7 +291,7 @@ export const QifEvidenceDirectoryTable: React.FC<QifEvidenceDirectoryTableProps>
     e.stopPropagation();
     setDragOverMetric(null);
     setDragCursorPos(null);
-    const files = Array.from(e.dataTransfer.files).filter((f) => f.name.toLowerCase().endsWith('.pdf'));
+    const files = Array.from(e.dataTransfer.files);
     if (files.length === 0) return;
     handleFilesSelected(files, critCode, kiCode, metricCode);
   };
@@ -1276,13 +1289,17 @@ export const QifEvidenceDirectoryTable: React.FC<QifEvidenceDirectoryTableProps>
         </div>
       </div>
 
-      {/* Compile as One PDF Popup Modal */}
+      {/* Compile as One PDF Drawer */}
       {compilePdfModal && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
-          <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 max-w-xl w-full overflow-hidden animate-in zoom-in-95">
-            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-slate-50">
+        <div className="fixed inset-0 z-50 flex justify-end">
+          <div
+            className="fixed inset-0 bg-black/40 backdrop-blur-xs transition-opacity animate-in fade-in cursor-pointer"
+            onClick={() => setCompilePdfModal(null)}
+          />
+          <div className="relative w-full max-w-xl md:max-w-2xl h-full bg-white shadow-2xl flex flex-col border-l border-gray-200 animate-in slide-in-from-right duration-300 z-10 text-left">
+            <div className="px-6 py-4 border-b border-gray-200 bg-white flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-[#1d4ed8] text-white flex items-center justify-center shrink-0">
+                <div className="w-8 h-8 rounded-lg bg-[#1d4ed8] text-white flex items-center justify-center shrink-0 shadow-2xs">
                   <Layers className="w-4 h-4" />
                 </div>
                 <div>
@@ -1297,13 +1314,13 @@ export const QifEvidenceDirectoryTable: React.FC<QifEvidenceDirectoryTableProps>
               <button
                 type="button"
                 onClick={() => setCompilePdfModal(null)}
-                className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg cursor-pointer"
+                className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg cursor-pointer transition-colors shrink-0"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="p-5 space-y-4 max-h-[75vh] overflow-y-auto">
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
               {/* Included Files List */}
               <div>
                 <label className="block text-xs font-bold text-gray-700 mb-1.5">
@@ -1459,7 +1476,7 @@ export const QifEvidenceDirectoryTable: React.FC<QifEvidenceDirectoryTableProps>
               </div>
             </div>
 
-            <div className="px-5 py-3.5 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+            <div className="px-6 py-4 bg-slate-50 border-t border-gray-200 flex items-center justify-between shrink-0">
               <span className="text-[11px] text-gray-500 font-medium">
                 Generates Index PDF with working NAAC links
               </span>
@@ -1576,29 +1593,33 @@ export const QifEvidenceDirectoryTable: React.FC<QifEvidenceDirectoryTableProps>
         </div>
       )}
 
-      {/* Edit Filing Destination Popup Modal */}
+      {/* Edit Filing Destination Drawer */}
       {editingDocModal && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
-          <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 max-w-lg w-full overflow-hidden animate-in zoom-in-95 text-left">
-            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-slate-50">
+        <div className="fixed inset-0 z-50 flex justify-end">
+          <div
+            className="fixed inset-0 bg-black/40 backdrop-blur-xs transition-opacity animate-in fade-in cursor-pointer"
+            onClick={() => setEditingDocModal(null)}
+          />
+          <div className="relative w-full max-w-xl md:max-w-2xl h-full bg-white shadow-2xl flex flex-col border-l border-gray-200 animate-in slide-in-from-right duration-300 z-10 text-left">
+            <div className="px-6 py-4 border-b border-gray-200 bg-white flex items-center justify-between shrink-0">
               <div>
                 <h3 className="text-sm font-bold text-gray-900">
                   Edit Filing Destination
                 </h3>
-                <p className="text-xs text-gray-500 truncate max-w-sm mt-0.5">
+                <p className="text-xs text-gray-500 truncate max-w-md mt-0.5 font-medium">
                   {editingDocModal.fileName}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setEditingDocModal(null)}
-                className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg cursor-pointer"
+                className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg cursor-pointer transition-colors shrink-0"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="p-5 space-y-4">
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
               {/* Criterion Selection */}
               <div>
                 <label className="block text-xs font-bold text-gray-700 mb-1">
@@ -1709,7 +1730,7 @@ export const QifEvidenceDirectoryTable: React.FC<QifEvidenceDirectoryTableProps>
               </div>
             </div>
 
-            <div className="px-5 py-3.5 bg-gray-50 border-t border-gray-100 flex items-center justify-end gap-2">
+            <div className="px-6 py-4 bg-slate-50 border-t border-gray-200 flex items-center justify-end gap-2.5 shrink-0">
               <button
                 type="button"
                 onClick={() => setEditingDocModal(null)}
@@ -1753,11 +1774,15 @@ export const QifEvidenceDirectoryTable: React.FC<QifEvidenceDirectoryTableProps>
         </div>
       )}
 
-      {/* Upload Evidence Document Popup Modal */}
+      {/* Upload Evidence Document Drawer */}
       {uploadModalState && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
-          <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 max-w-lg w-full overflow-hidden animate-in zoom-in-95 text-left">
-            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-slate-50">
+        <div className="fixed inset-0 z-50 flex justify-end">
+          <div
+            className="fixed inset-0 bg-black/40 backdrop-blur-xs transition-opacity animate-in fade-in cursor-pointer"
+            onClick={() => setUploadModalState(null)}
+          />
+          <div className="relative w-full max-w-xl md:max-w-2xl h-full bg-white shadow-2xl flex flex-col border-l border-gray-200 animate-in slide-in-from-right duration-300 z-10 text-left">
+            <div className="px-6 py-4 border-b border-gray-200 bg-white flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg bg-[#1d4ed8] text-white flex items-center justify-center shrink-0 shadow-2xs">
                   <Upload className="w-4 h-4" />
@@ -1774,13 +1799,13 @@ export const QifEvidenceDirectoryTable: React.FC<QifEvidenceDirectoryTableProps>
               <button
                 type="button"
                 onClick={() => setUploadModalState(null)}
-                className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg cursor-pointer transition-colors"
+                className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg cursor-pointer transition-colors shrink-0"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="p-5 space-y-4">
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
               {/* Criterion Selection */}
               <div>
                 <label className="block text-xs font-bold text-gray-700 mb-1">
@@ -1898,7 +1923,7 @@ export const QifEvidenceDirectoryTable: React.FC<QifEvidenceDirectoryTableProps>
                 <input
                   ref={modalFileInputRef}
                   type="file"
-                  accept=".pdf"
+                  accept=".pdf,.docx,.doc,.xlsx,.xls,.png,.jpg,.jpeg"
                   className="hidden"
                   onChange={(e) => {
                     const file = e.target.files?.[0] || null;
@@ -1920,9 +1945,7 @@ export const QifEvidenceDirectoryTable: React.FC<QifEvidenceDirectoryTableProps>
                     onDrop={(e) => {
                       e.preventDefault();
                       setIsModalDropDragging(false);
-                      const file = Array.from(e.dataTransfer.files).find((f) =>
-                        f.name.toLowerCase().endsWith('.pdf')
-                      );
+                      const file = Array.from(e.dataTransfer.files)[0] || null;
                       if (file) {
                         setUploadModalState((prev) => (prev ? { ...prev, file } : null));
                       }
@@ -1975,7 +1998,7 @@ export const QifEvidenceDirectoryTable: React.FC<QifEvidenceDirectoryTableProps>
               </div>
             </div>
 
-            <div className="px-5 py-3.5 bg-gray-50 border-t border-gray-100 flex items-center justify-end gap-2">
+            <div className="px-6 py-4 bg-slate-50 border-t border-gray-200 flex items-center justify-end gap-2.5 shrink-0">
               <button
                 type="button"
                 onClick={() => setUploadModalState(null)}
