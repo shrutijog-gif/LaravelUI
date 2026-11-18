@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Home,
   Pencil,
@@ -197,6 +197,16 @@ export const NaacSsrCycleModule: React.FC<NaacSsrCycleModuleProps> = ({
     }
   }, [initialCycleId, initialTab, initialCriterionCode, initialMetricCode, initialToastMessage]);
 
+  useEffect(() => {
+    const handleCyclesChange = () => {
+      setCycles(getStoredNaacCycles());
+    };
+    window.addEventListener('naac-cycles-updated', handleCyclesChange);
+    return () => {
+      window.removeEventListener('naac-cycles-updated', handleCyclesChange);
+    };
+  }, []);
+
   const handleChooseCycle = (cycleId: string | null) => {
     setSelectedCycleId(cycleId);
     setSelectedCriterionCode(null);
@@ -212,6 +222,31 @@ export const NaacSsrCycleModule: React.FC<NaacSsrCycleModuleProps> = ({
   const [cycleNumberInput, setCycleNumberInput] = useState<string>('NAAC Cycle 1');
   const [yearFromInput, setYearFromInput] = useState<string>('2024-25');
   const [yearToInput, setYearToInput] = useState<string>('2028-29');
+
+  // Academic Year options (2000-01 to 2035-36) ensuring current values are always present
+  const ACADEMIC_YEAR_OPTIONS = useMemo(() => {
+    const list: string[] = [];
+    for (let start = 2000; start <= 2035; start++) {
+      const endShort = String((start + 1) % 100).padStart(2, '0');
+      list.push(`${start}-${endShort}`);
+    }
+    if (yearFromInput && !list.includes(yearFromInput)) {
+      list.push(yearFromInput);
+    }
+    if (yearToInput && !list.includes(yearToInput)) {
+      list.push(yearToInput);
+    }
+    list.sort();
+    return list;
+  }, [yearFromInput, yearToInput]);
+
+  const getFiveYearEndAcademicYear = (fromYr: string): string => {
+    const startYear = parseInt(fromYr.split('-')[0], 10);
+    if (isNaN(startYear)) return fromYr;
+    const targetStart = startYear + 4;
+    const targetEndShort = String((targetStart + 1) % 100).padStart(2, '0');
+    return `${targetStart}-${targetEndShort}`;
+  };
 
   // Inside Cycle (4.png) State
   const [isSsrSectionOpen, setIsSsrSectionOpen] = useState<boolean>(true);
@@ -304,8 +339,18 @@ export const NaacSsrCycleModule: React.FC<NaacSsrCycleModuleProps> = ({
     } else {
       setEditingCycleId(null);
       setCycleNumberInput(`NAAC Cycle ${cycles.length + 1}`);
-      setYearFromInput('2024-25');
-      setYearToInput('2028-29');
+      const latestCycle = cycles[0];
+      let nextFrom = '2026-27';
+      if (latestCycle && latestCycle.yearTo) {
+        const endYear = parseInt(latestCycle.yearTo.split('-')[0], 10);
+        if (!isNaN(endYear)) {
+          const startYear = endYear + 1;
+          const endShort = String((startYear + 1) % 100).padStart(2, '0');
+          nextFrom = `${startYear}-${endShort}`;
+        }
+      }
+      setYearFromInput(nextFrom);
+      setYearToInput(getFiveYearEndAcademicYear(nextFrom));
     }
     setIsCycleDrawerOpen(true);
   };
@@ -1465,13 +1510,37 @@ export const NaacSsrCycleModule: React.FC<NaacSsrCycleModuleProps> = ({
                   </label>
                   <select
                     value={cycleNumberInput}
-                    onChange={(e) => setCycleNumberInput(e.target.value)}
-                    className="w-full rounded-lg border-2 border-blue-600 px-3.5 py-2.5 text-sm text-gray-800 outline-none bg-white"
+                    onChange={(e) => {
+                      const selectedVal = e.target.value;
+                      setCycleNumberInput(selectedVal);
+                      const matching = cycles.find(
+                        (c) => c.cycleNumber === selectedVal || c.id === selectedVal
+                      );
+                      if (matching) {
+                        setEditingCycleId(matching.id);
+                        setYearFromInput(matching.yearFrom);
+                        setYearToInput(matching.yearTo);
+                      }
+                    }}
+                    className="w-full rounded-lg border-2 border-blue-600 px-3.5 py-2.5 text-sm text-gray-800 outline-none bg-white font-semibold cursor-pointer"
                   >
-                    <option value="NAAC Cycle 1">NAAC Cycle 1</option>
-                    <option value="NAAC Cycle 2">NAAC Cycle 2</option>
-                    <option value="NAAC Cycle 3">NAAC Cycle 3</option>
-                    <option value="NAAC Cycle 4">NAAC Cycle 4</option>
+                    {Array.from(
+                      new Set([
+                        ...cycles.map((c) => c.cycleNumber),
+                        'NAAC Cycle 1',
+                        'NAAC Cycle 2',
+                        'NAAC Cycle 3',
+                        'NAAC Cycle 4',
+                        'NAAC Cycle 5',
+                      ])
+                    ).map((cNum) => {
+                      const matching = cycles.find((c) => c.cycleNumber === cNum);
+                      return (
+                        <option key={cNum} value={cNum}>
+                          {cNum} {matching ? `(${matching.yearFrom} to ${matching.yearTo})` : ''}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
 
@@ -1482,13 +1551,18 @@ export const NaacSsrCycleModule: React.FC<NaacSsrCycleModuleProps> = ({
                     </label>
                     <select
                       value={yearFromInput}
-                      onChange={(e) => setYearFromInput(e.target.value)}
-                      className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-800 outline-none bg-white focus:border-blue-600"
+                      onChange={(e) => {
+                        const newFrom = e.target.value;
+                        setYearFromInput(newFrom);
+                        setYearToInput(getFiveYearEndAcademicYear(newFrom));
+                      }}
+                      className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-800 outline-none bg-white focus:border-blue-600 cursor-pointer font-medium"
                     >
-                      <option value="2022-23">2022-23</option>
-                      <option value="2023-24">2023-24</option>
-                      <option value="2024-25">2024-25</option>
-                      <option value="2025-26">2025-26</option>
+                      {ACADEMIC_YEAR_OPTIONS.map((yr) => (
+                        <option key={yr} value={yr}>
+                          {yr}
+                        </option>
+                      ))}
                     </select>
                   </div>
 
@@ -1499,12 +1573,13 @@ export const NaacSsrCycleModule: React.FC<NaacSsrCycleModuleProps> = ({
                     <select
                       value={yearToInput}
                       onChange={(e) => setYearToInput(e.target.value)}
-                      className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-800 outline-none bg-white focus:border-blue-600"
+                      className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-800 outline-none bg-white focus:border-blue-600 cursor-pointer font-medium"
                     >
-                      <option value="2026-27">2026-27</option>
-                      <option value="2027-28">2027-28</option>
-                      <option value="2028-29">2028-29</option>
-                      <option value="2029-30">2029-30</option>
+                      {ACADEMIC_YEAR_OPTIONS.map((yr) => (
+                        <option key={yr} value={yr}>
+                          {yr}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 </div>

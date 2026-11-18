@@ -466,8 +466,8 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
   const [isManageCyclesModalOpen, setIsManageCyclesModalOpen] = useState<boolean>(false);
   const [draftCycles, setDraftCycles] = useState<NaacSsrCycle[]>([]);
   const [editingCycleRowId, setEditingCycleRowId] = useState<string | null>(null);
-  const ACADEMIC_YEAR_OPTIONS = Array.from({ length: 26 }, (_, i) => {
-    const startYear = 2010 + i;
+  const ACADEMIC_YEAR_OPTIONS = Array.from({ length: 36 }, (_, i) => {
+    const startYear = 2000 + i;
     const endShort = String((startYear + 1) % 100).padStart(2, '0');
     return `${startYear}-${endShort}`;
   });
