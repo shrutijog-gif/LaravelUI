@@ -63,37 +63,49 @@ export const NaacFrameworkMaster: React.FC<NaacFrameworkMasterProps> = ({
     getTrackRegimeFramework(selectedTrack, selectedRegime)
   );
 
+  // Active Criterion for Column 1 Drilldown
+  const [selectedCritId, setSelectedCritId] = useState<string>(() => {
+    return framework.criteria[0]?.id || '';
+  });
+
+  // Active Key Indicator for Column 2 Drilldown
+  const [selectedKiId, setSelectedKiId] = useState<string>(() => {
+    return framework.criteria[0]?.indicators[0]?.id || '';
+  });
+
   // Sync framework on track or regime change
   useEffect(() => {
     const loaded = getTrackRegimeFramework(selectedTrack, selectedRegime);
     setFramework(loaded);
+    const firstCrit = loaded.criteria[0];
+    if (firstCrit) {
+      setSelectedCritId(firstCrit.id);
+      setSelectedKiId(firstCrit.indicators[0]?.id || '');
+    } else {
+      setSelectedCritId('');
+      setSelectedKiId('');
+    }
   }, [selectedTrack, selectedRegime]);
 
-  // Selected Criterion in Left Column (Master Selection)
-  const [selectedCritId, setSelectedCritId] = useState<string>(() => {
-    return framework.criteria[0]?.id || 'crit-1';
-  });
+  // College Track Selector Dropdown state
+  const [isTrackDropdownOpen, setIsTrackDropdownOpen] = useState(false);
+  const trackDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Ensure selectedCritId is always valid when framework changes
   useEffect(() => {
-    if (!framework.criteria.some((c) => c.id === selectedCritId)) {
-      setSelectedCritId(framework.criteria[0]?.id || '');
-    }
-  }, [framework, selectedCritId]);
-
-  const activeCriterion = framework.criteria.find((c) => c.id === selectedCritId) || framework.criteria[0] || null;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (trackDropdownRef.current && !trackDropdownRef.current.contains(e.target as Node)) {
+        setIsTrackDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Toast State
   const [toastMsg, setToastMsg] = useState<{ text: string; type: 'success' | 'info' | 'error' } | null>(null);
   const showToast = (text: string, type: 'success' | 'info' | 'error' = 'success') => {
     setToastMsg({ text, type });
     setTimeout(() => setToastMsg(null), 3000);
-  };
-
-  // Right Column Accordion for KIs
-  const [expandedKis, setExpandedKis] = useState<Record<string, boolean>>({});
-  const toggleKiExpand = (kiId: string) => {
-    setExpandedKis((prev) => ({ ...prev, [kiId]: !prev[kiId] }));
   };
 
   // Modals State
@@ -123,6 +135,7 @@ export const NaacFrameworkMaster: React.FC<NaacFrameworkMasterProps> = ({
       const newId = `crit-custom-${Date.now()}`;
       nextCriteria.push({ ...data, id: newId, indicators: [] });
       setSelectedCritId(newId);
+      setSelectedKiId('');
     } else {
       nextCriteria = nextCriteria.map((c) => (c.id === data.id ? { ...c, ...data } : c));
     }
@@ -136,7 +149,9 @@ export const NaacFrameworkMaster: React.FC<NaacFrameworkMasterProps> = ({
     const nextCriteria = framework.criteria.filter((c) => c.id !== critId);
     handleSaveFramework({ ...framework, criteria: nextCriteria });
     if (selectedCritId === critId) {
-      setSelectedCritId(nextCriteria[0]?.id || '');
+      const firstCrit = nextCriteria[0];
+      setSelectedCritId(firstCrit?.id || '');
+      setSelectedKiId(firstCrit?.indicators[0]?.id || '');
     }
     showToast(`Deleted ${code}`, 'info');
   };
@@ -145,17 +160,20 @@ export const NaacFrameworkMaster: React.FC<NaacFrameworkMasterProps> = ({
   const handleSaveKi = () => {
     if (!editingKi) return;
     const { isNew, critId, data } = editingKi;
+    let createdKiId = data.id;
     const nextCriteria = framework.criteria.map((c) => {
       if (c.id !== critId) return c;
       let nextKis = [...c.indicators];
       if (isNew) {
-        nextKis.push({ ...data, id: `ki-custom-${Date.now()}`, metrics: [] });
+        createdKiId = `ki-custom-${Date.now()}`;
+        nextKis.push({ ...data, id: createdKiId, metrics: [] });
       } else {
         nextKis = nextKis.map((ki) => (ki.id === data.id ? { ...ki, ...data } : ki));
       }
       return { ...c, indicators: nextKis };
     });
     handleSaveFramework({ ...framework, criteria: nextCriteria });
+    setSelectedKiId(createdKiId);
     setEditingKi(null);
     showToast(isNew ? `Added KI ${data.code}` : `Updated KI ${data.code}`);
   };
@@ -167,6 +185,10 @@ export const NaacFrameworkMaster: React.FC<NaacFrameworkMasterProps> = ({
       return { ...c, indicators: c.indicators.filter((ki) => ki.id !== kiId) };
     });
     handleSaveFramework({ ...framework, criteria: nextCriteria });
+    if (selectedKiId === kiId) {
+      const firstAvailable = nextCriteria.find((c) => c.indicators.length > 0)?.indicators[0]?.id || '';
+      setSelectedKiId(firstAvailable);
+    }
     showToast(`Deleted KI ${code}`, 'info');
   };
 
@@ -231,7 +253,7 @@ export const NaacFrameworkMaster: React.FC<NaacFrameworkMasterProps> = ({
     });
     handleSaveFramework({ ...framework, criteria: nextCriteria });
     setEditingSubMetric(null);
-    showToast(isNew ? `Added Deliverable ${data.code}` : `Updated Deliverable ${data.code}`);
+    showToast(isNew ? `Added Sub-Metric ${data.code}` : `Updated Sub-Metric ${data.code}`);
   };
 
   const handleDeleteSubMetric = (critId: string, kiId: string, metricId: string, subId: string) => {
@@ -248,7 +270,7 @@ export const NaacFrameworkMaster: React.FC<NaacFrameworkMasterProps> = ({
       return { ...c, indicators: nextKis };
     });
     handleSaveFramework({ ...framework, criteria: nextCriteria });
-    showToast('Deleted Deliverable', 'info');
+    showToast('Deleted Sub-Metric', 'info');
   };
 
   // Reset Defaults for active track & regime
@@ -256,6 +278,7 @@ export const NaacFrameworkMaster: React.FC<NaacFrameworkMasterProps> = ({
     const clean = resetTrackRegimeFramework(selectedTrack, selectedRegime);
     setFramework(clean);
     setSelectedCritId(clean.criteria[0]?.id || '');
+    setSelectedKiId(clean.criteria[0]?.indicators[0]?.id || '');
     setResetConfirmOpen(false);
     showToast(`Reset ${clean.name} to official NAAC guidelines!`);
   };
@@ -287,6 +310,7 @@ export const NaacFrameworkMaster: React.FC<NaacFrameworkMasterProps> = ({
         }
         handleSaveFramework(parsed);
         setSelectedCritId(parsed.criteria[0]?.id || '');
+        setSelectedKiId(parsed.criteria[0]?.indicators[0]?.id || '');
         showToast('Imported custom framework!');
       } catch (err: any) {
         showToast(`Failed to import JSON: ${err.message}`, 'error');
@@ -310,6 +334,31 @@ export const NaacFrameworkMaster: React.FC<NaacFrameworkMasterProps> = ({
         return <Landmark className={cls} />;
       default:
         return <FolderTree className={cls} />;
+    }
+  };
+
+  const currentTrack = COLLEGE_TRACKS.find((t) => t.id === selectedTrack) || COLLEGE_TRACKS[0];
+
+  // Active Criterion for Column 1 Drilldown
+  const activeCriterion: NaacCriterionMaster | null =
+    framework.criteria.find((c) => c.id === selectedCritId) || framework.criteria[0] || null;
+
+  // Active Key Indicator under the active Criterion
+  let activeKi: NaacKeyIndicatorMaster | null = null;
+  if (activeCriterion) {
+    activeKi =
+      activeCriterion.indicators.find((ki) => ki.id === selectedKiId) ||
+      activeCriterion.indicators[0] ||
+      null;
+  }
+  const activeKiParentCriterion = activeCriterion;
+
+  const handleSelectCriterion = (crit: NaacCriterionMaster) => {
+    setSelectedCritId(crit.id);
+    if (crit.indicators.length > 0) {
+      setSelectedKiId(crit.indicators[0].id);
+    } else {
+      setSelectedKiId('');
     }
   };
 
@@ -351,9 +400,7 @@ export const NaacFrameworkMaster: React.FC<NaacFrameworkMasterProps> = ({
           <h1 className="text-lg sm:text-xl font-bold text-gray-900 whitespace-nowrap">
             Key Indicator Framework Master
           </h1>
-          <p className="text-xs text-gray-500 mt-0.5">
-            Configure official criteria, key indicators, metric weights &amp; evidence checklists by college track &amp; regime.
-          </p>
+        
         </div>
 
         <div className="flex items-center gap-2.5 shrink-0">
@@ -404,562 +451,682 @@ export const NaacFrameworkMaster: React.FC<NaacFrameworkMasterProps> = ({
         </div>
       </div>
 
-      {/* LEVEL 1: DIFFERENT TYPES OF COLLEGES (Clean Cards Spread Out) */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <span className="text-[11px] font-extrabold uppercase tracking-wider text-gray-500">
-            Step 1: Select Institution Track / College Type
-          </span>
-          <span className="text-[11px] font-medium text-gray-400">
-            One trust/management can configure multiple college tracks independently
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {COLLEGE_TRACKS.map((track) => {
-            const isSelected = track.id === selectedTrack;
-            return (
-              <div
-                key={track.id}
-                onClick={() => setSelectedTrack(track.id)}
-                className={`p-3.5 rounded-xl border text-left cursor-pointer transition-all ${
-                  isSelected
-                    ? 'bg-white border-[#0f2748] ring-2 ring-blue-100 shadow-sm'
-                    : 'bg-white border-gray-200/90 hover:border-gray-300 hover:shadow-2xs'
-                }`}
-              >
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <div className={`p-2 rounded-lg ${isSelected ? 'bg-[#0f2748] text-white' : 'bg-gray-100 text-gray-700'}`}>
-                    {getTrackIcon(track.iconName, isSelected)}
-                  </div>
-                  <span
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                      isSelected ? 'bg-blue-100 text-blue-900 font-extrabold' : 'bg-gray-100 text-gray-600'
-                    }`}
-                  >
-                    {track.badge}
-                  </span>
-                </div>
-
-                <h3 className={`text-xs font-black line-clamp-1 ${isSelected ? 'text-[#0f2748]' : 'text-gray-900'}`}>
-                  {track.name}
-                </h3>
-                <p className="text-[11px] text-gray-500 line-clamp-2 mt-1 leading-relaxed">
-                  {track.description}
-                </p>
-
-                <div className="mt-2 pt-2 border-t border-gray-100 flex items-center justify-between text-[10px]">
-                  <span className="text-gray-400 font-medium truncate">{track.examples}</span>
-                  {isSelected && (
-                    <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-[#0f2748] text-white shrink-0">
-                      Active
-                    </span>
-                  )}
-                </div>
+      {/* ========================================================================= */}
+      {/* TOP CONFIGURATION BAR: Track Dropdown + Regime Tabs + Live Summary Stats  */}
+      {/* ========================================================================= */}
+      <div className="bg-white rounded-xl border border-gray-200/90 shadow-2xs p-3 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* 1. College Track Selector Dropdown */}
+          <div className="relative" ref={trackDropdownRef}>
+            <button
+              type="button"
+              onClick={() => setIsTrackDropdownOpen(!isTrackDropdownOpen)}
+              className="inline-flex items-center gap-2.5 px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-gray-200 rounded-lg text-xs font-bold text-gray-800 transition-colors cursor-pointer shadow-2xs"
+            >
+              <div className="p-1 rounded-md bg-blue-600 text-white shrink-0">
+                {getTrackIcon(currentTrack.iconName, true)}
               </div>
-            );
-          })}
+              <div className="text-left">
+                <span className="block text-[10px] text-gray-400 font-medium leading-none">College Track</span>
+                <span className="text-xs font-bold text-gray-900 leading-tight">{currentTrack.name}</span>
+              </div>
+              <ChevronDown className={`w-3.5 h-3.5 text-gray-500 transition-transform ml-1 ${isTrackDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {isTrackDropdownOpen && (
+              <div className="absolute left-0 top-full mt-1.5 w-72 bg-white rounded-xl border border-gray-200 shadow-xl z-30 p-1.5 space-y-1 animate-in fade-in">
+                <div className="px-2.5 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-gray-400 border-b border-gray-100 mb-1">
+                  Select College Type
+                </div>
+                {COLLEGE_TRACKS.map((t) => {
+                  const isCur = t.id === selectedTrack;
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedTrack(t.id);
+                        setIsTrackDropdownOpen(false);
+                      }}
+                      className={`w-full p-2 rounded-lg text-left transition-colors flex items-center justify-between gap-2 cursor-pointer ${
+                        isCur ? 'bg-blue-50 text-blue-900 font-bold' : 'hover:bg-slate-50 text-gray-700 font-medium'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className={`p-1.5 rounded-md shrink-0 ${isCur ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                          {getTrackIcon(t.iconName, isCur)}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-xs truncate">{t.name}</div>
+                          <div className="text-[10px] text-gray-400 font-normal truncate">{t.badge}</div>
+                        </div>
+                      </div>
+                      {isCur && <Check className="w-3.5 h-3.5 text-blue-600 shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* 2. Accreditation Regime Switch (Tabs) */}
+          <div className="inline-flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200/80">
+            <button
+              type="button"
+              onClick={() => setSelectedRegime('raf_7')}
+              className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                selectedRegime === 'raf_7'
+                  ? 'bg-white text-blue-700 shadow-xs border border-gray-200/60'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <span>📊 7 Criteria (RAF)</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                selectedRegime === 'raf_7' ? 'bg-blue-50 text-blue-700' : 'bg-slate-200 text-slate-600'
+              }`}>
+                1000 Pts
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedRegime('binary_10')}
+              className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                selectedRegime === 'binary_10'
+                  ? 'bg-white text-blue-700 shadow-xs border border-gray-200/60'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <span>⭐ 10 Attributes (Binary)</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                selectedRegime === 'binary_10' ? 'bg-amber-50 text-amber-700' : 'bg-slate-200 text-slate-600'
+              }`}>
+                2024+
+              </span>
+            </button>
+          </div>
+        </div>
+
+        {/* 3. Live Stats Tally */}
+        <div className="flex items-center gap-2 text-xs">
+          <div className="flex items-center gap-1.5 bg-blue-50 text-blue-800 border border-blue-200 px-2.5 py-1 rounded-lg font-bold">
+            <span>Total:</span>
+            <span className="font-extrabold text-blue-900">{totalWeightage} Pts</span>
+          </div>
+          <div className="flex items-center gap-1.5 bg-slate-50 text-gray-700 border border-gray-200 px-2.5 py-1 rounded-lg font-medium">
+            <span className="font-bold text-gray-900">{framework.criteria.length}</span>
+            <span>{selectedRegime === 'binary_10' ? 'Attributes' : 'Criteria'}</span>
+          </div>
+          <div className="flex items-center gap-1.5 bg-slate-50 text-gray-700 border border-gray-200 px-2.5 py-1 rounded-lg font-medium">
+            <span className="font-bold text-gray-900">
+              {framework.criteria.reduce((sum, c) => sum + c.indicators.length, 0)}
+            </span>
+            <span>Key Indicators</span>
+          </div>
         </div>
       </div>
 
-      {/* LEVEL 2: ACCREDITATION REGIME (Binary vs RAF Toggle) */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 rounded-xl border border-gray-200/90 shadow-2xs">
-        <div className="flex items-center gap-1.5 p-1 bg-gray-100/90 rounded-lg shrink-0">
-          <button
-            type="button"
-            onClick={() => setSelectedRegime('raf_7')}
-            className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${
-              selectedRegime === 'raf_7'
-                ? 'bg-white text-[#0f2748] shadow-xs'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            📊 7 Criteria RAF (Traditional Graded)
-          </button>
-          <button
-            type="button"
-            onClick={() => setSelectedRegime('binary_10')}
-            className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${
-              selectedRegime === 'binary_10'
-                ? 'bg-white text-[#0f2748] shadow-xs'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            ⭐ 10 Attributes Binary (2024+ Reform)
-          </button>
-        </div>
-
-        <div className="flex items-center gap-2 text-xs flex-wrap">
-          <span className="font-extrabold text-gray-900">{framework.name}</span>
-          <span className="text-gray-300">•</span>
-          <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-xs font-bold">
-            {totalWeightage} / 1000 Pts
-          </span>
-          <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 text-xs font-bold">
-            {framework.criteria.length} {selectedRegime === 'raf_7' ? 'Criteria' : 'Attributes'}
-          </span>
-          <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold">
-            {framework.criteria.reduce((sum, c) => sum + c.indicators.length, 0)} Key Indicators
-          </span>
-        </div>
-      </div>
-
-      {/* TWO-COLUMN MASTER-DETAIL LAYOUT */}
-      <div className="w-full">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-          {/* ================================================================= */}
-          {/* LEFT COLUMN: CRITERIA LIST (Master Selector - 4/12 cols)          */}
-          {/* ================================================================= */}
-          <div className="lg:col-span-4 bg-white rounded-xl border border-gray-200/90 shadow-2xs p-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
-              <div>
-                <h2 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">
-                  Criteria / Attributes ({framework.criteria.length})
-                </h2>
-                <span className="text-[11px] font-bold text-slate-400">
-                  Total: {totalWeightage} / 1000 Pts
+      {/* ========================================================================= */}
+      {/* THREE-COLUMN WORKSPACE: 1) CRITERIA ➔ 2) KEY INDICATORS ➔ 3) METRICS      */}
+      {/* Connected by Active Visual Pointer Triangles (▶)                          */}
+      {/* ========================================================================= */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 w-full items-start">
+        {/* ========================================================================= */}
+        {/* COLUMN 1 (3 Cols): CRITERIA / ATTRIBUTES LIST                             */}
+        {/* ========================================================================= */}
+        <div className="lg:col-span-3 space-y-2.5">
+          {/* Column Header & Actions */}
+          <div className="flex items-center justify-between pb-1 min-h-[40px]">
+            <div className="min-w-0 flex-1 pr-2">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <h3 className="text-sm font-bold text-gray-900">
+                  1. {selectedRegime === 'binary_10' ? 'Attributes' : 'Criteria'}
+                </h3>
+                <span className="px-1.5 py-0.2 rounded font-extrabold text-[10px] bg-blue-50 text-blue-800 border border-blue-200">
+                  {totalWeightage} Pts
                 </span>
               </div>
-              <button
-                type="button"
-                onClick={() =>
-                  setEditingCriterion({
-                    isNew: true,
-                    data: {
-                      id: '',
-                      code: `Criterion ${framework.criteria.length + 1}`,
-                      name: '',
-                      weightage: 100,
-                      indicators: [],
-                    },
-                  })
-                }
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 transition-colors cursor-pointer"
-                title="Add new Criterion"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Add</span>
-              </button>
+              <p className="text-[10px] text-gray-500 font-medium truncate">
+                {framework.criteria.length} Level-1 sections
+              </p>
             </div>
+            <button
+              type="button"
+              onClick={() =>
+                setEditingCriterion({
+                  isNew: true,
+                  data: {
+                    id: '',
+                    code: selectedRegime === 'binary_10' ? `Attribute ${framework.criteria.length + 1}` : `Criterion ${framework.criteria.length + 1}`,
+                    name: '',
+                    weightage: 100,
+                    indicators: [],
+                  },
+                })
+              }
+              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-2xs cursor-pointer transition-colors shrink-0"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add</span>
+            </button>
+          </div>
 
-            {/* List of Criteria Cards */}
-            <div className="space-y-2">
-              {framework.criteria.map((criterion, idx) => {
-                const isSelected = criterion.id === selectedCritId;
-                const kiCount = criterion.indicators.length;
-                const metricCount = criterion.indicators.reduce((acc, ki) => acc + ki.metrics.length, 0);
+          {/* Criteria Cards */}
+          <div className="space-y-2">
+            {framework.criteria.map((criterion) => {
+              const isCritSelected = criterion.id === activeCriterion?.id;
+
+              return (
+                <div
+                  key={criterion.id}
+                  onClick={() => handleSelectCriterion(criterion)}
+                  className={`relative rounded-xl border transition-all cursor-pointer select-none p-3 ${
+                    isCritSelected
+                      ? 'bg-blue-50/90 border-blue-500 shadow-xs ring-1 ring-blue-400/50 text-blue-950 z-10'
+                      : 'bg-white hover:bg-slate-50 border-gray-200/90 hover:border-gray-300 text-gray-800'
+                  }`}
+                >
+                  {/* Connecting Pointer Triangle pointing to Column 2 */}
+                  {isCritSelected && (
+                    <div className="hidden lg:block absolute -right-2.5 top-1/2 -translate-y-1/2 w-0 h-0 border-y-[7px] border-y-transparent border-l-[10px] border-l-blue-500 z-20 drop-shadow-xs" />
+                  )}
+
+                  {/* Header Row: Code badge + Points + Actions */}
+                  <div className="flex items-center justify-between gap-1.5">
+                    <span
+                      className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold shrink-0 ${
+                        isCritSelected
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-blue-50 text-blue-700 border border-blue-200/70'
+                      }`}
+                    >
+                      {criterion.code}
+                    </span>
+
+                    <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                      <span className="px-1.5 py-0.2 rounded bg-blue-100/70 text-blue-900 border border-blue-200 font-extrabold text-[10px]">
+                        {criterion.weightage} Pts
+                      </span>
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingCriterion({ isNew: false, data: criterion });
+                        }}
+                        className="p-1 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded cursor-pointer transition-colors"
+                        title={`Edit ${criterion.code}`}
+                      >
+                        <Edit2 className="w-3 h-3" />
+                      </button>
+                      {framework.criteria.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteCriterion(criterion.id, criterion.code);
+                          }}
+                          className="p-1 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded cursor-pointer transition-colors"
+                          title={`Delete ${criterion.code}`}
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Title (Wraps naturally, full width) */}
+                  <h4 className="text-xs font-bold leading-snug break-words mt-1.5">
+                    {criterion.name}
+                  </h4>
+
+                  {/* Meta Bar */}
+                  <div className="flex items-center justify-between text-[10px] text-gray-400 mt-2 pt-1.5 border-t border-gray-100/80">
+                    <span>
+                      {criterion.indicators.length} {criterion.indicators.length === 1 ? 'Key Indicator' : 'Key Indicators'}
+                    </span>
+                    <span>
+                      {criterion.indicators.reduce((sum, k) => sum + (k.weightage || 0), 0)} Pts Total
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ========================================================================= */}
+        {/* COLUMN 2 (3 Cols - Same Width as Col 1): KEY INDICATORS FOR ACTIVE CRIT   */}
+        {/* ========================================================================= */}
+        <div className="lg:col-span-3 space-y-2.5">
+          {/* Column Header & Actions - Matches Col 1 exact height for perfect alignment */}
+          <div className="flex items-center justify-between pb-1 min-h-[40px]">
+            <div className="min-w-0 flex-1 pr-2">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <h3 className="text-sm font-bold text-gray-900">
+                  2. Key Indicators
+                </h3>
+                {activeCriterion && (
+                  <span className="px-1.5 py-0.2 rounded font-extrabold text-[10px] bg-blue-50 text-blue-800 border border-blue-200">
+                    {activeCriterion.indicators.reduce((sum, k) => sum + (k.weightage || 0), 0)} / {activeCriterion.weightage} Pts
+                  </span>
+                )}
+              </div>
+              <p className="text-[10px] text-gray-500 font-medium truncate">
+                Under {activeCriterion?.code} ({activeCriterion?.indicators.length || 0} Indicators)
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                if (!activeCriterion) return;
+                setEditingKi({
+                  isNew: true,
+                  critId: activeCriterion.id,
+                  data: {
+                    id: '',
+                    code: `${activeCriterion.code.replace(/[^0-9]/g, '') || '1'}.${activeCriterion.indicators.length + 1}`,
+                    name: '',
+                    weightage: 20,
+                    metrics: [],
+                  },
+                });
+              }}
+              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-2xs transition-colors cursor-pointer shrink-0"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add KI</span>
+            </button>
+          </div>
+
+          {/* Key Indicators List - Cards start at the EXACT SAME horizontal level as Col 1 */}
+          <div className="space-y-2">
+            {!activeCriterion || activeCriterion.indicators.length === 0 ? (
+              <div className="bg-white rounded-xl border border-dashed border-gray-300 p-6 text-center text-xs text-gray-400 space-y-2">
+                <p>No Key Indicators under {activeCriterion?.code} yet.</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!activeCriterion) return;
+                    setEditingKi({
+                      isNew: true,
+                      critId: activeCriterion.id,
+                      data: {
+                        id: '',
+                        code: `${activeCriterion.code.replace(/[^0-9]/g, '') || '1'}.1`,
+                        name: '',
+                        weightage: 20,
+                        metrics: [],
+                      },
+                    });
+                  }}
+                  className="inline-flex items-center gap-1 text-blue-600 font-bold hover:underline cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add First Key Indicator</span>
+                </button>
+              </div>
+            ) : (
+              activeCriterion.indicators.map((ki) => {
+                const isKiSelected = ki.id === activeKi?.id;
 
                 return (
                   <div
-                    key={criterion.id}
-                    onClick={() => setSelectedCritId(criterion.id)}
-                    className={`p-3 rounded-xl border text-left cursor-pointer transition-all select-none ${
-                      isSelected
-                        ? 'border-blue-500 bg-blue-50/80 ring-2 ring-blue-100 shadow-xs'
-                        : 'border-slate-200/90 bg-white hover:border-blue-300 hover:bg-slate-50/70'
+                    key={ki.id}
+                    onClick={() => setSelectedKiId(ki.id)}
+                    className={`relative rounded-xl border transition-all cursor-pointer select-none p-3 ${
+                      isKiSelected
+                        ? 'bg-blue-50/90 border-blue-500 shadow-xs ring-1 ring-blue-400/50 text-blue-950 z-10'
+                        : 'bg-white hover:bg-slate-50 border-gray-200/90 hover:border-gray-300 text-gray-800'
                     }`}
                   >
-                    <div className="flex items-center justify-between gap-2 mb-1">
+                    {/* Connecting Pointer Triangle pointing to Column 3 */}
+                    {isKiSelected && (
+                      <div className="hidden lg:block absolute -right-2.5 top-1/2 -translate-y-1/2 w-0 h-0 border-y-[7px] border-y-transparent border-l-[10px] border-l-blue-500 z-20 drop-shadow-xs" />
+                    )}
+
+                    {/* Top line: KI Code + Weightage + Actions */}
+                    <div className="flex items-center justify-between gap-1.5">
                       <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-black tracking-wide ${
-                          isSelected ? 'bg-[#0f2748] text-white' : 'bg-slate-100 text-slate-700'
+                        className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold shrink-0 ${
+                          isKiSelected
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-slate-100 text-slate-700 border border-slate-200'
                         }`}
                       >
-                        {criterion.code}
+                        KI {ki.code}
                       </span>
-                      <span className="text-xs font-black text-blue-900">
-                        {criterion.weightage} Pts
-                      </span>
+
+                      <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <span className="px-1.5 py-0.2 rounded text-[10px] font-black bg-blue-100/70 text-blue-900 border border-blue-200">
+                          {ki.weightage} Pts
+                        </span>
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingKi({ isNew: false, critId: activeCriterion.id, data: ki });
+                          }}
+                          className="p-1 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded cursor-pointer transition-colors"
+                          title="Edit Key Indicator"
+                        >
+                          <Edit2 className="w-3 h-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteKi(activeCriterion.id, ki.id, ki.code);
+                          }}
+                          className="p-1 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded cursor-pointer transition-colors"
+                          title="Delete Key Indicator"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
                     </div>
 
-                    <h3
-                      className={`text-xs font-extrabold line-clamp-1 ${
-                        isSelected ? 'text-[#0f2748]' : 'text-slate-800'
-                      }`}
-                    >
-                      {criterion.name}
-                    </h3>
+                    {/* Title (Unclipped, wraps naturally) */}
+                    <h4 className="text-xs font-bold leading-snug break-words mt-1.5">
+                      {ki.name}
+                    </h4>
 
-                    <div className="flex items-center justify-between text-[11px] text-slate-400 mt-1.5 pt-1.5 border-t border-slate-100/80">
-                      <span>{kiCount} Indicators • {metricCount} Metrics</span>
-                      <ChevronRight
-                        className={`w-3.5 h-3.5 transition-transform ${
-                          isSelected ? 'text-blue-600 translate-x-0.5' : 'text-slate-300'
-                        }`}
-                      />
+                    {ki.description && (
+                      <p className="text-[11px] text-gray-500 leading-relaxed mt-1 line-clamp-2">
+                        {ki.description}
+                      </p>
+                    )}
+
+                    {/* Bottom Meta */}
+                    <div className="flex items-center justify-between text-[10px] text-gray-400 mt-2 pt-1.5 border-t border-gray-100/80">
+                      <span>{ki.metrics?.length || 0} Metrics</span>
+                      {((ki.metrics?.reduce((sum, m) => sum + (m.subMetrics?.length || 0), 0)) || 0) > 0 && (
+                        <span className="font-medium text-slate-500">
+                          {ki.metrics?.reduce((sum, m) => sum + (m.subMetrics?.length || 0), 0)} Sub-Metrics
+                        </span>
+                      )}
                     </div>
                   </div>
                 );
-              })}
-            </div>
+              })
+            )}
           </div>
+        </div>
 
-          {/* ================================================================= */}
-          {/* RIGHT COLUMN: CRITERION DETAILS & METRICS (Detail View - 8/12)     */}
-          {/* ================================================================= */}
-          <div className="lg:col-span-8 bg-white rounded-xl border border-gray-200/90 shadow-2xs p-5 text-left">
-            {!activeCriterion ? (
-              <div className="py-12 text-center text-slate-400">
-                <FolderTree className="w-10 h-10 mx-auto mb-2 text-slate-300" />
-                <p className="text-sm font-bold text-slate-600">Select a Criterion on the left</p>
-                <p className="text-xs text-slate-400 mt-0.5">Click any criterion card to inspect and edit its metrics.</p>
-              </div>
-            ) : (
-              <div>
-                {/* ACTIVE CRITERION HEADER */}
-                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 pb-4 border-b border-slate-100 mb-4">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap mb-1">
-                      <span className="px-2.5 py-0.5 rounded-md text-xs font-black bg-[#0f2748] text-white tracking-wide">
-                        {activeCriterion.code}
-                      </span>
-                      <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-blue-50 text-blue-900 border border-blue-200">
-                        {activeCriterion.weightage} Pts Total
+        {/* ========================================================================= */}
+        {/* COLUMN 3 (6 Cols): METRICS & SUB-METRICS WORKSPACE                         */}
+        {/* ========================================================================= */}
+        <div className="lg:col-span-6 space-y-4">
+          {activeKi ? (
+            <>
+              {/* Selected Key Indicator Header Banner (Light Blue to match the active selection trail) */}
+              <div className="bg-blue-50/80 rounded-xl border border-blue-400/90 shadow-2xs p-4 space-y-3 ring-1 ring-blue-300/40">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-blue-700">
+                      <span>{activeCriterion?.code}</span>
+                      <span>&rsaquo;</span>
+                      <span className="font-bold">Key Indicator {activeKi.code}</span>
+                      <span className="px-2 py-0.2 rounded-full text-[10px] font-bold bg-blue-600 text-white ml-1">
+                        Active Selection
                       </span>
                     </div>
-                    <h2 className="text-base sm:text-lg font-black text-slate-900 leading-tight">
-                      {activeCriterion.name}
+                    <h2 className="text-base font-bold text-gray-900 break-words leading-snug mt-1">
+                      {activeKi.name}
                     </h2>
-                    {activeCriterion.description && (
-                      <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                        {activeCriterion.description}
+                    {activeKi.description && (
+                      <p className="text-xs text-gray-600 mt-1.5 leading-relaxed break-words">
+                        {activeKi.description}
                       </p>
                     )}
                   </div>
 
-                  {/* Criterion Actions */}
-                  <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-start">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setEditingKi({
-                          isNew: true,
-                          critId: activeCriterion.id,
-                          data: {
-                            id: '',
-                            code: `${activeCriterion.code.replace(/[^0-9]/g, '') || '1'}.${activeCriterion.indicators.length + 1}`,
-                            name: '',
-                            weightage: 20,
-                            metrics: [],
-                          },
-                        })
-                      }
-                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-[#0f2748] hover:bg-blue-900 transition-colors shadow-2xs cursor-pointer"
-                      title="Add Key Indicator"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Add Key Indicator</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setEditingCriterion({ isNew: false, data: activeCriterion })}
-                      className="p-1.5 text-slate-500 hover:text-amber-700 bg-slate-100 hover:bg-amber-50 rounded-lg cursor-pointer"
-                      title="Edit Criterion Title & Weightage"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                    </button>
-
-                    {framework.criteria.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteCriterion(activeCriterion.id, activeCriterion.code)}
-                        className="p-1.5 text-slate-400 hover:text-rose-600 bg-slate-100 hover:bg-rose-50 rounded-lg cursor-pointer"
-                        title="Delete Criterion"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!activeCriterion) return;
+                      setEditingMetric({
+                        isNew: true,
+                        critId: activeCriterion.id,
+                        kiId: activeKi.id,
+                        data: {
+                          id: '',
+                          code: `${activeKi.code}.${(activeKi.metrics?.length || 0) + 1}`,
+                          metricType: 'QnM',
+                          weightage: 10,
+                          name: '',
+                          description: '',
+                          subMetrics: [],
+                        },
+                      });
+                    }}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-2xs cursor-pointer transition-colors shrink-0"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add Metric</span>
+                  </button>
                 </div>
 
-                {/* KEY INDICATORS & METRICS LIST */}
-                <div className="space-y-4">
-                  {activeCriterion.indicators.length === 0 ? (
-                    <div className="p-8 border border-dashed border-slate-200 rounded-xl text-center text-xs text-slate-500">
-                      <span>No Key Indicators added to {activeCriterion.code} yet.</span>
-                      <div className="mt-2">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setEditingKi({
-                              isNew: true,
-                              critId: activeCriterion.id,
-                              data: {
-                                id: '',
-                                code: `${activeCriterion.code.replace(/[^0-9]/g, '') || '1'}.1`,
-                                name: '',
-                                weightage: 20,
-                                metrics: [],
-                              },
-                            })
-                          }
-                          className="font-bold text-blue-600 hover:underline inline-flex items-center gap-1"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                          <span>Add Key Indicator 1.1</span>
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    activeCriterion.indicators.map((ki) => {
-                      const isKiExpanded = expandedKis[ki.id] ?? true;
-
-                      return (
-                        <div
-                          key={ki.id}
-                          className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs"
-                        >
-                          {/* KI HEADER */}
-                          <div
-                            onClick={() => toggleKiExpand(ki.id)}
-                            className="flex items-center justify-between gap-3 px-3.5 py-2.5 bg-slate-100/70 hover:bg-slate-100 cursor-pointer select-none transition-colors border-b border-slate-200/70"
-                          >
-                            <div className="flex items-center gap-2.5 min-w-0">
-                              <div className="text-slate-500">
-                                {isKiExpanded ? (
-                                  <ChevronDown className="w-3.5 h-3.5" />
-                                ) : (
-                                  <ChevronRight className="w-3.5 h-3.5" />
-                                )}
-                              </div>
-                              <span className="px-2 py-0.5 rounded text-[11px] font-black bg-slate-800 text-white font-mono">
-                                KI {ki.code}
-                              </span>
-                              <span className="text-xs sm:text-sm font-bold text-slate-900 truncate">
-                                {ki.name}
-                              </span>
-                            </div>
-
-                            <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
-                              <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-200 text-slate-800">
-                                {ki.weightage} Pts
-                              </span>
-
-                              {/* Add Metric */}
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setEditingMetric({
-                                    isNew: true,
-                                    critId: activeCriterion.id,
-                                    kiId: ki.id,
-                                    data: {
-                                      id: '',
-                                      code: `${ki.code}.${ki.metrics.length + 1}`,
-                                      name: '',
-                                      metricType: 'QnM',
-                                      weightage: 10,
-                                      subMetrics: [],
-                                    },
-                                  })
-                                }
-                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold text-blue-700 hover:bg-blue-100 bg-white border border-slate-300 transition-colors"
-                                title="Add Metric under this KI"
-                              >
-                                <Plus className="w-3 h-3" />
-                                <span>Add Metric</span>
-                              </button>
-
-                              {/* Edit KI */}
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setEditingKi({
-                                    isNew: false,
-                                    critId: activeCriterion.id,
-                                    data: ki,
-                                  })
-                                }
-                                className="p-1 text-slate-500 hover:text-amber-700 rounded hover:bg-slate-200"
-                                title="Edit Key Indicator"
-                              >
-                                <Edit2 className="w-3 h-3" />
-                              </button>
-
-                              {/* Delete KI */}
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteKi(activeCriterion.id, ki.id, ki.code)}
-                                className="p-1 text-slate-400 hover:text-rose-600 rounded hover:bg-slate-200"
-                                title="Delete Key Indicator"
-                              >
-                                <Trash2 className="w-3 h-3" />
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* METRICS INSIDE KI */}
-                          {isKiExpanded && (
-                            <div className="p-3 divide-y divide-slate-100 space-y-3 bg-white">
-                              {ki.metrics.length === 0 ? (
-                                <div className="py-3 text-center text-xs text-slate-400">
-                                  No metrics added yet. Click &quot;Add Metric&quot; to configure metrics under KI {ki.code}.
-                                </div>
-                              ) : (
-                                ki.metrics.map((metric) => (
-                                  <div key={metric.id} className="pt-3 first:pt-0">
-                                    <div className="flex items-start justify-between gap-3">
-                                      <div className="min-w-0">
-                                        {/* Metric Code, Type, Weightage */}
-                                        <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                          <span className="font-mono text-xs font-black text-blue-900 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded">
-                                            Metric {metric.code}
-                                          </span>
-                                          <span
-                                            className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                                              metric.metricType === 'QnM'
-                                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                                                : 'bg-blue-100 text-blue-800 border border-blue-300'
-                                            }`}
-                                          >
-                                            {metric.metricType === 'QnM' ? 'QnM • Quantitative' : 'QlM • Qualitative'}
-                                          </span>
-                                          <span className="text-xs font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded">
-                                            {metric.weightage} Pts
-                                          </span>
-                                        </div>
-
-                                        {/* Metric Official Question Text */}
-                                        <p className="text-xs sm:text-[13px] font-semibold text-slate-900 leading-snug">
-                                          {metric.name}
-                                        </p>
-
-                                        {metric.description && (
-                                          <p className="text-xs text-slate-500 mt-1 italic leading-relaxed">
-                                            {metric.description}
-                                          </p>
-                                        )}
-                                      </div>
-
-                                      {/* Metric Actions */}
-                                      <div className="flex items-center gap-1.5 shrink-0">
-                                        {/* Add Deliverable */}
-                                        <button
-                                          type="button"
-                                          onClick={() =>
-                                            setEditingSubMetric({
-                                              isNew: true,
-                                              critId: activeCriterion.id,
-                                              kiId: ki.id,
-                                              metricId: metric.id,
-                                              data: {
-                                                id: '',
-                                                code: `${metric.code}.${String.fromCharCode(65 + (metric.subMetrics?.length || 0))}`,
-                                                name: '',
-                                                isMandatory: true,
-                                                evidenceTypes: ['pdf'],
-                                              },
-                                            })
-                                          }
-                                          className="inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 transition-colors"
-                                          title="Add Evidence Deliverable"
-                                        >
-                                          <Plus className="w-3 h-3" />
-                                          <span>Add Deliverable</span>
-                                        </button>
-
-                                        {/* Edit Metric */}
-                                        <button
-                                          type="button"
-                                          onClick={() =>
-                                            setEditingMetric({
-                                              isNew: false,
-                                              critId: activeCriterion.id,
-                                              kiId: ki.id,
-                                              data: metric,
-                                            })
-                                          }
-                                          className="p-1 text-slate-400 hover:text-amber-600 rounded hover:bg-slate-100"
-                                          title="Edit Metric"
-                                        >
-                                          <Edit2 className="w-3 h-3" />
-                                        </button>
-
-                                        {/* Delete Metric */}
-                                        <button
-                                          type="button"
-                                          onClick={() => handleDeleteMetric(activeCriterion.id, ki.id, metric.id, metric.code)}
-                                          className="p-1 text-slate-400 hover:text-rose-600 rounded hover:bg-slate-100"
-                                          title="Delete Metric"
-                                        >
-                                          <Trash2 className="w-3 h-3" />
-                                        </button>
-                                      </div>
-                                    </div>
-
-                                    {/* LEVEL 4 EVIDENCE DELIVERABLES (Checklist items) */}
-                                    {metric.subMetrics && metric.subMetrics.length > 0 && (
-                                      <div className="mt-2.5 pl-3 border-l-2 border-blue-200 space-y-1.5 bg-slate-50/70 p-2.5 rounded-r-lg">
-                                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 block">
-                                          Evidence Deliverables &amp; Proof Checklist ({metric.subMetrics.length}):
-                                        </span>
-                                        {metric.subMetrics.map((sm) => (
-                                          <div
-                                            key={sm.id}
-                                            className="flex items-center justify-between gap-2 text-xs text-slate-700 bg-white px-2.5 py-1.5 rounded border border-slate-200/80 shadow-2xs"
-                                          >
-                                            <div className="flex items-center gap-2 min-w-0">
-                                              <FileText className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                                              <span className="font-mono font-bold text-blue-950 shrink-0">
-                                                {sm.code}
-                                              </span>
-                                              <span className="font-medium truncate">{sm.name}</span>
-                                              {sm.isMandatory && (
-                                                <span className="text-[10px] text-amber-700 bg-amber-50 px-1.5 py-0.2 rounded font-bold border border-amber-200 shrink-0">
-                                                  Mandatory
-                                                </span>
-                                              )}
-                                              {sm.evidenceTypes && (
-                                                <span className="text-[10px] text-slate-500 bg-slate-100 px-1 py-0.2 rounded uppercase shrink-0">
-                                                  {sm.evidenceTypes.join(', ')}
-                                                </span>
-                                              )}
-                                            </div>
-
-                                            <div className="flex items-center gap-1 shrink-0">
-                                              <button
-                                                type="button"
-                                                onClick={() =>
-                                                  setEditingSubMetric({
-                                                    isNew: false,
-                                                    critId: activeCriterion.id,
-                                                    kiId: ki.id,
-                                                    metricId: metric.id,
-                                                    data: sm,
-                                                  })
-                                                }
-                                                className="p-0.5 text-slate-400 hover:text-amber-600"
-                                                title="Edit Deliverable"
-                                              >
-                                                <Edit2 className="w-3 h-3" />
-                                              </button>
-                                              <button
-                                                type="button"
-                                                onClick={() => handleDeleteSubMetric(activeCriterion.id, ki.id, metric.id, sm.id)}
-                                                className="p-0.5 text-slate-400 hover:text-rose-600"
-                                                title="Delete Deliverable"
-                                              >
-                                                <Trash2 className="w-3 h-3" />
-                                              </button>
-                                            </div>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    )}
-                                  </div>
-                                ))
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })
+                {/* KI Metadata Chips */}
+                <div className="flex items-center gap-2 pt-2 border-t border-blue-200/60 flex-wrap text-xs">
+                  <span className="px-2.5 py-0.5 rounded-md font-bold bg-white text-blue-900 border border-blue-200">
+                    Weightage: {activeKi.weightage} Pts
+                  </span>
+                  <span className="px-2.5 py-0.5 rounded-md font-medium bg-white text-slate-700 border border-slate-200">
+                    {activeKi.metrics?.length || 0} Metrics
+                  </span>
+                  {((activeKi.metrics?.reduce((sum, m) => sum + (m.subMetrics?.length || 0), 0)) || 0) > 0 && (
+                    <span className="px-2.5 py-0.5 rounded-md font-medium bg-white text-slate-700 border border-slate-200">
+                      {activeKi.metrics?.reduce((sum, m) => sum + (m.subMetrics?.length || 0), 0)} Sub-Metrics
+                    </span>
                   )}
                 </div>
               </div>
-            )}
-          </div>
+
+              {/* Metrics List */}
+              <div className="space-y-3">
+                {activeKi.metrics?.length === 0 ? (
+                  <div className="bg-white rounded-xl border border-dashed border-gray-300 p-8 text-center space-y-3">
+                    <p className="text-sm font-semibold text-gray-600">
+                      No metrics defined under Key Indicator {activeKi.code} yet.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!activeCriterion) return;
+                        setEditingMetric({
+                          isNew: true,
+                          critId: activeCriterion.id,
+                          kiId: activeKi.id,
+                          data: {
+                            id: '',
+                            code: `${activeKi.code}.1`,
+                            metricType: 'QnM',
+                            weightage: 10,
+                            name: '',
+                            description: '',
+                            subMetrics: [],
+                          },
+                        });
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-2xs cursor-pointer transition-colors"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Add First Metric</span>
+                    </button>
+                  </div>
+                ) : (
+                  activeKi.metrics.map((metric) => (
+                    <div
+                      key={metric.id}
+                      className="bg-white rounded-xl border border-gray-200/90 shadow-2xs p-4 space-y-3"
+                    >
+                      {/* Metric Header Bar */}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="px-2 py-0.5 rounded-md text-xs font-mono font-bold bg-blue-50 text-blue-800 border border-blue-200">
+                            Metric {metric.code}
+                          </span>
+                          <span
+                            className={`px-2 py-0.5 rounded-md text-[10px] font-bold tracking-wider uppercase ${
+                              metric.metricType === 'QnM'
+                                ? 'bg-sky-50 text-sky-700 border border-sky-200'
+                                : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                            }`}
+                          >
+                            {metric.metricType === 'QnM' ? 'QnM • Quantitative' : 'QlM • Qualitative'}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-md text-xs font-extrabold bg-slate-100 text-slate-800 border border-slate-200">
+                            {metric.weightage} Pts
+                          </span>
+                        </div>
+
+                        {/* Metric Actions */}
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (!activeCriterion) return;
+                              setEditingSubMetric({
+                                isNew: true,
+                                critId: activeCriterion.id,
+                                kiId: activeKi.id,
+                                metricId: metric.id,
+                                data: {
+                                  id: '',
+                                  code: `${metric.code}.${String.fromCharCode(65 + (metric.subMetrics?.length || 0))}`,
+                                  name: '',
+                                  isMandatory: false,
+                                  evidenceTypes: [],
+                                },
+                              });
+                            }}
+                            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-slate-600 hover:text-blue-700 hover:bg-blue-50 border border-slate-200 rounded-md cursor-pointer transition-colors"
+                            title="Add Sub-Metric (if metric has sub-parts)"
+                          >
+                            <Plus className="w-3 h-3" />
+                            <span>Sub-Metric</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (!activeCriterion) return;
+                              setEditingMetric({
+                                isNew: false,
+                                critId: activeCriterion.id,
+                                kiId: activeKi.id,
+                                data: metric,
+                              });
+                            }}
+                            className="p-1 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-md cursor-pointer transition-colors"
+                            title="Edit Metric"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (!activeCriterion) return;
+                              handleDeleteMetric(activeCriterion.id, activeKi.id, metric.id, metric.code);
+                            }}
+                            className="p-1 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-md cursor-pointer transition-colors"
+                            title="Delete Metric"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Metric Name / Question Text on White Background */}
+                      <div>
+                        <h4 className="text-xs sm:text-sm font-bold text-gray-900 leading-relaxed break-words">
+                          {metric.name || (
+                            <span className="italic text-gray-400 font-normal">
+                              No question text configured yet. Click edit to set official NAAC description.
+                            </span>
+                          )}
+                        </h4>
+                        {metric.description && (
+                          <p className="text-xs text-gray-500 leading-relaxed mt-1 break-words">
+                            {metric.description}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Sub-Metrics Section - Only displayed if sub-metrics exist */}
+                      {metric.subMetrics && metric.subMetrics.length > 0 && (
+                        <div className="pt-2 border-t border-slate-100 space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
+                              Sub-Metrics ({metric.subMetrics.length})
+                            </span>
+                          </div>
+
+                          <div className="space-y-1.5">
+                            {metric.subMetrics.map((sub) => (
+                              <div
+                                key={sub.id}
+                                className="flex items-center justify-between gap-2 p-2 bg-slate-50/80 rounded-lg border border-slate-200/70"
+                              >
+                                <div className="flex items-center gap-2 min-w-0 flex-1">
+                                  <FileText className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                                  <span className="font-mono font-bold text-xs text-blue-900 shrink-0">
+                                    {sub.code}
+                                  </span>
+                                  <span className="text-xs text-gray-800 break-words flex-1">
+                                    {sub.name}
+                                  </span>
+                                </div>
+
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (!activeCriterion) return;
+                                      setEditingSubMetric({
+                                        isNew: false,
+                                        critId: activeCriterion.id,
+                                        kiId: activeKi.id,
+                                        metricId: metric.id,
+                                        data: sub,
+                                      });
+                                    }}
+                                    className="p-1 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded cursor-pointer transition-colors"
+                                    title="Edit Sub-Metric"
+                                  >
+                                    <Edit2 className="w-3 h-3" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (!activeCriterion) return;
+                                      handleDeleteSubMetric(activeCriterion.id, activeKi.id, metric.id, sub.id);
+                                    }}
+                                    className="p-1 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded cursor-pointer transition-colors"
+                                    title="Delete Sub-Metric"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="bg-white rounded-xl border border-dashed border-gray-300 p-12 text-center text-gray-500 space-y-2">
+              <FolderTree className="w-8 h-8 text-gray-400 mx-auto" />
+              <h4 className="text-sm font-bold text-gray-700">No Key Indicator Selected</h4>
+              <p className="text-xs text-gray-400 max-w-sm mx-auto">
+                Please select a Key Indicator from the middle column to inspect and configure its metrics and evidence checklists.
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -969,7 +1136,7 @@ export const NaacFrameworkMaster: React.FC<NaacFrameworkMasterProps> = ({
       {editingCriterion && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in">
           <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 text-left border border-slate-200">
-            <h3 className="text-base font-black text-[#0f2748] mb-1">
+            <h3 className="text-base font-black text-gray-900 mb-1">
               {editingCriterion.isNew ? 'Add New Criterion / Attribute' : `Edit ${editingCriterion.data.code}`}
             </h3>
             <p className="text-xs text-slate-500 mb-4">
@@ -1052,7 +1219,7 @@ export const NaacFrameworkMaster: React.FC<NaacFrameworkMasterProps> = ({
               <button
                 type="button"
                 onClick={handleSaveCriterion}
-                className="px-4 py-1.5 text-xs font-bold text-white bg-[#0f2748] hover:bg-blue-900 rounded-xl shadow-xs transition-colors cursor-pointer"
+                className="px-4 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-xs transition-colors cursor-pointer"
               >
                 Save Criterion
               </button>
@@ -1067,7 +1234,7 @@ export const NaacFrameworkMaster: React.FC<NaacFrameworkMasterProps> = ({
       {editingKi && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in">
           <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 text-left border border-slate-200">
-            <h3 className="text-base font-black text-[#0f2748] mb-1">
+            <h3 className="text-base font-black text-gray-900 mb-1">
               {editingKi.isNew ? 'Add Key Indicator' : `Edit KI ${editingKi.data.code}`}
             </h3>
             <p className="text-xs text-slate-500 mb-4">
@@ -1134,7 +1301,7 @@ export const NaacFrameworkMaster: React.FC<NaacFrameworkMasterProps> = ({
               <button
                 type="button"
                 onClick={handleSaveKi}
-                className="px-4 py-1.5 text-xs font-bold text-white bg-[#0f2748] hover:bg-blue-900 rounded-xl shadow-xs transition-colors cursor-pointer"
+                className="px-4 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-xs transition-colors cursor-pointer"
               >
                 Save Key Indicator
               </button>
@@ -1149,7 +1316,7 @@ export const NaacFrameworkMaster: React.FC<NaacFrameworkMasterProps> = ({
       {editingMetric && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in">
           <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 text-left border border-slate-200 max-h-[90vh] overflow-y-auto">
-            <h3 className="text-base font-black text-[#0f2748] mb-1">
+            <h3 className="text-base font-black text-gray-900 mb-1">
               {editingMetric.isNew ? 'Add Metric' : `Edit Metric ${editingMetric.data.code}`}
             </h3>
             <p className="text-xs text-slate-500 mb-4">
@@ -1251,7 +1418,7 @@ export const NaacFrameworkMaster: React.FC<NaacFrameworkMasterProps> = ({
               <button
                 type="button"
                 onClick={handleSaveMetric}
-                className="px-4 py-1.5 text-xs font-bold text-white bg-[#0f2748] hover:bg-blue-900 rounded-xl shadow-xs transition-colors cursor-pointer"
+                className="px-4 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-xs transition-colors cursor-pointer"
               >
                 Save Metric
               </button>
@@ -1261,21 +1428,21 @@ export const NaacFrameworkMaster: React.FC<NaacFrameworkMasterProps> = ({
       )}
 
       {/* ========================================================================= */}
-      {/* MODAL 4: EDIT / ADD SUB-METRIC DELIVERABLE */}
+      {/* MODAL 4: EDIT / ADD SUB-METRIC */}
       {/* ========================================================================= */}
       {editingSubMetric && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 text-left border border-slate-200">
-            <h3 className="text-base font-black text-[#0f2748] mb-1">
-              {editingSubMetric.isNew ? 'Add Evidence Deliverable' : `Edit Deliverable ${editingSubMetric.data.code}`}
+            <h3 className="text-base font-black text-gray-900 mb-1">
+              {editingSubMetric.isNew ? 'Add Sub-Metric' : `Edit Sub-Metric ${editingSubMetric.data.code}`}
             </h3>
             <p className="text-xs text-slate-500 mb-4">
-              Level 4 Proof Document required for DVV audit compliance.
+              Level 4 question sub-division under Metric.
             </p>
 
             <div className="space-y-3">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Deliverable Code</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Sub-Metric Code</label>
                 <input
                   type="text"
                   value={editingSubMetric.data.code}
@@ -1291,7 +1458,7 @@ export const NaacFrameworkMaster: React.FC<NaacFrameworkMasterProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Document Title / Deliverable</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Sub-Metric Title / Question Statement</label>
                 <input
                   type="text"
                   value={editingSubMetric.data.name}
@@ -1301,27 +1468,9 @@ export const NaacFrameworkMaster: React.FC<NaacFrameworkMasterProps> = ({
                       data: { ...editingSubMetric.data, name: e.target.value },
                     })
                   }
-                  placeholder="e.g. BoS Minutes signed by Principal"
+                  placeholder="e.g. Approved Syllabus Copy & BoS Minutes"
                   className="w-full text-xs font-semibold px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-hidden"
                 />
-              </div>
-
-              <div className="flex items-center gap-2 pt-1">
-                <input
-                  type="checkbox"
-                  id="sub-mandatory"
-                  checked={editingSubMetric.data.isMandatory}
-                  onChange={(e) =>
-                    setEditingSubMetric({
-                      ...editingSubMetric,
-                      data: { ...editingSubMetric.data, isMandatory: e.target.checked },
-                    })
-                  }
-                  className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer accent-[#0f2748]"
-                />
-                <label htmlFor="sub-mandatory" className="text-xs font-bold text-slate-700 cursor-pointer select-none">
-                  Mandatory for DVV Clearance (Star item)
-                </label>
               </div>
             </div>
 
@@ -1336,9 +1485,9 @@ export const NaacFrameworkMaster: React.FC<NaacFrameworkMasterProps> = ({
               <button
                 type="button"
                 onClick={handleSaveSubMetric}
-                className="px-4 py-1.5 text-xs font-bold text-white bg-[#0f2748] hover:bg-blue-900 rounded-xl shadow-xs transition-colors cursor-pointer"
+                className="px-4 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-xs transition-colors cursor-pointer"
               >
-                Save Deliverable
+                Save Sub-Metric
               </button>
             </div>
           </div>
