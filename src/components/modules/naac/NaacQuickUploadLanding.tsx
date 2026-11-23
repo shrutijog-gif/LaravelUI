@@ -684,11 +684,13 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
     yearFrom: string;
     yearTo: string;
     status: 'Active' | 'Submitted' | 'Completed';
+    regime: 'raf_7' | 'binary_10';
   }>({
     cycleNumber: '',
     yearFrom: '',
     yearTo: '',
     status: 'Active',
+    regime: 'raf_7',
   });
 
   const openManageCyclesModal = () => {
@@ -699,6 +701,7 @@ export const NaacQuickUploadLanding: React.FC<NaacQuickUploadLandingProps> = ({
       yearFrom: '2026-27',
       yearTo: '2030-31',
       status: 'Active',
+      regime: 'raf_7',
     });
     setIsManageCyclesModalOpen(true);
   };
@@ -3062,260 +3065,276 @@ Respond in JSON ONLY:
             </div>
 
             <div className="p-5 space-y-5 max-h-[75vh] overflow-y-auto">
-              {/* 1. First Row: + Add New Cycle */}
+              {/* 1. Single Shared Form: Add New Cycle or Edit Selected Cycle */}
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-2">
-                  + Add New Cycle
-                </label>
-                <div className="grid grid-cols-12 gap-2 items-end bg-blue-50/40 p-3 rounded-xl border border-blue-200/80">
-                  <div className="col-span-4">
-                    <label className="block text-[10px] font-bold text-gray-600 uppercase mb-0.5">
-                      Cycle Title
-                    </label>
-                    <input
-                      type="text"
-                      value={newCycleDraft.cycleNumber}
-                      onChange={(e) =>
-                        setNewCycleDraft({ ...newCycleDraft, cycleNumber: e.target.value })
-                      }
-                      placeholder="NAAC Cycle 4"
-                      className="w-full text-xs font-semibold px-2.5 py-1.5 bg-white border border-gray-300 rounded-lg outline-none focus:border-blue-500 text-gray-900"
-                    />
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-xs font-bold text-gray-700">
+                    {editingCycleRowId ? (
+                      <span className="text-blue-700 flex items-center gap-1.5 font-extrabold">
+                        <Pencil className="w-3.5 h-3.5" />
+                        <span>Edit Cycle: {newCycleDraft.cycleNumber}</span>
+                      </span>
+                    ) : (
+                      <span>+ Add New Cycle</span>
+                    )}
+                  </label>
+                </div>
+
+                <div
+                  className={`p-3.5 rounded-xl border space-y-2.5 transition-colors ${
+                    editingCycleRowId
+                      ? 'bg-blue-50/60 border-blue-400 ring-2 ring-blue-100'
+                      : 'bg-blue-50/40 border-blue-200/80'
+                  }`}
+                >
+                  <div className="grid grid-cols-12 gap-2 items-end">
+                    <div className="col-span-12 sm:col-span-6">
+                      <label className="block text-[10px] font-bold text-gray-600 uppercase mb-0.5">
+                        Cycle Title
+                      </label>
+                      <input
+                        type="text"
+                        value={newCycleDraft.cycleNumber}
+                        onChange={(e) =>
+                          setNewCycleDraft({ ...newCycleDraft, cycleNumber: e.target.value })
+                        }
+                        placeholder="NAAC Cycle 4"
+                        className="w-full text-xs font-semibold px-2.5 py-1.5 bg-white border border-gray-300 rounded-lg outline-none focus:border-blue-500 text-gray-900"
+                      />
+                    </div>
+                    <div className="col-span-6 sm:col-span-3">
+                      <label className="block text-[10px] font-bold text-gray-600 uppercase mb-0.5">
+                        From Year
+                      </label>
+                      <select
+                        value={newCycleDraft.yearFrom}
+                        onChange={(e) => {
+                          const fromYr = e.target.value;
+                          setNewCycleDraft({
+                            ...newCycleDraft,
+                            yearFrom: fromYr,
+                            yearTo: getFiveYearEndAcademicYear(fromYr),
+                          });
+                        }}
+                        className="w-full text-xs font-semibold px-2 py-1.5 bg-white border border-gray-300 rounded-lg outline-none focus:border-blue-500 text-gray-900 cursor-pointer"
+                      >
+                        {ACADEMIC_YEAR_OPTIONS.map((yr) => (
+                          <option key={yr} value={yr}>
+                            {yr}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="col-span-6 sm:col-span-3">
+                      <label className="block text-[10px] font-bold text-gray-600 uppercase mb-0.5">
+                        To Year
+                      </label>
+                      <select
+                        value={newCycleDraft.yearTo}
+                        onChange={(e) =>
+                          setNewCycleDraft({ ...newCycleDraft, yearTo: e.target.value })
+                        }
+                        className="w-full text-xs font-semibold px-2 py-1.5 bg-white border border-gray-300 rounded-lg outline-none focus:border-blue-500 text-gray-900 cursor-pointer"
+                      >
+                        {ACADEMIC_YEAR_OPTIONS.map((yr) => (
+                          <option key={yr} value={yr}>
+                            {yr}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
-                  <div className="col-span-3">
-                    <label className="block text-[10px] font-bold text-gray-600 uppercase mb-0.5">
-                      From Year
-                    </label>
-                    <select
-                      value={newCycleDraft.yearFrom}
-                      onChange={(e) => {
-                        const fromYr = e.target.value;
-                        setNewCycleDraft({
-                          ...newCycleDraft,
-                          yearFrom: fromYr,
-                          yearTo: getFiveYearEndAcademicYear(fromYr),
-                        });
-                      }}
-                      className="w-full text-xs font-semibold px-2 py-1.5 bg-white border border-gray-300 rounded-lg outline-none focus:border-blue-500 text-gray-900 cursor-pointer"
-                    >
-                      {ACADEMIC_YEAR_OPTIONS.map((yr) => (
-                        <option key={yr} value={yr}>
-                          {yr}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="col-span-3">
-                    <label className="block text-[10px] font-bold text-gray-600 uppercase mb-0.5">
-                      To Year
-                    </label>
-                    <select
-                      value={newCycleDraft.yearTo}
-                      onChange={(e) =>
-                        setNewCycleDraft({ ...newCycleDraft, yearTo: e.target.value })
-                      }
-                      className="w-full text-xs font-semibold px-2 py-1.5 bg-white border border-gray-300 rounded-lg outline-none focus:border-blue-500 text-gray-900 cursor-pointer"
-                    >
-                      {ACADEMIC_YEAR_OPTIONS.map((yr) => (
-                        <option key={yr} value={yr}>
-                          {yr}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="col-span-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!newCycleDraft.cycleNumber.trim()) return;
-                        const newId = `cycle-${Date.now()}`;
-                        const added: NaacSsrCycle = {
-                          id: newId,
-                          cycleNumber: newCycleDraft.cycleNumber.trim(),
-                          yearFrom: newCycleDraft.yearFrom.trim() || '2026-27',
-                          yearTo: newCycleDraft.yearTo.trim() || '2030-31',
-                          status: 'Active',
-                          createdAt: new Date().toISOString().split('T')[0],
-                        };
-                        const updatedList = [added, ...draftCycles];
-                        setDraftCycles(updatedList);
-                        saveNaacCycles(updatedList);
-                        setCycles(updatedList);
-                        setNewCycleDraft({
-                          cycleNumber: `NAAC Cycle ${updatedList.length + 1}`,
-                          yearFrom: '2031-32',
-                          yearTo: '2035-36',
-                          status: 'Active',
-                        });
-                        setSuccessToast(`Added "${added.cycleNumber}"!`);
-                        setTimeout(() => setSuccessToast(null), 3000);
-                      }}
-                      className="w-full py-1.5 px-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg cursor-pointer inline-flex items-center justify-center gap-1 transition-colors"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Add</span>
-                    </button>
+
+                  <div className="grid grid-cols-12 gap-2 items-end pt-0.5">
+                    <div className="col-span-12 sm:col-span-8">
+                      <label className="block text-[10px] font-bold text-gray-600 uppercase mb-0.5">
+                        Accreditation Framework
+                      </label>
+                      <select
+                        value={newCycleDraft.regime || 'raf_7'}
+                        onChange={(e) =>
+                          setNewCycleDraft({
+                            ...newCycleDraft,
+                            regime: e.target.value as 'raf_7' | 'binary_10',
+                          })
+                        }
+                        className="w-full text-xs font-semibold px-2.5 py-1.5 bg-white border border-gray-300 rounded-lg outline-none focus:border-blue-500 text-gray-900 cursor-pointer"
+                      >
+                        <option value="raf_7">NAAC RAF (7 Criteria - Traditional Graded: A++, A+, A...)</option>
+                        <option value="binary_10">NAAC Binary &amp; MBGA (10 Attributes - 2024+ Reform)</option>
+                      </select>
+                    </div>
+                    <div className="col-span-12 sm:col-span-4 flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!newCycleDraft.cycleNumber.trim()) return;
+
+                          if (editingCycleRowId) {
+                            // Save edits to existing cycle
+                            const updatedList = draftCycles.map((c) =>
+                              c.id === editingCycleRowId
+                                ? {
+                                    ...c,
+                                    cycleNumber: newCycleDraft.cycleNumber.trim(),
+                                    yearFrom: newCycleDraft.yearFrom.trim() || '2026-27',
+                                    yearTo: newCycleDraft.yearTo.trim() || '2030-31',
+                                    regime: newCycleDraft.regime || 'raf_7',
+                                  }
+                                : c
+                            );
+                            setDraftCycles(updatedList);
+                            saveNaacCycles(updatedList);
+                            setCycles(updatedList);
+                            setEditingCycleRowId(null);
+                            setNewCycleDraft({
+                              cycleNumber: `NAAC Cycle ${updatedList.length + 1}`,
+                              yearFrom: '2031-32',
+                              yearTo: '2035-36',
+                              status: 'Active',
+                              regime: 'raf_7',
+                            });
+                            setSuccessToast(`Updated "${newCycleDraft.cycleNumber}"!`);
+                            setTimeout(() => setSuccessToast(null), 2500);
+                          } else {
+                            // Add brand new cycle
+                            const newId = `cycle-${Date.now()}`;
+                            const added: NaacSsrCycle = {
+                              id: newId,
+                              cycleNumber: newCycleDraft.cycleNumber.trim(),
+                              yearFrom: newCycleDraft.yearFrom.trim() || '2026-27',
+                              yearTo: newCycleDraft.yearTo.trim() || '2030-31',
+                              status: 'Active',
+                              createdAt: new Date().toISOString().split('T')[0],
+                              regime: newCycleDraft.regime || 'raf_7',
+                            };
+                            const updatedList = [added, ...draftCycles];
+                            setDraftCycles(updatedList);
+                            saveNaacCycles(updatedList);
+                            setCycles(updatedList);
+                            setNewCycleDraft({
+                              cycleNumber: `NAAC Cycle ${updatedList.length + 1}`,
+                              yearFrom: '2031-32',
+                              yearTo: '2035-36',
+                              status: 'Active',
+                              regime: 'raf_7',
+                            });
+                            setSuccessToast(`Added "${added.cycleNumber}"!`);
+                            setTimeout(() => setSuccessToast(null), 3000);
+                          }
+                        }}
+                        className="flex-1 py-1.5 px-3 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg cursor-pointer inline-flex items-center justify-center gap-1 transition-colors shadow-xs"
+                      >
+                        {editingCycleRowId ? (
+                          <>
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Save</span>
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Add</span>
+                          </>
+                        )}
+                      </button>
+                      {editingCycleRowId && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingCycleRowId(null);
+                            setNewCycleDraft({
+                              cycleNumber: `NAAC Cycle ${draftCycles.length + 1}`,
+                              yearFrom: '2031-32',
+                              yearTo: '2035-36',
+                              status: 'Active',
+                              regime: 'raf_7',
+                            });
+                          }}
+                          className="py-1.5 px-3 bg-white hover:bg-gray-100 text-gray-700 border border-gray-300 text-xs font-semibold rounded-lg cursor-pointer transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* 2. Existing Cycles List (Read-only by default, editable on clicking Edit icon) */}
+              {/* 2. Existing Cycles List (Clean, Calm, Read-Only) */}
               <div className="pt-3 border-t border-gray-200">
                 <label className="block text-xs font-bold text-gray-700 mb-2">
                   Existing NAAC Cycles
                 </label>
                 <div className="space-y-2">
-                  {draftCycles.map((cyc, idx) => {
+                  {draftCycles.map((cyc) => {
                     const isRowEditing = editingCycleRowId === cyc.id;
 
                     return (
                       <div
                         key={cyc.id}
-                        className={`rounded-xl border transition-colors ${
+                        className={`rounded-xl border transition-all px-3.5 py-2.5 flex items-center justify-between gap-3 ${
                           isRowEditing
-                            ? 'bg-blue-50/30 border-blue-300 p-2.5'
-                            : 'bg-slate-50 border-slate-200 px-3.5 py-2.5 flex items-center justify-between gap-3'
+                            ? 'bg-blue-50/70 border-blue-400 ring-2 ring-blue-100 shadow-2xs'
+                            : 'bg-slate-50 border-slate-200 hover:bg-slate-100/70'
                         }`}
                       >
-                        {isRowEditing ? (
-                          <div className="grid grid-cols-12 gap-2 items-center">
-                            <div className="col-span-4">
-                              <label className="block text-[10px] font-bold text-gray-500 uppercase mb-0.5">
-                                Cycle Title
-                              </label>
-                              <input
-                                type="text"
-                                value={cyc.cycleNumber}
-                                onChange={(e) => {
-                                  const next = [...draftCycles];
-                                  next[idx] = { ...cyc, cycleNumber: e.target.value };
-                                  setDraftCycles(next);
-                                }}
-                                className="w-full text-xs font-bold px-2.5 py-1.5 bg-white border border-blue-400 rounded-lg outline-none focus:border-blue-600 text-gray-900"
-                              />
-                            </div>
+                        <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                          <span className="text-xs font-bold text-gray-900">
+                            {cyc.cycleNumber}
+                          </span>
+                          <span className="text-gray-300">&bull;</span>
+                          <span className="text-xs font-semibold text-blue-700 bg-white border border-slate-200 px-2.5 py-0.5 rounded-md">
+                            {cyc.yearFrom} to {cyc.yearTo}
+                          </span>
+                          <span className="px-2 py-0.5 rounded text-[10px] font-black bg-[#0f2748] text-white">
+                            {cyc.regime === 'binary_10' ? '10 Attributes (Binary)' : '7 Criteria (RAF)'}
+                          </span>
+                        </div>
 
-                            <div className="col-span-3">
-                              <label className="block text-[10px] font-bold text-gray-500 uppercase mb-0.5">
-                                From Year
-                              </label>
-                              <select
-                                value={cyc.yearFrom}
-                                onChange={(e) => {
-                                  const fromYr = e.target.value;
-                                  const next = [...draftCycles];
-                                  next[idx] = {
-                                    ...cyc,
-                                    yearFrom: fromYr,
-                                    yearTo: getFiveYearEndAcademicYear(fromYr),
-                                  };
-                                  setDraftCycles(next);
-                                }}
-                                className="w-full text-xs font-semibold px-2 py-1.5 bg-white border border-blue-400 rounded-lg outline-none focus:border-blue-600 text-gray-800 cursor-pointer"
-                              >
-                                {ACADEMIC_YEAR_OPTIONS.map((yr) => (
-                                  <option key={yr} value={yr}>
-                                    {yr}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-
-                            <div className="col-span-3">
-                              <label className="block text-[10px] font-bold text-gray-500 uppercase mb-0.5">
-                                To Year
-                              </label>
-                              <select
-                                value={cyc.yearTo}
-                                onChange={(e) => {
-                                  const next = [...draftCycles];
-                                  next[idx] = { ...cyc, yearTo: e.target.value };
-                                  setDraftCycles(next);
-                                }}
-                                className="w-full text-xs font-semibold px-2 py-1.5 bg-white border border-blue-400 rounded-lg outline-none focus:border-blue-600 text-gray-800 cursor-pointer"
-                              >
-                                {ACADEMIC_YEAR_OPTIONS.map((yr) => (
-                                  <option key={yr} value={yr}>
-                                    {yr}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-
-                            <div className="col-span-2 flex items-center justify-end gap-1 pt-3.5">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  saveNaacCycles(draftCycles);
-                                  setCycles(draftCycles);
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingCycleRowId(cyc.id);
+                              setNewCycleDraft({
+                                cycleNumber: cyc.cycleNumber,
+                                yearFrom: cyc.yearFrom,
+                                yearTo: cyc.yearTo,
+                                status: cyc.status,
+                                regime: cyc.regime || 'raf_7',
+                              });
+                            }}
+                            className="p-1.5 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg cursor-pointer transition-colors"
+                            title="Edit this Cycle"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          {draftCycles.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updatedList = draftCycles.filter(
+                                  (c) => c.id !== cyc.id
+                                );
+                                setDraftCycles(updatedList);
+                                saveNaacCycles(updatedList);
+                                setCycles(updatedList);
+                                if (editingCycleRowId === cyc.id) {
                                   setEditingCycleRowId(null);
-                                  setSuccessToast(`Saved "${cyc.cycleNumber}"!`);
-                                  setTimeout(() => setSuccessToast(null), 2500);
-                                }}
-                                className="p-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg cursor-pointer transition-colors"
-                                title="Save Changes"
-                              >
-                                <Check className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setDraftCycles(cycles.map((c) => ({ ...c })));
-                                  setEditingCycleRowId(null);
-                                }}
-                                className="p-1.5 bg-white hover:bg-gray-100 text-gray-500 border border-gray-200 rounded-lg cursor-pointer transition-colors"
-                                title="Cancel Edit"
-                              >
-                                <X className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <>
-                            <div className="flex items-center gap-2.5 min-w-0">
-                              <span className="text-xs font-bold text-gray-900">
-                                {cyc.cycleNumber}
-                              </span>
-                              <span className="text-gray-300">&bull;</span>
-                              <span className="text-xs font-semibold text-blue-700 bg-white border border-slate-200 px-2.5 py-0.5 rounded-md">
-                                {cyc.yearFrom} to {cyc.yearTo}
-                              </span>
-                            </div>
-
-                            <div className="flex items-center gap-1 shrink-0">
-                              <button
-                                type="button"
-                                onClick={() => setEditingCycleRowId(cyc.id)}
-                                className="p-1.5 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg cursor-pointer transition-colors"
-                                title="Edit Cycle"
-                              >
-                                <Pencil className="w-3.5 h-3.5" />
-                              </button>
-                              {draftCycles.length > 1 && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const updatedList = draftCycles.filter(
-                                      (c) => c.id !== cyc.id
-                                    );
-                                    setDraftCycles(updatedList);
-                                    saveNaacCycles(updatedList);
-                                    setCycles(updatedList);
-                                    if (!updatedList.some((c) => c.id === selectedCycleId)) {
-                                      setSelectedCycleId(updatedList[0].id);
-                                    }
-                                    setSuccessToast(`Deleted "${cyc.cycleNumber}".`);
-                                    setTimeout(() => setSuccessToast(null), 2500);
-                                  }}
-                                  className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer transition-colors"
-                                  title="Delete Cycle"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              )}
-                            </div>
-                          </>
-                        )}
+                                }
+                                if (!updatedList.some((c) => c.id === selectedCycleId)) {
+                                  setSelectedCycleId(updatedList[0].id);
+                                }
+                                setSuccessToast(`Deleted "${cyc.cycleNumber}".`);
+                                setTimeout(() => setSuccessToast(null), 2500);
+                              }}
+                              className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer transition-colors"
+                              title="Delete Cycle"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
                       </div>
                     );
                   })}

@@ -2003,6 +2003,8 @@ export interface NaacSsrCycle {
   ssrReportUrl?: string;
   ssrReportFileName?: string;
   createdAt: string;
+  collegeTrack?: 'affiliated' | 'autonomous' | 'medical' | 'university';
+  regime?: 'raf_7' | 'binary_10';
 }
 
 const NAAC_CYCLES_STORAGE_KEY = 'cms_naac_ssr_cycles_v2';
