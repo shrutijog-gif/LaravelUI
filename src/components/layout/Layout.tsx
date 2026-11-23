@@ -22,6 +22,7 @@ import { NaacSsrCycleModule } from '../modules/naac/NaacSsrCycleModule';
 import { NaacCriteriaAllocation } from '../modules/naac/NaacCriteriaAllocation';
 import { NaacQuickUploadLanding } from '../modules/naac/NaacQuickUploadLanding';
 import { NaacDmsWorkspace } from '../modules/naac/NaacDmsWorkspace';
+import { NaacFrameworkMaster } from '../modules/naac/NaacFrameworkMaster';
 import { ProgramCoordinatorDesk } from '../modules/naac/ProgramCoordinatorDesk';
 import { SchoolCoordinatorDesk } from '../modules/naac/SchoolCoordinatorDesk';
 import { UniversityCoordinatorDesk } from '../modules/naac/UniversityCoordinatorDesk';
@@ -57,6 +58,7 @@ export const Layout: React.FC<LayoutProps> = ({
   const [activeModuleLabel, setActiveModuleLabel] = useState<string>(() => {
     const initMod = getInitialModule();
     if (initMod === 'naac-quick-drop') return 'Quick Evidence Drop';
+    if (initMod === 'naac-framework-master') return 'Framework Master';
     if (initMod === 'naac-ssr-cycle') return 'NAAC Cycles';
     if (initMod.startsWith('naac-cycle-')) return 'Cycle Workspace';
     if (initMod === 'naac-faculty') return 'Faculty Desk';
@@ -232,6 +234,16 @@ export const Layout: React.FC<LayoutProps> = ({
                 mode="aqar"
                 onNavigateToAllocation={() =>
                   handleSelectMenuItem('naac-criteria-allocation', 'Criteria Allocation')
+                }
+              />
+            ) : activeModuleId === 'naac-framework-master' ? (
+              <NaacFrameworkMaster
+                initialCycleId={cycleQifTarget ? 'cycle-1' : null}
+                onNavigateToCycle={(cycleId) =>
+                  handleSelectMenuItem(`naac-cycle-${cycleId}`, `Cycle ${cycleId.replace('cycle-', '')}`)
+                }
+                onNavigateToQuickDrop={() =>
+                  handleSelectMenuItem('naac-quick-drop', 'Quick Evidence Drop')
                 }
               />
             ) : activeModuleId === 'naac-criteria-allocation' ? (

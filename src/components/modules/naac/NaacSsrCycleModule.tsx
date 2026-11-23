@@ -222,6 +222,7 @@ export const NaacSsrCycleModule: React.FC<NaacSsrCycleModuleProps> = ({
   const [cycleNumberInput, setCycleNumberInput] = useState<string>('NAAC Cycle 1');
   const [yearFromInput, setYearFromInput] = useState<string>('2024-25');
   const [yearToInput, setYearToInput] = useState<string>('2028-29');
+  const [regimeInput, setRegimeInput] = useState<'raf_7' | 'binary_10'>('raf_7');
 
   // Academic Year options (2000-01 to 2035-36) ensuring current values are always present
   const ACADEMIC_YEAR_OPTIONS = useMemo(() => {
@@ -336,9 +337,11 @@ export const NaacSsrCycleModule: React.FC<NaacSsrCycleModuleProps> = ({
       setCycleNumberInput(cycleToEdit.cycleNumber);
       setYearFromInput(cycleToEdit.yearFrom);
       setYearToInput(cycleToEdit.yearTo);
+      setRegimeInput(cycleToEdit.regime || 'raf_7');
     } else {
       setEditingCycleId(null);
       setCycleNumberInput(`NAAC Cycle ${cycles.length + 1}`);
+      setRegimeInput('raf_7');
       const latestCycle = cycles[0];
       let nextFrom = '2026-27';
       if (latestCycle && latestCycle.yearTo) {
@@ -362,7 +365,13 @@ export const NaacSsrCycleModule: React.FC<NaacSsrCycleModuleProps> = ({
     if (editingCycleId) {
       const updated = cycles.map((c) =>
         c.id === editingCycleId
-          ? { ...c, cycleNumber: cycleNumberInput, yearFrom: yearFromInput, yearTo: yearToInput }
+          ? {
+              ...c,
+              cycleNumber: cycleNumberInput,
+              yearFrom: yearFromInput,
+              yearTo: yearToInput,
+              regime: regimeInput,
+            }
           : c
       );
       setCycles(updated);
@@ -376,6 +385,7 @@ export const NaacSsrCycleModule: React.FC<NaacSsrCycleModuleProps> = ({
         yearTo: yearToInput,
         status: 'Active',
         createdAt: new Date().toISOString().split('T')[0],
+        regime: regimeInput,
       };
       const updated = [...cycles, newCycle];
       setCycles(updated);
@@ -714,7 +724,10 @@ export const NaacSsrCycleModule: React.FC<NaacSsrCycleModuleProps> = ({
                       </span>
                     </span>
 
-                    <div className="flex items-center gap-2 text-xs">
+                    <div className="flex items-center gap-2 text-xs flex-wrap">
+                      <span className="px-2 py-0.5 rounded-md bg-[#0f2748] text-white font-black text-[11px] tracking-wide">
+                        {cycle.regime === 'binary_10' ? '10 Attributes (Binary)' : '7 Criteria (RAF)'}
+                      </span>
                       <span className="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 font-semibold border border-blue-200">
                         {totalCycleDocs} Total Docs
                       </span>
@@ -1520,6 +1533,7 @@ export const NaacSsrCycleModule: React.FC<NaacSsrCycleModuleProps> = ({
                         setEditingCycleId(matching.id);
                         setYearFromInput(matching.yearFrom);
                         setYearToInput(matching.yearTo);
+                        setRegimeInput(matching.regime || 'raf_7');
                       }
                     }}
                     className="w-full rounded-lg border-2 border-blue-600 px-3.5 py-2.5 text-sm text-gray-800 outline-none bg-white font-semibold cursor-pointer"
@@ -1582,6 +1596,30 @@ export const NaacSsrCycleModule: React.FC<NaacSsrCycleModuleProps> = ({
                       ))}
                     </select>
                   </div>
+                </div>
+
+                {/* Accreditation Framework / Regime (Binary vs RAF) */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-800 mb-1.5">
+                    Accreditation Framework <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={regimeInput}
+                    onChange={(e) => setRegimeInput(e.target.value as 'raf_7' | 'binary_10')}
+                    className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-800 outline-none bg-white focus:border-blue-600 cursor-pointer font-semibold"
+                  >
+                    <option value="raf_7">
+                      NAAC RAF (7 Criteria - Traditional Graded: A++, A+, A...)
+                    </option>
+                    <option value="binary_10">
+                      NAAC Binary &amp; MBGA (10 Attributes - 2024+ Reform)
+                    </option>
+                  </select>
+                  <p className="text-[11px] text-gray-500 mt-1">
+                    {regimeInput === 'raf_7'
+                      ? 'Standard 7 Criteria assessment with 1,000 weightage points and CGPA letter grades.'
+                      : 'Radhakrishnan Committee Binary framework (Accredited / Not Yet Accredited, Maturity Levels 1–5).'}
+                  </p>
                 </div>
               </form>
             </div>

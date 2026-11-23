@@ -132,6 +132,7 @@ export const superadminMenuItems: MenuItem[] = [
     icon: 'circle',
     children: [
       { id: 'naac-quick-drop', label: 'Quick Evidence Drop' },
+      { id: 'naac-framework-master', label: 'Framework Master' },
       { id: 'naac-ssr-cycle', label: 'NAAC Cycles' },
       { id: 'naac-aqar', label: 'AQAR' },
       { id: 'naac-criteria-allocation', label: 'Criteria Allocation' },
@@ -209,6 +210,7 @@ export const getCollegeAdminMenuItems = (): MenuItem[] => {
       children: [
         { id: 'naac-quick-drop', label: 'Quick Evidence Drop' },
         { id: 'naac-evidence-directory', label: 'Evidence Directory' },
+        { id: 'naac-framework-master', label: 'Framework Master' },
         { id: 'naac-ssr-cycle', label: 'NAAC Cycles' },
         { id: 'naac-aqar', label: 'AQAR' },
         { id: 'naac-criteria-allocation', label: 'Criteria Allocation' },
@@ -373,6 +375,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const getNaacChildren = (cyclesList: NaacSsrCycle[]): MenuItem[] => [
     { id: 'naac-quick-drop', label: 'Quick Evidence Drop' },
     { id: 'naac-evidence-directory', label: 'Evidence Directory' },
+    { id: 'naac-framework-master', label: 'Framework Master' },
     { id: 'naac-ssr-cycle', label: 'NAAC Cycles' },
     ...cyclesList.map((c) => {
       const cleanNum = c.cycleNumber.replace('NAAC ', '');
