@@ -404,61 +404,11 @@ export const NaacFrameworkMaster: React.FC<NaacFrameworkMasterProps> = ({
         <span className="text-gray-900 font-bold">Key Indicator Framework Master</span>
       </div>
 
-      {/* Standard CMS Page Heading Bar with Quick Back and Global Actions */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-lg sm:text-xl font-bold text-gray-900 whitespace-nowrap">
-            Key Indicator Framework Master
-          </h1>
-        
-        </div>
-
-        <div className="flex items-center gap-2.5 shrink-0">
-          {onNavigateToQuickDrop && (
-            <button
-              type="button"
-              onClick={onNavigateToQuickDrop}
-              className="px-3.5 py-2 bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 text-xs sm:text-sm font-semibold rounded-lg shadow-2xs transition-colors cursor-pointer whitespace-nowrap inline-flex items-center gap-1.5"
-            >
-              &larr; Back to Quick Drop
-            </button>
-          )}
-
-          {/* JSON Export / Import / Reset */}
-          <div className="inline-flex items-center rounded-lg border border-gray-200 bg-white p-0.5 shadow-2xs">
-            <button
-              type="button"
-              onClick={handleExportJson}
-              className="p-1.5 text-gray-500 hover:text-blue-700 hover:bg-gray-50 rounded-md cursor-pointer transition-colors"
-              title="Export Current Framework JSON"
-            >
-              <Download className="w-3.5 h-3.5" />
-            </button>
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileImport}
-              accept=".json"
-              className="hidden"
-            />
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="p-1.5 text-gray-500 hover:text-blue-700 hover:bg-gray-50 rounded-md cursor-pointer transition-colors"
-              title="Import Framework JSON"
-            >
-              <Upload className="w-3.5 h-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setResetConfirmOpen(true)}
-              className="p-1.5 text-gray-500 hover:text-rose-600 hover:bg-rose-50 rounded-md cursor-pointer transition-colors"
-              title="Reset Track Framework to NAAC Defaults"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
+      {/* Standard CMS Page Heading Bar */}
+      <div>
+        <h1 className="text-lg sm:text-xl font-bold text-gray-900 whitespace-nowrap">
+          Key Indicator Framework Master
+        </h1>
       </div>
 
       {/* ========================================================================= */}
@@ -862,9 +812,9 @@ export const NaacFrameworkMaster: React.FC<NaacFrameworkMasterProps> = ({
         {/* ========================================================================= */}
         <div className="lg:col-span-6">
           {activeKi ? (
-            <div className="bg-white rounded-2xl border border-gray-200/90 shadow-2xs overflow-hidden flex flex-col">
+            <div className="bg-white rounded-2xl border border-blue-500 shadow-xs overflow-hidden flex flex-col">
               {/* Header: Key Indicator Title & Actions Banner */}
-              <div className="bg-white border-b border-gray-200/80 p-4 sm:p-5 space-y-3">
+              <div className="bg-white border-b border-blue-100/80 p-4 sm:p-5 space-y-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 text-xs font-semibold text-blue-700">
