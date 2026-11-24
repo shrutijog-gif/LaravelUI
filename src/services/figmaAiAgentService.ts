@@ -190,6 +190,8 @@ export const runFigmaAiAgent = async (params: {
     }
 
     let fileTitle = 'Design Mockup';
+    let headerFrame: any = null;
+    let footerFrame: any = null;
     let headerSummary: any = null;
     let footerSummary: any = null;
     const detectedColors: string[] = [];
@@ -369,7 +371,6 @@ export const runFigmaAiAgent = async (params: {
       }
     }
 
-    var headerFrame: any = headerFrame;
     if (headerFrame) {
       headerSummary = extractFigmaNodeSummary(headerFrame, 0, 8, collectedTexts);
     }

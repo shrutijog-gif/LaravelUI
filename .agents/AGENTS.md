@@ -45,3 +45,4 @@
 - **Uniform Card Height**: Cards in grid views must maintain a consistent uniform height (`h-full flex flex-col justify-between`) so grid rows align perfectly.
 - **Entire Card Clickable**: The full card element is a clickable link (`<a>`) linked to `fileUrl`.
 - **Rich Aesthetics**: Utilize modern typography, glassmorphism pills, micro-gradients, and smooth hover elevation so cards look vibrant and state-of-the-art.
+- **No Automatic Git Commits**: Do NOT run `git commit` or `git push`. The user handles all git commits and version control manually.

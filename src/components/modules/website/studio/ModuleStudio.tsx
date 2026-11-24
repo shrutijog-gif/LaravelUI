@@ -46,8 +46,8 @@ export const ModuleStudio: React.FC = () => {
           { id: 'f2', name: 'description', label: 'Description', type: 'textarea', required: false, showInCard: true, showInTable: true, placeholder: 'Enter description...' },
         ],
         displayConfig: {
-          defaultView: 'card',
-          cardStyle: 'style-1',
+          defaultView: 'table',
+          cardStyle: 'table-1',
           tableStyle: 'table-1',
           columns: 3,
           showTitle: true,
