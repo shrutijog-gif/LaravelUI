@@ -272,6 +272,15 @@ export const getCollegeAdminMenuItems = (): MenuItem[] => {
       label: 'Academics',
       icon: 'circle',
       children: [
+        {
+          id: 'academic-planning',
+          label: 'Academic Planning',
+          children: [
+            { id: 'academic-calendar', label: 'Academic Calendar' },
+            { id: 'manage-calendar-events', label: 'Manage Calendar Events' },
+            { id: 'consolidated-calendar', label: 'Consolidated Calendar' },
+          ],
+        },
         { id: 'departments', label: 'Departments' },
         { id: 'website-timetable', label: 'Timetables' },
         { id: 'committees', label: 'Committees' },
@@ -354,6 +363,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({
     'naac-dms': true,
+    academics: true,
+    'academic-planning': true,
     'developers-area': false,
     'dynamic-modules-group': false,
     'setup-config': false,
@@ -449,7 +460,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     const query = searchQuery.toLowerCase();
     const matchesLabel = item.label.toLowerCase().includes(query);
     const matchesChildren = item.children?.some(child => 
-      child.label.toLowerCase().includes(query)
+      child.label.toLowerCase().includes(query) ||
+      child.children?.some(subChild => subChild.label.toLowerCase().includes(query))
     );
     return matchesLabel || matchesChildren;
   });
@@ -640,7 +652,69 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {hasChildren && isSubOpen && (
                 <div className="pl-6 space-y-1 py-1">
                   {item.children?.map((child) => {
-                    const isChildActive = activeItem === child.id;
+                    const hasSubChildren = Boolean(child.children && child.children.length > 0);
+                    const isSubOpenState = Boolean(openSubmenus[child.id]);
+                    const isChildActive = 
+                      activeItem === child.id || 
+                      (hasSubChildren && child.children?.some(sc => sc.id === activeItem));
+
+                    if (hasSubChildren) {
+                      return (
+                        <div key={child.id} className="space-y-1">
+                          <button
+                            onClick={() => toggleSubmenu(child.id)}
+                            className={`w-full text-left px-3 py-1.5 rounded-md text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer ${
+                              isChildActive
+                                ? 'bg-white/15 text-white'
+                                : 'text-white/80 hover:text-white hover:bg-white/10'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="w-1.5 h-1.5 rounded-full bg-blue-300 inline-block shrink-0"></span>
+                              <span className="truncate">{child.label}</span>
+                            </div>
+                            <span className="shrink-0 ml-1">
+                              {isSubOpenState ? (
+                                <ChevronDown className="w-3.5 h-3.5 text-white/70" />
+                              ) : (
+                                <ChevronRight className="w-3.5 h-3.5 text-white/70" />
+                              )}
+                            </span>
+                          </button>
+
+                          {/* Nested Submenu Items (Academic Planning pages) */}
+                          {isSubOpenState && (
+                            <div className="pl-4 space-y-1 py-0.5 border-l border-white/10 ml-2">
+                              {child.children?.map((subChild) => {
+                                const isSubActive = activeItem === subChild.id;
+                                return (
+                                  <button
+                                    key={subChild.id}
+                                    onClick={() => handleItemClick(subChild.id, subChild.label)}
+                                    className={`w-full text-left px-2.5 py-1.5 rounded-md text-[11px] font-medium flex items-center justify-between gap-2 transition-colors cursor-pointer ${
+                                      isSubActive
+                                        ? 'bg-white/20 text-white font-bold'
+                                        : 'text-white/75 hover:text-white hover:bg-white/10'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <span className="text-white/40 text-[10px] font-mono shrink-0 select-none">↳</span>
+                                      <span className="truncate">{subChild.label}</span>
+                                    </div>
+                                    {subChild.badge && (
+                                      <span className="px-1.5 py-0.5 text-[8px] font-bold rounded-sm bg-emerald-400/25 text-emerald-200 border border-emerald-400/30 uppercase tracking-wider shrink-0">
+                                        {subChild.badge}
+                                      </span>
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    }
+
                     return (
                       <button
                         key={child.id}

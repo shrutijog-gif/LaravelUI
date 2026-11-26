@@ -27,6 +27,7 @@ import { ProgramCoordinatorDesk } from '../modules/naac/ProgramCoordinatorDesk';
 import { SchoolCoordinatorDesk } from '../modules/naac/SchoolCoordinatorDesk';
 import { UniversityCoordinatorDesk } from '../modules/naac/UniversityCoordinatorDesk';
 import { FacultyDesk } from '../modules/naac/FacultyDesk';
+import { AcademicCalendarModule } from '../modules/academics/calendar/AcademicCalendarModule';
 
 interface LayoutProps {
   initialPortalRole?: 'superadmin' | 'collegeadmin';
@@ -189,6 +190,14 @@ export const Layout: React.FC<LayoutProps> = ({
               <CareersAdmin initialTab="applicants" />
             ) : activeModuleId.startsWith('career') || activeModuleId === 'website-careers' ? (
               <CareersAdmin />
+            ) : activeModuleId === 'academic-calendar' || activeModuleId === 'academic-planning' ? (
+              <AcademicCalendarModule initialSubView="academic-calendar" />
+            ) : activeModuleId === 'manage-calendar-events' ? (
+              <AcademicCalendarModule initialSubView="manage-calendar-events" />
+            ) : activeModuleId === 'consolidated-calendar' ? (
+              <AcademicCalendarModule initialSubView="consolidated-calendar" />
+            ) : activeModuleId === 'website-timetable' || activeModuleId === 'timetables' ? (
+              <TimetableAdmin />
             ) : activeModuleId === 'committees' ? (
               <CommitteesAdmin />
             ) : activeModuleId === 'departments' ? (
