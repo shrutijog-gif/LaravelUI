@@ -279,6 +279,7 @@ export const getCollegeAdminMenuItems = (): MenuItem[] => {
             { id: 'academic-calendar', label: 'Academic Calendar' },
             { id: 'manage-calendar-events', label: 'Manage Calendar Events' },
             { id: 'consolidated-calendar', label: 'Consolidated Calendar' },
+            { id: 'university-calendar-analysis', label: 'University Calendar Analysis' },
           ],
         },
         { id: 'departments', label: 'Departments' },
